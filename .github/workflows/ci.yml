@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  fast-checks:
+    name: Fast Checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Type check
+        run: pnpm typecheck
+
+  checkpoint:
+    name: Checkpoint
+    needs: fast-checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fast checks passed
+        run: echo "All fast checks passed — proceeding to slow checks"
+
+  slow-checks:
+    name: Slow Checks
+    needs: checkpoint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build frontend
+        run: pnpm build:frontend
+
+      - name: Build backend
+        run: pnpm build:backend
+
+      # Tests: added once the test framework is decided (ADR-006)
+      # Coverage upload to Codecov: added alongside test framework setup
+
+  ci-complete:
+    name: CI Complete
+    needs: slow-checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: CI passed
+        run: echo "CI complete"
