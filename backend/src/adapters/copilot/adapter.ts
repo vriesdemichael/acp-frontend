@@ -1,8 +1,10 @@
 import { EventEmitter } from 'node:events'
 import { randomUUID } from 'node:crypto'
-import type { Client, Event as AcpEvent, MessagePart } from 'acp-sdk'
+import type { BaseEvent } from '@ag-ui/core'
+import type { Client, MessagePart } from 'acp-sdk'
+import { StreamTranslator } from '../../agui/index.js'
 import type { CopilotProcess } from './process.js'
-import type { AgUiEvent, SessionState } from './types.js'
+import type { SessionState } from './types.js'
 
 export type ProcessFactory = (onExit: (code: number | null) => void) => CopilotProcess
 export type ClientFactory = (port: number) => Client
@@ -27,10 +29,11 @@ export class CopilotAdapter {
 
     const proc = this.createProcess((code) => {
       this.sessions.delete(sessionId)
-      this.events.emit(sessionId, {
-        type: 'RUN_ERROR',
-        data: { message: `Copilot process exited with code ${String(code)}` },
-      } satisfies AgUiEvent)
+      for (const ev of new StreamTranslator(sessionId, 'subprocess-exit').onRunError(
+        `Copilot process exited with code ${String(code)}`,
+      )) {
+        this.events.emit(sessionId, ev)
+      }
     })
 
     await proc.start()
@@ -65,21 +68,22 @@ export class CopilotAdapter {
     // Mark that the first message has been sent (so mcpServers are not re-injected)
     session.firstMessageSent = true
 
-    this.events.emit(sessionId, { type: 'RUN_STARTED', data: { sessionId } } satisfies AgUiEvent)
+    const runId = randomUUID()
+    const translator = new StreamTranslator(sessionId, runId)
+
+    const emit = (events: BaseEvent[]) => {
+      for (const ev of events) this.events.emit(sessionId, ev)
+    }
+
+    emit(translator.onRunStart())
 
     try {
       for await (const event of client.runStream('copilot', input)) {
-        const agUi = this.translateAcpEvent(event)
-        if (agUi !== null) {
-          this.events.emit(sessionId, agUi)
-        }
+        emit(translator.onAcpEvent(event))
       }
-      this.events.emit(sessionId, { type: 'RUN_FINISHED', data: { sessionId } } satisfies AgUiEvent)
+      emit(translator.onRunFinish())
     } catch (err: unknown) {
-      this.events.emit(sessionId, {
-        type: 'RUN_ERROR',
-        data: { message: err instanceof Error ? err.message : String(err) },
-      } satisfies AgUiEvent)
+      emit(translator.onRunError(err instanceof Error ? err.message : String(err)))
     }
   }
 
@@ -97,8 +101,7 @@ export class CopilotAdapter {
   /**
    * Build the ACP input for a run.
    * On the first message of a session, the mcpServers configuration is injected
-   * as an additional JSON part per ADR-003. The exact field name follows the
-   * ACP server's initialization parameters contract.
+   * as an additional JSON part per ADR-003.
    */
   private buildInput(session: SessionState, text: string): string | MessagePart[] {
     if (!session.firstMessageSent && Object.keys(session.mcpServers).length > 0) {
@@ -119,42 +122,5 @@ export class CopilotAdapter {
       ]
     }
     return text
-  }
-
-  /**
-   * Translate an ACP Event into an AG-UI event.
-   * Returns null for events that have no AG-UI representation.
-   *
-   * Mapping (ADR-003):
-   *   message.part (text)        → TEXT_MESSAGE_CONTENT
-   *   message.part (tool-call)   → TOOL_CALL_START
-   *   message.part (tool-result) → TOOL_CALL_RESULT
-   *   run.failed / error         → RUN_ERROR (emitted by catch block)
-   */
-  private translateAcpEvent(event: AcpEvent): AgUiEvent | null {
-    if (event.type === 'message.part') {
-      const { part } = event
-      const contentType = part.content_type ?? 'text/plain'
-
-      if (contentType.includes('tool-call')) {
-        return {
-          type: 'TOOL_CALL_START',
-          data: { name: part.name ?? null, content: part.content ?? null },
-        }
-      }
-
-      if (contentType.includes('tool-result')) {
-        return {
-          type: 'TOOL_CALL_RESULT',
-          data: { name: part.name ?? null, content: part.content ?? null },
-        }
-      }
-
-      // Default: treat as streaming text
-      return { type: 'TEXT_MESSAGE_CONTENT', data: { content: part.content ?? '' } }
-    }
-
-    // run.failed is handled by the catch block in sendMessage; no mapping needed here
-    return null
   }
 }

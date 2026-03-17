@@ -6,6 +6,7 @@ import {
   createRootRoute,
   createRoute,
 } from '@tanstack/react-router'
+import { ChatPage } from './routes/chat.js'
 import './index.css'
 
 const rootRoute = createRootRoute()
@@ -20,7 +21,13 @@ const indexRoute = createRoute({
   ),
 })
 
-const routeTree = rootRoute.addChildren([indexRoute])
+const chatRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/chat',
+  component: ChatPage,
+})
+
+const routeTree = rootRoute.addChildren([indexRoute, chatRoute])
 
 const router = createRouter({ routeTree })
 

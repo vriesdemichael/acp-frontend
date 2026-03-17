@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { EventEmitter } from 'node:events'
+import { EventType, type BaseEvent } from '@ag-ui/core'
 import { CopilotAdapter } from './adapter.js'
 import type { ProcessFactory, ClientFactory } from './adapter.js'
-import type { AgUiEvent } from './types.js'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -70,13 +70,13 @@ describe('CopilotAdapter', () => {
 
     it('emits RUN_STARTED and RUN_FINISHED for an empty stream', async () => {
       const sessionId = await adapter.newSession()
-      const emitted: AgUiEvent[] = []
-      adapter.events.on(sessionId, (e: AgUiEvent) => emitted.push(e))
+      const emitted: BaseEvent[] = []
+      adapter.events.on(sessionId, (e: BaseEvent) => emitted.push(e))
 
       await adapter.sendMessage(sessionId, 'hello')
 
-      expect(emitted[0]).toMatchObject({ type: 'RUN_STARTED' })
-      expect(emitted[emitted.length - 1]).toMatchObject({ type: 'RUN_FINISHED' })
+      expect(emitted[0]).toMatchObject({ type: EventType.RUN_STARTED })
+      expect(emitted[emitted.length - 1]).toMatchObject({ type: EventType.RUN_FINISHED })
     })
 
     it('translates message.part (text) to TEXT_MESSAGE_CONTENT', async () => {
@@ -86,14 +86,14 @@ describe('CopilotAdapter', () => {
       adapter = new CopilotAdapter(createProcess, createClient)
 
       const sessionId = await adapter.newSession()
-      const emitted: AgUiEvent[] = []
-      adapter.events.on(sessionId, (e: AgUiEvent) => emitted.push(e))
+      const emitted: BaseEvent[] = []
+      adapter.events.on(sessionId, (e: BaseEvent) => emitted.push(e))
 
       await adapter.sendMessage(sessionId, 'hello')
 
-      const textEvent = emitted.find((e) => e.type === 'TEXT_MESSAGE_CONTENT')
+      const textEvent = emitted.find((e) => e.type === EventType.TEXT_MESSAGE_CONTENT)
       expect(textEvent).toBeDefined()
-      expect(textEvent?.data).toMatchObject({ content: 'Hi there' })
+      expect(textEvent).toMatchObject({ delta: 'Hi there' })
     })
 
     it('translates message.part (tool-call) to TOOL_CALL_START', async () => {
@@ -106,14 +106,14 @@ describe('CopilotAdapter', () => {
       adapter = new CopilotAdapter(createProcess, createClient)
 
       const sessionId = await adapter.newSession()
-      const emitted: AgUiEvent[] = []
-      adapter.events.on(sessionId, (e: AgUiEvent) => emitted.push(e))
+      const emitted: BaseEvent[] = []
+      adapter.events.on(sessionId, (e: BaseEvent) => emitted.push(e))
 
       await adapter.sendMessage(sessionId, 'hello')
 
-      const toolEvent = emitted.find((e) => e.type === 'TOOL_CALL_START')
+      const toolEvent = emitted.find((e) => e.type === EventType.TOOL_CALL_START)
       expect(toolEvent).toBeDefined()
-      expect(toolEvent?.data).toMatchObject({ name: 'readFile' })
+      expect(toolEvent).toMatchObject({ toolCallName: 'readFile' })
     })
 
     it('emits RUN_ERROR if the ACP stream throws', async () => {
@@ -132,14 +132,14 @@ describe('CopilotAdapter', () => {
       adapter = new CopilotAdapter(createProcess, createClient)
 
       const sessionId = await adapter.newSession()
-      const emitted: AgUiEvent[] = []
-      adapter.events.on(sessionId, (e: AgUiEvent) => emitted.push(e))
+      const emitted: BaseEvent[] = []
+      adapter.events.on(sessionId, (e: BaseEvent) => emitted.push(e))
 
       await adapter.sendMessage(sessionId, 'hello')
 
-      const errEvent = emitted.find((e) => e.type === 'RUN_ERROR')
+      const errEvent = emitted.find((e) => e.type === EventType.RUN_ERROR)
       expect(errEvent).toBeDefined()
-      expect((errEvent?.data as { message: string }).message).toContain('connection refused')
+      expect(errEvent).toMatchObject({ message: expect.stringContaining('connection refused') })
     })
   })
 

@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { streamSSE } from 'hono/streaming'
+import type { BaseEvent } from '@ag-ui/core'
 import type { CopilotAdapter } from '../adapters/copilot/adapter.js'
-import type { AgUiEvent } from '../adapters/copilot/types.js'
 
 export function streamRoute(adapter: CopilotAdapter): Hono {
   const app = new Hono()
@@ -13,10 +13,10 @@ export function streamRoute(adapter: CopilotAdapter): Hono {
     }
 
     return streamSSE(c, async (stream) => {
-      const listener = (event: AgUiEvent) => {
+      const listener = (event: BaseEvent) => {
         void stream.writeSSE({
           event: event.type,
-          data: JSON.stringify(event.data),
+          data: JSON.stringify(event),
         })
       }
 
