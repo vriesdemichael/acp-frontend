@@ -18,3 +18,10 @@ jobs:
         with:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+          # RELEASE_PLEASE_TOKEN: a GitHub PAT with contents:write and
+          # pull-requests:write scope. Required so that CI runs on the
+          # Release Please PR (the built-in GITHUB_TOKEN does not trigger
+          # downstream workflow runs due to GitHub's anti-loop protection).
+          # Create at: GitHub → Settings → Developer settings → Personal access tokens
+          # Then add as: Settings → Secrets and variables → Actions → RELEASE_PLEASE_TOKEN
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
