@@ -1,3 +1,17 @@
-const PORT = process.env['PORT'] ?? 3001
+import { serve } from '@hono/node-server'
+import { Client } from 'acp-sdk'
+import { createApp } from './app.js'
+import { CopilotAdapter, CopilotProcess } from './adapters/copilot/index.js'
 
-console.log(`ACP backend starting on port ${PORT}`)
+const PORT = Number(process.env['PORT'] ?? 3001)
+
+const adapter = new CopilotAdapter(
+  (onExit) => new CopilotProcess({ onExit }),
+  (port) => new Client({ baseUrl: `http://127.0.0.1:${port}` }),
+)
+
+const app = createApp(adapter)
+
+serve({ fetch: app.fetch, hostname: '127.0.0.1', port: PORT }, () => {
+  console.log(`ACP backend listening on http://127.0.0.1:${PORT}`)
+})
