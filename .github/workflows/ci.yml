@@ -62,6 +62,7 @@ jobs:
       # Tests: added once the test framework is decided (ADR-006)
 
       - name: Upload coverage to Codecov
+        if: hashFiles('coverage/**') != ''
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
