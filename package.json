@@ -12,7 +12,7 @@
     "dev:frontend": "vite",
     "dev:backend": "tsx watch backend/src/index.ts",
     "build:frontend": "vite build",
-    "build:backend": "tsc -p backend/tsconfig.json",
+    "build:backend": "tsc -p backend/tsconfig.build.json",
     "preview": "vite preview",
     "lint": "eslint .",
     "typecheck": "tsc -p frontend/tsconfig.json && tsc -p backend/tsconfig.json",
