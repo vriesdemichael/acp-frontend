@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "skills": {
+    "create-adr-structure": {
+      "source": "vriesdemichael/skills-adr-with-gh-issues",
+      "sourceType": "github",
+      "computedHash": "c81dac9ee8d96efc371e9c357894a1224d030a4d059bb554d726f35f47ef7c3d"
+    },
+    "git-conventions": {
+      "source": "vriesdemichael/skills-adr-with-gh-issues",
+      "sourceType": "github",
+      "computedHash": "64f8b95f87bf758228515e6f23e4925a9f4ac736659a11d95f76007283ddae8f"
+    },
+    "github-issue-orchestrator": {
+      "source": "vriesdemichael/skills-adr-with-gh-issues",
+      "sourceType": "github",
+      "computedHash": "ed358e775c4495477976ce812043a5183ec034ee6d170baa7d613b2ca607b270"
+    },
+    "read-adr": {
+      "source": "vriesdemichael/skills-adr-with-gh-issues",
+      "sourceType": "github",
+      "computedHash": "11bb2ebf36b297d1a116c15ec2e604e167f825465876c649fa89990b083541ca"
+    },
+    "update-adr": {
+      "source": "vriesdemichael/skills-adr-with-gh-issues",
+      "sourceType": "github",
+      "computedHash": "7e68fd4f63413a687c6bc5a446e131ac5828241ee921af3f0c6993e0fb287255"
+    },
+    "validate-and-finalize": {
+      "source": "vriesdemichael/skills-adr-with-gh-issues",
+      "sourceType": "github",
+      "computedHash": "b46654fc11438913e94b31ee32c1e6d1419000c728ac7617e99e3a1eda0d6b95"
+    }
+  }
+}
