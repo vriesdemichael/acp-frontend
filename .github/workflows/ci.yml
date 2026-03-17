@@ -60,7 +60,17 @@ jobs:
         run: pnpm build:backend
 
       # Tests: added once the test framework is decided (ADR-006)
-      # Coverage upload to Codecov: added alongside test framework setup
+
+      # Coverage upload — wired up alongside test framework setup (ADR-006).
+      # Requires CODECOV_TOKEN secret (Settings → Secrets → Actions).
+      # Obtain token from https://codecov.io after linking the repository.
+      # Minimum PR patch coverage: 85% (enforced via Codecov PR comment/check).
+      #
+      # - name: Upload coverage to Codecov
+      #   uses: codecov/codecov-action@v5
+      #   with:
+      #     token: ${{ secrets.CODECOV_TOKEN }}
+      #     fail_ci_if_error: true
 
   ci-complete:
     name: CI Complete
