@@ -19,7 +19,7 @@ export function ChatComposer({
     <form
       onSubmit={onSubmit}
       data-testid="chat-composer"
-      className="border-t border-white/60 bg-white/80 px-4 py-4 backdrop-blur sm:px-6"
+      className="border-t border-white/8 bg-slate-950/95 px-4 py-3 backdrop-blur sm:px-5"
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
         <label className="flex-1">
@@ -29,20 +29,20 @@ export function ChatComposer({
             onChange={(e) => onChange(e.target.value)}
             placeholder="Type a message…"
             disabled={disabled}
-            className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-teal-600 focus:ring-4 focus:ring-teal-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
+            className="w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-slate-100 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30 disabled:cursor-not-allowed disabled:bg-slate-900/70 disabled:text-slate-500"
           />
         </label>
 
         <button
           type="submit"
           disabled={!canSubmit}
-          className="inline-flex h-12 items-center justify-center rounded-2xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+          className="inline-flex h-11 items-center justify-center rounded-xl border border-white/10 bg-teal-500 px-5 text-sm font-semibold text-slate-950 transition hover:bg-teal-400 disabled:cursor-not-allowed disabled:border-transparent disabled:bg-slate-800 disabled:text-slate-500"
         >
           Send
         </button>
       </div>
 
-      <p className="mt-3 text-xs text-slate-500">
+      <p className="mt-2 text-[11px] text-slate-500">
         Streaming responses appear in the workspace as the agent thinks and replies.
       </p>
     </form>

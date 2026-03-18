@@ -1,5 +1,12 @@
 import type { CopilotProcess } from './process.js'
+import type {
+  InitializeResponse,
+  McpServer,
+  PromptResponse,
+  SessionNotification,
+} from '@agentclientprotocol/sdk'
 import type { SessionMessage } from '../../agents/types.js'
+import type { CopilotSessionClient } from './process.js'
 
 export interface SessionState {
   id: string
@@ -7,8 +14,14 @@ export interface SessionState {
   updatedAt: Date
   title: string
   agentProcess: CopilotProcess
+  acpClient: CopilotSessionClient
+  acpSessionId: string
+  initializeResponse: InitializeResponse
   /** mcpServers injected at session creation — forwarded on the first ACP run. */
-  mcpServers: Record<string, unknown>
+  mcpServers: McpServer[]
   firstMessageSent: boolean
+  pendingEvents: SessionNotification[]
+  lastPromptResponse: PromptResponse | null
+  forwardUpdate: ((notification: SessionNotification) => void) | null
   messages: SessionMessage[]
 }

@@ -1,13 +1,11 @@
 import { serve } from '@hono/node-server'
-import { Client } from 'acp-sdk'
 import { createApp } from './app.js'
 import { CopilotAdapter, CopilotProcess } from './adapters/copilot/index.js'
 
 const PORT = Number(process.env['PORT'] ?? 3001)
 
 const adapter = new CopilotAdapter(
-  (onExit) => new CopilotProcess({ onExit }),
-  (port) => new Client({ baseUrl: `http://127.0.0.1:${port}` }),
+  ({ onExit, onSessionUpdate }) => new CopilotProcess({ onExit, onSessionUpdate })
 )
 
 const app = createApp(adapter)

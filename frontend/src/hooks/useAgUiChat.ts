@@ -10,7 +10,8 @@ export interface ChatMessage {
 export interface AgentSummary {
   id: string
   name: string
-  status: 'active' | 'unavailable'
+  status: 'active' | 'detected' | 'unavailable'
+  command: string | null
 }
 
 export interface SessionSummary {
@@ -49,7 +50,7 @@ export function useAgUiChat({
   const [loading, setLoading] = useState(true)
   const [creatingSession, setCreatingSession] = useState(false)
   const activeSessionRef = useRef<string | null>(sessionId)
-  const initializedRef = useRef(false)
+  const didBootstrapRef = useRef(false)
 
   useEffect(() => {
     if (sessionId) {
@@ -67,6 +68,10 @@ export function useAgUiChat({
   const selectedAgent = useMemo(
     () => agents.find((candidate) => candidate.id === currentAgentId) ?? null,
     [agents, currentAgentId]
+  )
+  const ready = useMemo(
+    () => currentSessionId !== null && selectedAgent?.status === 'active' && !creatingSession,
+    [creatingSession, currentSessionId, selectedAgent]
   )
 
   const fetchJson = useCallback(async <T>(url: string, init?: RequestInit): Promise<T> => {
@@ -132,7 +137,7 @@ export function useAgUiChat({
 
   const createSession = useCallback(
     async (nextAgentId?: string) => {
-      const effectiveAgentId = nextAgentId ?? agentId
+      const effectiveAgentId = nextAgentId ?? currentAgentId ?? agentId
       if (!effectiveAgentId) return null
 
       setCreatingSession(true)
@@ -167,15 +172,15 @@ export function useAgUiChat({
         setCreatingSession(false)
       }
     },
-    [agentId, fetchJson, onAgentSelected, onSessionCreated, refreshSessions]
+    [agentId, currentAgentId, fetchJson, onAgentSelected, onSessionCreated, refreshSessions]
   )
 
   useEffect(() => {
     let cancelled = false
 
     void (async () => {
-      if (initializedRef.current) return
-      initializedRef.current = true
+      if (didBootstrapRef.current) return
+      didBootstrapRef.current = true
       setLoading(true)
       setErrorMessage(null)
 
@@ -222,6 +227,7 @@ export function useAgUiChat({
           return
         }
 
+        if (cancelled) return
         await createSession(preferredAgentId)
       } catch (error) {
         console.error('[useAgUiChat] bootstrap failed:', error)
@@ -371,7 +377,7 @@ export function useAgUiChat({
     errorMessage,
     loading,
     messages,
-    ready: !loading && currentSessionId !== null,
+    ready,
     selectedAgent,
     selectAgent,
     selectSession,

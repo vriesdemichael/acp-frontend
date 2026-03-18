@@ -1,9 +1,9 @@
 import { Hono } from 'hono'
 import { streamSSE } from 'hono/streaming'
 import type { BaseEvent } from '@ag-ui/core'
-import type { CopilotAdapter } from '../adapters/copilot/adapter.js'
+import type { AgentRegistry } from '../agents/registry.js'
 
-export function streamRoute(adapter: CopilotAdapter): Hono {
+export function streamRoute(registry: AgentRegistry): Hono {
   const app = new Hono()
 
   app.get('/stream', (c) => {
@@ -13,6 +13,15 @@ export function streamRoute(adapter: CopilotAdapter): Hono {
     }
 
     return streamSSE(c, async (stream) => {
+      const bus = registry.eventsForSession(sessionId)
+      if (!bus) {
+        await stream.writeSSE({
+          event: 'error',
+          data: JSON.stringify({ error: 'Session not found' }),
+        })
+        return
+      }
+
       const listener = (event: BaseEvent) => {
         void stream.writeSSE({
           event: event.type,
@@ -20,9 +29,9 @@ export function streamRoute(adapter: CopilotAdapter): Hono {
         })
       }
 
-      adapter.events.on(sessionId, listener)
+      bus.on(sessionId, listener)
       stream.onAbort(() => {
-        adapter.events.off(sessionId, listener)
+        bus.off(sessionId, listener)
       })
 
       // Keep the connection open until the client disconnects

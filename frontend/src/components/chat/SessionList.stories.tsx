@@ -1,0 +1,60 @@
+import type { Meta, StoryObj } from '@storybook/react-vite'
+import { SessionList } from './SessionList.js'
+
+const denseSessions = Array.from({ length: 8 }, (_, index) => ({
+  id: `session-${index + 1}`,
+  title: index === 0 ? 'Inspect auth bug' : `Conversation ${index + 1}`,
+  updatedAt: `2026-03-1${Math.min(index + 1, 8)}T08:0${index}:00.000Z`,
+  agentId: 'copilot',
+}))
+
+const meta = {
+  title: 'Chat/SessionList',
+  component: SessionList,
+  args: {
+    agents: [
+      { id: 'copilot', name: 'GitHub Copilot', status: 'active', command: 'copilot' },
+      { id: 'gemini-cli', name: 'Gemini CLI', status: 'active', command: 'gemini' },
+      { id: 'claude-code', name: 'Claude Code', status: 'unavailable', command: null },
+    ],
+    sessions: denseSessions,
+    selectedAgentId: 'copilot',
+    activeSessionId: 'session-1',
+    creatingSession: false,
+    onCreate: () => {},
+    onSelect: () => {},
+  },
+} satisfies Meta<typeof SessionList>
+
+export default meta
+type Story = StoryObj<typeof meta>
+
+export const DenseList: Story = {}
+
+export const Empty: Story = {
+  args: {
+    sessions: [],
+    activeSessionId: null,
+  },
+}
+
+export const Creating: Story = {
+  args: {
+    creatingSession: true,
+  },
+}
+
+export const GroupedByBackend: Story = {
+  args: {
+    sessions: [
+      ...denseSessions,
+      {
+        id: 'gemini-session-1',
+        title: 'Gemini compatibility notes',
+        updatedAt: '2026-03-18T11:20:00.000Z',
+        agentId: 'gemini-cli',
+      },
+    ],
+    selectedAgentId: 'gemini-cli',
+  },
+}

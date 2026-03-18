@@ -12,6 +12,7 @@ export default defineConfig({
     emptyOutDir: true,
   },
   server: {
+    allowedHosts: ['michael-wsl'],
     proxy: {
       '/api': {
         target: `http://127.0.0.1:${BACKEND_PORT}`,

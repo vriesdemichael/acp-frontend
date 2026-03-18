@@ -28,6 +28,9 @@ jobs:
       - name: Type check
         run: pnpm typecheck
 
+      - name: Unit and integration tests
+        run: pnpm test
+
   checkpoint:
     name: Checkpoint
     needs: fast-checks
@@ -59,7 +62,17 @@ jobs:
       - name: Build backend
         run: pnpm build:backend
 
-      # Tests: added once the test framework is decided (ADR-006)
+      - name: Build Storybook
+        run: pnpm build:storybook
+
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium webkit
+
+      - name: Playwright component tests
+        run: pnpm test:ct
+
+      - name: Playwright Storybook smoke tests
+        run: pnpm test:e2e
 
       - name: Upload coverage to Codecov
         if: hashFiles('coverage/**') != ''
