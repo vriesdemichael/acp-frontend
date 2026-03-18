@@ -16,6 +16,7 @@ class MockEventSource {
   readonly url: string
   private readonly handlers: Map<string, SseHandler[]> = new Map()
   close = vi.fn()
+  onerror: (() => void) | null = null
 
   constructor(url: string) {
     this.url = url
@@ -40,17 +41,29 @@ class MockEventSource {
 
 const SESSION_ID = 'test-session-id'
 
-function mockFetch() {
+function mockFetch(options?: { sessionFails?: boolean; messageFails?: boolean }) {
   return vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
     if (url === '/api/agents/copilot/session/new') {
+      if (options?.sessionFails) {
+        return Promise.resolve({ ok: false, status: 500 } as Response)
+      }
+
       return Promise.resolve({
+        ok: true,
         json: () => Promise.resolve({ sessionId: SESSION_ID }),
       } as Response)
     }
+
     if (url === '/api/agents/copilot/session/message') {
       expect(opts?.method).toBe('POST')
-      return Promise.resolve({ ok: true } as Response)
+
+      if (options?.messageFails) {
+        return Promise.resolve({ ok: false, status: 500 } as Response)
+      }
+
+      return Promise.resolve({ ok: true, status: 202 } as Response)
     }
+
     return Promise.reject(new Error(`Unexpected fetch: ${url}`))
   })
 }
@@ -78,16 +91,35 @@ describe('ChatPage', () => {
     await waitFor(() => expect(MockEventSource.instance).not.toBeNull())
   })
 
+  it('renders the workspace shell with header and extension panels', async () => {
+    render(<ChatPage />)
+
+    expect(screen.getByText('Chat Window')).toBeDefined()
+    expect(screen.getByTestId('chat-composer')).toBeDefined()
+    expect(screen.getByTestId('chat-transcript')).toBeDefined()
+
+    await waitFor(() => expect(MockEventSource.instance).not.toBeNull())
+    expect(screen.getByTestId('chat-session-panel')).toBeDefined()
+    expect(screen.getByTestId('chat-context-panel')).toBeDefined()
+  })
+
   it('disables input and button while loading', () => {
     render(<ChatPage />)
     const input = screen.getByPlaceholderText('Type a message…') as HTMLInputElement
     expect(input.disabled).toBe(true)
+    expect(screen.getByText('Opening your workspace')).toBeDefined()
   })
 
   it('enables input once session is ready', async () => {
     render(<ChatPage />)
     const input = screen.getByPlaceholderText('Type a message…') as HTMLInputElement
     await waitFor(() => expect(input.disabled).toBe(false))
+  })
+
+  it('shows the empty transcript state once session is ready', async () => {
+    render(<ChatPage />)
+
+    await waitFor(() => expect(screen.getByText('Start the conversation')).toBeDefined())
   })
 
   it('sends a POST when the form is submitted', async () => {
@@ -116,6 +148,37 @@ describe('ChatPage', () => {
     fireEvent.submit(input.closest('form')!)
 
     await waitFor(() => expect(screen.getByText('Hi there')).toBeDefined())
+  })
+
+  it('shows a session error state when the initial session request fails', async () => {
+    vi.stubGlobal('fetch', mockFetch({ sessionFails: true }))
+
+    render(<ChatPage />)
+
+    await waitFor(() =>
+      expect(
+        screen.getByText(
+          'Unable to start a chat session right now. Reload or try again in a moment.'
+        )
+      ).toBeDefined()
+    )
+  })
+
+  it('shows a send error state when posting a message fails', async () => {
+    vi.stubGlobal('fetch', mockFetch({ messageFails: true }))
+
+    render(<ChatPage />)
+    const input = screen.getByPlaceholderText('Type a message…')
+    await waitFor(() => expect((input as HTMLInputElement).disabled).toBe(false))
+
+    fireEvent.change(input, { target: { value: 'Need a reply' } })
+    fireEvent.submit(input.closest('form')!)
+
+    await waitFor(() =>
+      expect(
+        screen.getByText('Message failed to send. Check the agent connection and try again.')
+      ).toBeDefined()
+    )
   })
 
   it('appends streamed assistant text on TEXT_MESSAGE_CONTENT events', async () => {
