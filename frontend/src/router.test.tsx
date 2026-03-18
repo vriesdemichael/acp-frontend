@@ -11,12 +11,55 @@ class MockEventSource {
 }
 
 function mockFetch() {
-  return vi.fn().mockImplementation((url: string) => {
-    if (url === '/api/agents/copilot/session/new') {
+  return vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
+    if (url === '/api/agents') {
       return Promise.resolve({
         ok: true,
-        status: 201,
-        json: () => Promise.resolve({ sessionId: 'test-session-id' }),
+        json: () => Promise.resolve([{ id: 'copilot', name: 'GitHub Copilot', status: 'active' }]),
+      } as Response)
+    }
+
+    if (url === '/api/sessions') {
+      if (opts?.method === 'POST') {
+        return Promise.resolve({
+          ok: true,
+          status: 201,
+          json: () =>
+            Promise.resolve({
+              id: 'test-session-id',
+              title: 'New chat',
+              updatedAt: '2026-03-18T08:00:00.000Z',
+              agentId: 'copilot',
+              messages: [],
+            }),
+        } as Response)
+      }
+
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve([
+            {
+              id: 'test-session-id',
+              title: 'New chat',
+              updatedAt: '2026-03-18T08:00:00.000Z',
+              agentId: 'copilot',
+            },
+          ]),
+      } as Response)
+    }
+
+    if (url === '/api/sessions/test-session-id') {
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            id: 'test-session-id',
+            title: 'New chat',
+            updatedAt: '2026-03-18T08:00:00.000Z',
+            agentId: 'copilot',
+            messages: [],
+          }),
       } as Response)
     }
 

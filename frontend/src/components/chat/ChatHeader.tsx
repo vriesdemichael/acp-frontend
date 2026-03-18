@@ -1,4 +1,10 @@
+import { AgentSelector } from '../AgentSelector.js'
+import type { AgentSummary } from '../../hooks/useAgUiChat.js'
+
 interface ChatHeaderProps {
+  agentId: string | null
+  agents: AgentSummary[]
+  onAgentSelect: (agentId: string) => void
   sessionId: string | null
   ready: boolean
   thinking: boolean
@@ -10,7 +16,14 @@ function formatSessionLabel(sessionId: string | null, ready: boolean) {
   return `Live ${sessionId.slice(0, 8)}`
 }
 
-export function ChatHeader({ sessionId, ready, thinking }: ChatHeaderProps) {
+export function ChatHeader({
+  agentId,
+  agents,
+  onAgentSelect,
+  sessionId,
+  ready,
+  thinking,
+}: ChatHeaderProps) {
   return (
     <header className="rounded-[2rem] border border-white/70 bg-white/75 p-5 shadow-[0_24px_80px_rgba(15,23,42,0.08)] backdrop-blur xl:p-6">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
@@ -27,13 +40,7 @@ export function ChatHeader({ sessionId, ready, thinking }: ChatHeaderProps) {
         </div>
 
         <div className="grid gap-3 sm:grid-cols-3 xl:min-w-[30rem]">
-          <div className="rounded-2xl border border-amber-200/80 bg-amber-50/80 px-4 py-3">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-amber-700">
-              Agent
-            </p>
-            <p className="mt-2 text-sm font-medium text-slate-900">GitHub Copilot</p>
-            <p className="mt-1 text-xs text-slate-600">Current adapter</p>
-          </div>
+          <AgentSelector agents={agents} selectedAgentId={agentId} onSelect={onAgentSelect} />
 
           <div className="rounded-2xl border border-teal-200/80 bg-teal-50/80 px-4 py-3">
             <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-teal-700">
@@ -59,9 +66,9 @@ export function ChatHeader({ sessionId, ready, thinking }: ChatHeaderProps) {
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:hidden">
         <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/70 px-4 py-3">
-          <p className="text-sm font-medium text-slate-900">Session drawer placeholder</p>
+          <p className="text-sm font-medium text-slate-900">Session switcher</p>
           <p className="mt-1 text-xs leading-5 text-slate-600">
-            Mobile entry point for session history and switching.
+            Scroll the chat page to browse previous conversations and open a new chat.
           </p>
         </div>
 

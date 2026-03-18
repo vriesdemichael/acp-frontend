@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { EventType } from '@ag-ui/core'
 
 export interface ChatMessage {
@@ -7,67 +7,289 @@ export interface ChatMessage {
   content: string
 }
 
-export function useAgUiChat() {
-  const [sessionId, setSessionId] = useState<string | null>(null)
+export interface AgentSummary {
+  id: string
+  name: string
+  status: 'active' | 'unavailable'
+}
+
+export interface SessionSummary {
+  id: string
+  title: string
+  updatedAt: string
+  agentId: string
+}
+
+interface SessionDetails extends SessionSummary {
+  messages: ChatMessage[]
+}
+
+interface UseAgUiChatOptions {
+  sessionId: string | null
+  agentId: string | null
+  onSessionCreated: (sessionId: string) => void
+  onSessionSelected: (sessionId: string) => void
+  onAgentSelected: (agentId: string) => void
+}
+
+export function useAgUiChat({
+  sessionId,
+  agentId,
+  onSessionCreated,
+  onSessionSelected,
+  onAgentSelected,
+}: UseAgUiChatOptions) {
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(sessionId)
+  const [currentAgentId, setCurrentAgentId] = useState<string | null>(agentId)
+  const [agents, setAgents] = useState<AgentSummary[]>([])
+  const [sessions, setSessions] = useState<SessionSummary[]>([])
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [thinking, setThinking] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [creatingSession, setCreatingSession] = useState(false)
+  const activeSessionRef = useRef<string | null>(sessionId)
+  const initializedRef = useRef(false)
 
-  // Create session on mount
   useEffect(() => {
-    setLoading(true)
-    setErrorMessage(null)
+    if (sessionId) {
+      activeSessionRef.current = sessionId
+      setCurrentSessionId(sessionId)
+    }
+  }, [sessionId])
 
-    fetch('/api/agents/copilot/session/new', { method: 'POST' })
-      .then(async (r) => {
-        if (!r.ok) {
-          throw new Error(`Session create failed with status ${r.status}`)
+  useEffect(() => {
+    if (agentId) {
+      setCurrentAgentId(agentId)
+    }
+  }, [agentId])
+
+  const selectedAgent = useMemo(
+    () => agents.find((candidate) => candidate.id === currentAgentId) ?? null,
+    [agents, currentAgentId]
+  )
+
+  const fetchJson = useCallback(async <T>(url: string, init?: RequestInit): Promise<T> => {
+    const response = await fetch(url, init)
+    if (!response.ok) {
+      throw new Error(`${url} failed with status ${response.status}`)
+    }
+
+    return (await response.json()) as T
+  }, [])
+
+  const refreshSessions = useCallback(async () => {
+    try {
+      const nextSessions = await fetchJson<SessionSummary[]>('/api/sessions')
+      setSessions(nextSessions)
+      return nextSessions
+    } catch (error) {
+      console.error('[useAgUiChat] session list failed:', error)
+      setErrorMessage(
+        (current) =>
+          current ?? 'Unable to load session history right now. Reload or try again in a moment.'
+      )
+      return []
+    }
+  }, [fetchJson])
+
+  const loadSession = useCallback(
+    async (nextSessionId: string, syncRoute = true) => {
+      try {
+        const session = await fetchJson<SessionDetails>(
+          `/api/sessions/${encodeURIComponent(nextSessionId)}`
+        )
+
+        if (activeSessionRef.current !== nextSessionId) {
+          return null
         }
 
-        return (await r.json()) as { sessionId: string }
-      })
-      .then((body: { sessionId: string }) => setSessionId(body.sessionId))
-      .catch((err: unknown) => {
-        console.error('[useAgUiChat] session create failed:', err)
+        setMessages(session.messages)
+
+        setCurrentSessionId(nextSessionId)
+        setCurrentAgentId(session.agentId)
+
+        if (syncRoute && session.agentId !== agentId) {
+          onAgentSelected(session.agentId)
+        }
+
+        if (syncRoute && sessionId !== nextSessionId) {
+          onSessionSelected(nextSessionId)
+        }
+
+        return session
+      } catch (error) {
+        console.error('[useAgUiChat] session load failed:', error)
+        setMessages([])
+        setErrorMessage(
+          'Unable to load that session right now. Pick another one or create a new chat.'
+        )
+        return null
+      }
+    },
+    [agentId, fetchJson, onAgentSelected, onSessionSelected, sessionId]
+  )
+
+  const createSession = useCallback(
+    async (nextAgentId?: string) => {
+      const effectiveAgentId = nextAgentId ?? agentId
+      if (!effectiveAgentId) return null
+
+      setCreatingSession(true)
+      setThinking(false)
+
+      try {
+        const session = await fetchJson<SessionDetails>('/api/sessions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ agentId: effectiveAgentId }),
+        })
+
+        activeSessionRef.current = session.id
+        setCurrentSessionId(session.id)
+        setMessages(session.messages)
+        setCurrentAgentId(session.agentId)
+        onSessionCreated(session.id)
+
+        if (session.agentId !== agentId) {
+          onAgentSelected(session.agentId)
+        }
+
+        void refreshSessions()
+        return session.id
+      } catch (error) {
+        console.error('[useAgUiChat] session create failed:', error)
         setErrorMessage(
           'Unable to start a chat session right now. Reload or try again in a moment.'
         )
-      })
-      .finally(() => setLoading(false))
-  }, [])
+        return null
+      } finally {
+        setCreatingSession(false)
+      }
+    },
+    [agentId, fetchJson, onAgentSelected, onSessionCreated, refreshSessions]
+  )
 
-  // Open SSE connection once we have a sessionId
   useEffect(() => {
-    if (!sessionId) return
+    let cancelled = false
 
-    const sse = new EventSource(`/api/stream?sessionId=${encodeURIComponent(sessionId)}`)
+    void (async () => {
+      if (initializedRef.current) return
+      initializedRef.current = true
+      setLoading(true)
+      setErrorMessage(null)
+
+      try {
+        const [nextAgents, nextSessions] = await Promise.all([
+          fetchJson<AgentSummary[]>('/api/agents'),
+          fetchJson<SessionSummary[]>('/api/sessions'),
+        ])
+
+        if (cancelled) return
+
+        setAgents(nextAgents)
+        setSessions(nextSessions)
+
+        const activeAgents = nextAgents.filter((candidate) => candidate.status === 'active')
+        if (activeAgents.length === 0) {
+          setErrorMessage(
+            'No agents are currently available. Start an adapter and reload to continue.'
+          )
+          setMessages([])
+          return
+        }
+
+        const preferredAgentId =
+          currentAgentId && activeAgents.some((candidate) => candidate.id === currentAgentId)
+            ? currentAgentId
+            : activeAgents[0]!.id
+
+        setCurrentAgentId(preferredAgentId)
+
+        if (preferredAgentId !== agentId) {
+          onAgentSelected(preferredAgentId)
+        }
+
+        const preferredSession =
+          (sessionId && nextSessions.find((session) => session.id === sessionId)) ??
+          nextSessions.find((session) => session.agentId === preferredAgentId) ??
+          null
+
+        if (preferredSession) {
+          activeSessionRef.current = preferredSession.id
+          setCurrentSessionId(preferredSession.id)
+          await loadSession(preferredSession.id, false)
+          return
+        }
+
+        await createSession(preferredAgentId)
+      } catch (error) {
+        console.error('[useAgUiChat] bootstrap failed:', error)
+        setErrorMessage('Unable to load chat data right now. Reload or try again in a moment.')
+      } finally {
+        if (!cancelled) {
+          setLoading(false)
+        }
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [agentId, createSession, currentAgentId, fetchJson, loadSession, onAgentSelected, sessionId])
+
+  useEffect(() => {
+    if (!currentSessionId) return
+
+    activeSessionRef.current = currentSessionId
+    const sse = new EventSource(`/api/stream?sessionId=${encodeURIComponent(currentSessionId)}`)
 
     sse.addEventListener(EventType.RUN_STARTED, () => {
       setThinking(true)
     })
 
-    sse.addEventListener(EventType.TEXT_MESSAGE_START, (e: MessageEvent<string>) => {
-      const { messageId } = JSON.parse(e.data) as { messageId: string }
-      setMessages((prev) => [...prev, { id: messageId, role: 'assistant', content: '' }])
-    })
+    sse.addEventListener(EventType.TEXT_MESSAGE_START, (event: MessageEvent<string>) => {
+      if (activeSessionRef.current !== currentSessionId) return
 
-    sse.addEventListener(EventType.TEXT_MESSAGE_CONTENT, (e: MessageEvent<string>) => {
-      const { messageId, delta } = JSON.parse(e.data) as { messageId: string; delta: string }
-      setMessages((prev) =>
-        prev.map((m) => (m.id === messageId ? { ...m, content: m.content + delta } : m))
+      const { messageId } = JSON.parse(event.data) as { messageId: string }
+      setMessages((current) =>
+        current.some((message) => message.id === messageId)
+          ? current
+          : [...current, { id: messageId, role: 'assistant', content: '' }]
       )
     })
 
-    sse.addEventListener(EventType.RUN_FINISHED, () => {
-      setThinking(false)
+    sse.addEventListener(EventType.TEXT_MESSAGE_CONTENT, (event: MessageEvent<string>) => {
+      if (activeSessionRef.current !== currentSessionId) return
+
+      const { messageId, delta } = JSON.parse(event.data) as { messageId: string; delta: string }
+
+      setMessages((current) => {
+        let found = false
+        const nextMessages = current.map((message) => {
+          if (message.id !== messageId) return message
+
+          found = true
+          return { ...message, content: message.content + delta }
+        })
+
+        return found
+          ? nextMessages
+          : [...nextMessages, { id: messageId, role: 'assistant', content: delta }]
+      })
     })
 
-    sse.addEventListener(EventType.RUN_ERROR, () => {
+    const finishRun = () => {
+      if (activeSessionRef.current !== currentSessionId) return
       setThinking(false)
-    })
+      void refreshSessions()
+    }
+
+    sse.addEventListener(EventType.RUN_FINISHED, finishRun)
+    sse.addEventListener(EventType.RUN_ERROR, finishRun)
 
     sse.onerror = () => {
+      if (activeSessionRef.current !== currentSessionId) return
       setThinking(false)
       setErrorMessage((current) => current ?? 'The live chat stream disconnected unexpectedly.')
     }
@@ -75,41 +297,88 @@ export function useAgUiChat() {
     return () => {
       sse.close()
     }
-  }, [sessionId])
+  }, [currentSessionId, refreshSessions])
 
   const sendMessage = useCallback(
     async (text: string) => {
-      if (!sessionId) return
+      if (!currentSessionId) return
 
       setErrorMessage(null)
-      setMessages((prev) => [...prev, { id: `user-${Date.now()}`, role: 'user', content: text }])
+      setMessages((current) => [
+        ...current,
+        { id: `user-${Date.now()}`, role: 'user', content: text },
+      ])
 
       try {
-        const response = await fetch('/api/agents/copilot/session/message', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sessionId, message: text }),
-        })
+        const response = await fetch(
+          `/api/sessions/${encodeURIComponent(currentSessionId)}/message`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ agentId: currentAgentId, message: text }),
+          }
+        )
 
         if (!response.ok) {
           throw new Error(`Message send failed with status ${response.status}`)
         }
-      } catch (err) {
-        console.error('[useAgUiChat] message send failed:', err)
+
+        void refreshSessions()
+      } catch (error) {
+        console.error('[useAgUiChat] message send failed:', error)
         setErrorMessage('Message failed to send. Check the agent connection and try again.')
-        throw err
+        throw error
       }
     },
-    [sessionId]
+    [currentAgentId, currentSessionId, refreshSessions]
   )
 
+  const selectSession = useCallback(
+    async (nextSessionId: string) => {
+      if (nextSessionId === currentSessionId) return
+      activeSessionRef.current = nextSessionId
+      setCurrentSessionId(nextSessionId)
+      setErrorMessage(null)
+      setThinking(false)
+      await loadSession(nextSessionId, true)
+    },
+    [currentSessionId, loadSession]
+  )
+
+  const selectAgent = useCallback(
+    (nextAgentId: string) => {
+      const candidate = agents.find((agent) => agent.id === nextAgentId)
+      if (!candidate || candidate.status !== 'active') {
+        return
+      }
+
+      setErrorMessage(null)
+      setCurrentAgentId(nextAgentId)
+      onAgentSelected(nextAgentId)
+    },
+    [agents, onAgentSelected]
+  )
+
+  const startNewSession = useCallback(async () => {
+    setErrorMessage(null)
+    await createSession()
+  }, [createSession])
+
   return {
-    sessionId,
-    messages,
-    thinking,
-    sendMessage,
-    ready: sessionId !== null,
-    loading,
+    agentId: currentAgentId,
+    agents,
+    creatingSession,
     errorMessage,
+    loading,
+    messages,
+    ready: !loading && currentSessionId !== null,
+    selectedAgent,
+    selectAgent,
+    selectSession,
+    sendMessage,
+    sessionId: currentSessionId,
+    sessions,
+    startNewSession,
+    thinking,
   }
 }

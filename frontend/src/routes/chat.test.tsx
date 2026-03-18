@@ -2,13 +2,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'
 import { EventType } from '@ag-ui/core'
-import { ChatPage } from './chat.js'
+import { App } from '../App.js'
+import { createAppRouter } from '../router.js'
 
-// ---------------------------------------------------------------------------
-// EventSource mock
-// ---------------------------------------------------------------------------
-
-type SseHandler = (e: MessageEvent) => void
+type SseHandler = (event: MessageEvent) => void
 
 class MockEventSource {
   static instance: MockEventSource | null = null
@@ -28,33 +25,110 @@ class MockEventSource {
     this.handlers.get(type)!.push(handler)
   }
 
-  /** Helper used in tests to fire a named SSE event. */
   emit(type: string, data: unknown) {
-    const evt = { data: JSON.stringify(data) } as MessageEvent
-    for (const h of this.handlers.get(type) ?? []) h(evt)
+    const event = { data: JSON.stringify(data) } as MessageEvent
+    for (const handler of this.handlers.get(type) ?? []) handler(event)
   }
 }
 
-// ---------------------------------------------------------------------------
-// fetch mock
-// ---------------------------------------------------------------------------
-
 const SESSION_ID = 'test-session-id'
+const SECOND_SESSION_ID = 'older-session-id'
 
-function mockFetch(options?: { sessionFails?: boolean; messageFails?: boolean }) {
+function renderChatPage(path = '/chat') {
+  window.history.pushState({}, '', path)
+  return render(<App routerInstance={createAppRouter()} />)
+}
+
+function mockFetch(options?: {
+  sessionFails?: boolean
+  messageFails?: boolean
+  noSessions?: boolean
+}) {
   return vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
-    if (url === '/api/agents/copilot/session/new') {
-      if (options?.sessionFails) {
-        return Promise.resolve({ ok: false, status: 500 } as Response)
+    if (url === '/api/agents') {
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve([
+            { id: 'copilot', name: 'GitHub Copilot', status: 'active' },
+            { id: 'claude-code', name: 'Claude Code', status: 'unavailable' },
+          ]),
+      } as Response)
+    }
+
+    if (url === '/api/sessions') {
+      if (opts?.method === 'POST') {
+        if (options?.sessionFails) {
+          return Promise.resolve({ ok: false, status: 500 } as Response)
+        }
+
+        return Promise.resolve({
+          ok: true,
+          status: 201,
+          json: () =>
+            Promise.resolve({
+              id: SESSION_ID,
+              title: 'New chat',
+              updatedAt: '2026-03-18T08:00:00.000Z',
+              agentId: 'copilot',
+              messages: [],
+            }),
+        } as Response)
       }
 
       return Promise.resolve({
         ok: true,
-        json: () => Promise.resolve({ sessionId: SESSION_ID }),
+        json: () =>
+          Promise.resolve(
+            options?.noSessions
+              ? []
+              : [
+                  {
+                    id: SESSION_ID,
+                    title: 'Inspect auth bug',
+                    updatedAt: '2026-03-18T08:00:00.000Z',
+                    agentId: 'copilot',
+                  },
+                  {
+                    id: SECOND_SESSION_ID,
+                    title: 'Review SSE handling',
+                    updatedAt: '2026-03-17T09:30:00.000Z',
+                    agentId: 'copilot',
+                  },
+                ]
+          ),
       } as Response)
     }
 
-    if (url === '/api/agents/copilot/session/message') {
+    if (url === `/api/sessions/${SESSION_ID}`) {
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            id: SESSION_ID,
+            title: 'Inspect auth bug',
+            updatedAt: '2026-03-18T08:00:00.000Z',
+            agentId: 'copilot',
+            messages: [],
+          }),
+      } as Response)
+    }
+
+    if (url === `/api/sessions/${SECOND_SESSION_ID}`) {
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            id: SECOND_SESSION_ID,
+            title: 'Review SSE handling',
+            updatedAt: '2026-03-17T09:30:00.000Z',
+            agentId: 'copilot',
+            messages: [{ id: 'assistant-1', role: 'assistant', content: 'Previous answer' }],
+          }),
+      } as Response)
+    }
+
+    if (url === `/api/sessions/${SESSION_ID}/message`) {
       expect(opts?.method).toBe('POST')
 
       if (options?.messageFails) {
@@ -64,13 +138,13 @@ function mockFetch(options?: { sessionFails?: boolean; messageFails?: boolean })
       return Promise.resolve({ ok: true, status: 202 } as Response)
     }
 
+    if (url === `/api/sessions/${SECOND_SESSION_ID}/message`) {
+      return Promise.resolve({ ok: true, status: 202 } as Response)
+    }
+
     return Promise.reject(new Error(`Unexpected fetch: ${url}`))
   })
 }
-
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
 
 describe('ChatPage', () => {
   beforeEach(() => {
@@ -80,21 +154,21 @@ describe('ChatPage', () => {
   })
 
   afterEach(() => {
-    cleanup() // unmount before removing stubs so pending effects see EventSource
+    cleanup()
     vi.unstubAllGlobals()
+    window.history.pushState({}, '', '/')
   })
 
   it('renders the input field', async () => {
-    render(<ChatPage />)
-    expect(screen.getByPlaceholderText('Type a message…')).toBeDefined()
-    // Wait for session + EventSource to initialise so cleanup is clean
+    renderChatPage('/chat?session=test-session-id&agent=copilot')
+    await waitFor(() => expect(screen.getByPlaceholderText('Type a message…')).toBeDefined())
     await waitFor(() => expect(MockEventSource.instance).not.toBeNull())
   })
 
   it('renders the workspace shell with header and extension panels', async () => {
-    render(<ChatPage />)
+    renderChatPage('/chat?session=test-session-id&agent=copilot')
 
-    expect(screen.getByText('Chat Window')).toBeDefined()
+    await waitFor(() => expect(screen.getByText('Chat Window')).toBeDefined())
     expect(screen.getByTestId('chat-composer')).toBeDefined()
     expect(screen.getByTestId('chat-transcript')).toBeDefined()
 
@@ -103,21 +177,18 @@ describe('ChatPage', () => {
     expect(screen.getByTestId('chat-context-panel')).toBeDefined()
   })
 
-  it('disables input and button while loading', () => {
-    render(<ChatPage />)
-    const input = screen.getByPlaceholderText('Type a message…') as HTMLInputElement
-    expect(input.disabled).toBe(true)
-    expect(screen.getByText('Opening your workspace')).toBeDefined()
-  })
+  it('shows the agent selector with unavailable agents disabled', async () => {
+    renderChatPage('/chat?session=test-session-id&agent=copilot')
 
-  it('enables input once session is ready', async () => {
-    render(<ChatPage />)
-    const input = screen.getByPlaceholderText('Type a message…') as HTMLInputElement
-    await waitFor(() => expect(input.disabled).toBe(false))
+    await waitFor(() => expect(screen.getByTestId('agent-selector')).toBeDefined())
+    expect(screen.getByRole('button', { name: /GitHub Copilot/i })).toBeDefined()
+    expect(
+      (screen.getByRole('button', { name: /Claude Code/i }) as HTMLButtonElement).disabled
+    ).toBe(true)
   })
 
   it('shows the empty transcript state once session is ready', async () => {
-    render(<ChatPage />)
+    renderChatPage('/chat?session=test-session-id&agent=copilot')
 
     await waitFor(() => expect(screen.getByText('Start the conversation')).toBeDefined())
   })
@@ -126,7 +197,8 @@ describe('ChatPage', () => {
     const fetchSpy = mockFetch()
     vi.stubGlobal('fetch', fetchSpy)
 
-    render(<ChatPage />)
+    renderChatPage('/chat?session=test-session-id&agent=copilot')
+    await waitFor(() => expect(screen.getByPlaceholderText('Type a message…')).toBeDefined())
     const input = screen.getByPlaceholderText('Type a message…')
     await waitFor(() => expect((input as HTMLInputElement).disabled).toBe(false))
 
@@ -134,13 +206,14 @@ describe('ChatPage', () => {
     fireEvent.submit(input.closest('form')!)
 
     await waitFor(() => {
-      const calls = fetchSpy.mock.calls.map((c: unknown[]) => c[0] as string)
-      expect(calls).toContain('/api/agents/copilot/session/message')
+      const calls = fetchSpy.mock.calls.map((call: unknown[]) => call[0] as string)
+      expect(calls).toContain(`/api/sessions/${SESSION_ID}/message`)
     })
   })
 
   it('shows user message immediately on submit', async () => {
-    render(<ChatPage />)
+    renderChatPage('/chat?session=test-session-id&agent=copilot')
+    await waitFor(() => expect(screen.getByPlaceholderText('Type a message…')).toBeDefined())
     const input = screen.getByPlaceholderText('Type a message…')
     await waitFor(() => expect((input as HTMLInputElement).disabled).toBe(false))
 
@@ -150,10 +223,10 @@ describe('ChatPage', () => {
     await waitFor(() => expect(screen.getByText('Hi there')).toBeDefined())
   })
 
-  it('shows a session error state when the initial session request fails', async () => {
-    vi.stubGlobal('fetch', mockFetch({ sessionFails: true }))
+  it('shows a session error state when creating a session fails', async () => {
+    vi.stubGlobal('fetch', mockFetch({ noSessions: true, sessionFails: true }))
 
-    render(<ChatPage />)
+    renderChatPage('/chat?session=test-session-id&agent=copilot')
 
     await waitFor(() =>
       expect(
@@ -167,7 +240,8 @@ describe('ChatPage', () => {
   it('shows a send error state when posting a message fails', async () => {
     vi.stubGlobal('fetch', mockFetch({ messageFails: true }))
 
-    render(<ChatPage />)
+    renderChatPage('/chat?session=test-session-id&agent=copilot')
+    await waitFor(() => expect(screen.getByPlaceholderText('Type a message…')).toBeDefined())
     const input = screen.getByPlaceholderText('Type a message…')
     await waitFor(() => expect((input as HTMLInputElement).disabled).toBe(false))
 
@@ -181,8 +255,17 @@ describe('ChatPage', () => {
     )
   })
 
+  it('loads a previous transcript when a session is selected', async () => {
+    renderChatPage()
+    await waitFor(() => expect(screen.getByText('Review SSE handling')).toBeDefined())
+
+    fireEvent.click(screen.getByRole('button', { name: /Review SSE handling/i }))
+
+    await waitFor(() => expect(screen.getByText('Previous answer')).toBeDefined())
+  })
+
   it('appends streamed assistant text on TEXT_MESSAGE_CONTENT events', async () => {
-    render(<ChatPage />)
+    renderChatPage()
     await waitFor(() => expect(MockEventSource.instance).not.toBeNull())
 
     const sse = MockEventSource.instance!
@@ -196,7 +279,7 @@ describe('ChatPage', () => {
   })
 
   it('shows thinking indicator on RUN_STARTED and hides on RUN_FINISHED', async () => {
-    render(<ChatPage />)
+    renderChatPage()
     await waitFor(() => expect(MockEventSource.instance).not.toBeNull())
 
     const sse = MockEventSource.instance!
@@ -206,5 +289,17 @@ describe('ChatPage', () => {
 
     sse.emit(EventType.RUN_FINISHED, { threadId: SESSION_ID, runId: 'run-1' })
     await waitFor(() => expect(screen.queryByText('Thinking…')).toBeNull())
+  })
+
+  it('renders an empty session state when no sessions exist', async () => {
+    vi.stubGlobal('fetch', mockFetch({ noSessions: true }))
+
+    renderChatPage('/chat?agent=copilot')
+
+    await waitFor(() =>
+      expect(
+        screen.getByText('No sessions yet. Start a fresh chat to create your first transcript.')
+      ).toBeDefined()
+    )
   })
 })
