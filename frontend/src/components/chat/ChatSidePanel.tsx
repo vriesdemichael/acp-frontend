@@ -16,7 +16,7 @@ export function ChatSidePanel({
   return (
     <aside
       data-testid={testId}
-      className={`hidden min-h-0 rounded-[2rem] border border-white/70 bg-white/70 p-5 shadow-[0_18px_60px_rgba(15,23,42,0.07)] backdrop-blur lg:flex lg:flex-col ${className}`.trim()}
+      className={`hidden min-h-0 rounded-[2rem] border border-white/70 bg-white/70 p-5 shadow-[0_18px_60px_rgba(15,23,42,0.07)] backdrop-blur ${className}`.trim()}
     >
       <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Reserved</p>
       <h2 className="mt-3 font-[family:var(--font-display)] text-3xl leading-tight text-slate-900">
