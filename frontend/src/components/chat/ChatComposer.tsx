@@ -1,7 +1,9 @@
+import type { FormEvent } from 'react'
+
 interface ChatComposerProps {
   value: string
   onChange: (value: string) => void
-  onSubmit: (e: React.FormEvent<HTMLFormElement>) => void | Promise<void>
+  onSubmit: (e: FormEvent<HTMLFormElement>) => void | Promise<void>
   disabled: boolean
   canSubmit: boolean
 }

@@ -14,6 +14,8 @@ function mockFetch() {
   return vi.fn().mockImplementation((url: string) => {
     if (url === '/api/agents/copilot/session/new') {
       return Promise.resolve({
+        ok: true,
+        status: 201,
         json: () => Promise.resolve({ sessionId: 'test-session-id' }),
       } as Response)
     }

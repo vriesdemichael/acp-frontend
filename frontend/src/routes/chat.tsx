@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type FormEvent } from 'react'
 import { ChatComposer } from '../components/chat/ChatComposer.js'
 import { ChatHeader } from '../components/chat/ChatHeader.js'
 import { ChatSidePanel } from '../components/chat/ChatSidePanel.js'
@@ -9,7 +9,7 @@ export function ChatPage() {
   const { sessionId, messages, thinking, sendMessage, ready, loading, errorMessage } = useAgUiChat()
   const [input, setInput] = useState('')
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     const text = input.trim()
     if (!text || !ready) return
@@ -33,6 +33,7 @@ export function ChatPage() {
             title="Sessions"
             description="Desktop rail reserved for session switching, recents, and pinned conversation states."
             bullets={['History', 'Switcher', 'Pinned chats']}
+            className="lg:flex lg:flex-col"
           />
 
           <section className="flex min-h-[32rem] min-w-0 flex-col overflow-hidden rounded-[2rem] border border-white/70 bg-[rgba(255,255,255,0.68)] shadow-[0_22px_70px_rgba(15,23,42,0.08)] backdrop-blur">
@@ -58,7 +59,7 @@ export function ChatPage() {
             title="Workspace"
             description="Reserved surface for project selection, folder context, and HITL activity without reshaping the chat pane."
             bullets={['Project picker', 'Folder tree', 'Approvals']}
-            className="xl:flex"
+            className="xl:flex xl:flex-col"
           />
         </div>
       </div>
