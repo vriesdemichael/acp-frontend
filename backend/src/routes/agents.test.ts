@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { Hono } from 'hono'
 import { agentsRoutes } from './agents.js'
 import type { AgentRegistry } from '../agents/registry.js'
+import { RegistryError } from '../agents/types.js'
 
 function createRegistryStub(): AgentRegistry {
   return {
@@ -140,5 +141,19 @@ describe('agents routes', () => {
     }
     expect(body.endpointSupport).toMatchObject({ source: 'connection' })
     expect(body.lastTestResult).toMatchObject({ ok: true })
+  })
+
+  it('returns 404 when testing an unknown backend', async () => {
+    const registry = createRegistryStub()
+    vi.mocked(registry.testBackend).mockRejectedValueOnce(
+      new RegistryError('unknown_backend', 'Unknown backend: missing')
+    )
+    const app = new Hono().route('/api', agentsRoutes(registry))
+
+    const res = await app.request('/api/backends/missing/test', {
+      method: 'POST',
+    })
+
+    expect(res.status).toBe(404)
   })
 })

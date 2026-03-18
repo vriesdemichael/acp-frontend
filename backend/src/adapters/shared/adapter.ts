@@ -148,6 +148,10 @@ export class GenericAcpAdapter implements SessionAdapter {
     return this.lastKnownEndpointSupport
   }
 
+  ownsSession(sessionId: string): boolean {
+    return this.sessions.has(sessionId)
+  }
+
   private handleSessionNotification(sessionId: string, notification: SessionNotification): void {
     const session = this.sessions.get(sessionId)
     if (!session) return

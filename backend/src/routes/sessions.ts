@@ -1,6 +1,7 @@
 import { Hono, type Context } from 'hono'
 import { loadMcpServers } from '../mcp.js'
 import type { AgentRegistry } from '../agents/registry.js'
+import { isRegistryError } from '../agents/registry.js'
 
 export function sessionsRoutes(registry: AgentRegistry): Hono {
   const app = new Hono()
@@ -72,16 +73,20 @@ async function parseJsonBody<T extends object>(c: Context): Promise<Partial<T>> 
 function buildErrorResponse(c: Context, error: unknown) {
   const message = error instanceof Error ? error.message : String(error)
 
-  if (message.startsWith('Session not found')) {
+  if (isRegistryError(error, 'session_not_found')) {
     return c.json({ error: message }, 404)
   }
 
-  if (message.startsWith('Agent unavailable')) {
+  if (isRegistryError(error, 'agent_unavailable')) {
     return c.json({ error: message }, 503)
   }
 
-  if (message.startsWith('Agent mismatch')) {
+  if (isRegistryError(error, 'agent_mismatch')) {
     return c.json({ error: message }, 400)
+  }
+
+  if (isRegistryError(error, 'unknown_backend')) {
+    return c.json({ error: message }, 404)
   }
 
   return c.json({ error: message }, 500)

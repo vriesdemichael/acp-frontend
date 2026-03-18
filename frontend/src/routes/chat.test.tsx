@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, cleanup, within } from '@testing-library/react'
 import { EventType } from '@ag-ui/core'
 import { App } from '../App.js'
+import { buildSendMessagePayload } from '../hooks/useAgUiChat.js'
 import { createAppRouter } from '../router.js'
 
 type SseHandler = (event: MessageEvent) => void
@@ -211,6 +212,25 @@ describe('ChatPage', () => {
       const calls = fetchSpy.mock.calls.map((call: unknown[]) => call[0] as string)
       expect(calls).toContain(`/api/sessions/${SESSION_ID}/message`)
     })
+
+    const messageCall = fetchSpy.mock.calls.find(
+      (call: unknown[]) => call[0] === `/api/sessions/${SESSION_ID}/message`
+    )
+    expect(messageCall).toBeDefined()
+    expect(
+      JSON.parse(
+        ((messageCall?.[1] as RequestInit | undefined)?.body as string | undefined) ?? '{}'
+      )
+    ).toMatchObject({
+      agentId: 'copilot',
+      message: 'Hello agent',
+    })
+  })
+
+  it('omits agentId from the send payload when currentAgentId is null', () => {
+    expect(buildSendMessagePayload('No agent field please', null)).toEqual({
+      message: 'No agent field please',
+    })
   })
 
   it('shows user message immediately on submit', async () => {
@@ -263,6 +283,16 @@ describe('ChatPage', () => {
     await waitFor(() => expect(screen.getByText('Review SSE handling')).toBeDefined())
 
     fireEvent.click(screen.getByRole('button', { name: /Review SSE handling/i }))
+
+    await waitFor(() => expect(screen.getByText('Previous answer')).toBeDefined())
+  })
+
+  it('reloads transcript content when the route session changes externally', async () => {
+    renderChatPage('/chat?session=test-session-id&agent=copilot')
+    await waitFor(() => expect(screen.getByText('Start the conversation')).toBeDefined())
+
+    window.history.pushState({}, '', `/chat?session=${SECOND_SESSION_ID}&agent=copilot`)
+    window.dispatchEvent(new PopStateEvent('popstate'))
 
     await waitFor(() => expect(screen.getByText('Previous answer')).toBeDefined())
   })

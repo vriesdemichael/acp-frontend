@@ -53,13 +53,6 @@ export function useAgUiChat({
   const didBootstrapRef = useRef(false)
 
   useEffect(() => {
-    if (sessionId) {
-      activeSessionRef.current = sessionId
-      setCurrentSessionId(sessionId)
-    }
-  }, [sessionId])
-
-  useEffect(() => {
     if (agentId) {
       setCurrentAgentId(agentId)
     }
@@ -134,6 +127,20 @@ export function useAgUiChat({
     },
     [agentId, fetchJson, onAgentSelected, onSessionSelected, sessionId]
   )
+
+  useEffect(() => {
+    if (!sessionId) return
+    if (sessionId === currentSessionId) {
+      activeSessionRef.current = sessionId
+      return
+    }
+
+    activeSessionRef.current = sessionId
+    setCurrentSessionId(sessionId)
+    setErrorMessage(null)
+    setThinking(false)
+    void loadSession(sessionId, false)
+  }, [currentSessionId, loadSession, sessionId])
 
   const createSession = useCallback(
     async (nextAgentId?: string) => {
@@ -321,7 +328,7 @@ export function useAgUiChat({
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ agentId: currentAgentId, message: text }),
+            body: JSON.stringify(buildSendMessagePayload(text, currentAgentId)),
           }
         )
 
@@ -353,6 +360,10 @@ export function useAgUiChat({
 
   const selectAgent = useCallback(
     (nextAgentId: string) => {
+      if (nextAgentId === currentAgentId) {
+        return
+      }
+
       const candidate = agents.find((agent) => agent.id === nextAgentId)
       if (!candidate || candidate.status !== 'active') {
         return
@@ -362,7 +373,7 @@ export function useAgUiChat({
       setCurrentAgentId(nextAgentId)
       onAgentSelected(nextAgentId)
     },
-    [agents, onAgentSelected]
+    [agents, currentAgentId, onAgentSelected]
   )
 
   const startNewSession = useCallback(async () => {
@@ -386,5 +397,12 @@ export function useAgUiChat({
     sessions,
     startNewSession,
     thinking,
+  }
+}
+
+export function buildSendMessagePayload(message: string, agentId: string | null) {
+  return {
+    ...(agentId ? { agentId } : {}),
+    message,
   }
 }

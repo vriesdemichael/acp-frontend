@@ -201,4 +201,13 @@ describe('app router', () => {
     expect(screen.getByRole('link', { name: 'Back To Chat' })).toBeDefined()
     expect(screen.getByRole('button', { name: 'Test' })).toBeDefined()
   })
+
+  it('normalizes blank chat search params to undefined', async () => {
+    window.history.pushState({}, '', '/chat?session=%20%20%20&agent=')
+
+    render(<App routerInstance={createAppRouter()} />)
+
+    await waitFor(() => expect(screen.getByPlaceholderText('Type a message…')).toBeDefined())
+    await waitFor(() => expect(window.location.search).toBe('?agent=copilot'))
+  })
 })
