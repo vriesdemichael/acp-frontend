@@ -1,22 +1,35 @@
 import { EventEmitter } from 'node:events'
 import { randomUUID } from 'node:crypto'
-import type { BaseEvent } from '@ag-ui/core'
+import {
+  EventType,
+  type BaseEvent,
+  type TextMessageContentEvent,
+  type TextMessageStartEvent,
+} from '@ag-ui/core'
 import type { Client, MessagePart } from 'acp-sdk'
 import { StreamTranslator } from '../../agui/index.js'
+import type {
+  SessionAdapter,
+  SessionDetails,
+  SessionMessage,
+  SessionSummary,
+} from '../../agents/types.js'
 import type { CopilotProcess } from './process.js'
 import type { SessionState } from './types.js'
 
 export type ProcessFactory = (onExit: (code: number | null) => void) => CopilotProcess
 export type ClientFactory = (port: number) => Client
 
-export class CopilotAdapter {
+export class CopilotAdapter implements SessionAdapter {
   private readonly sessions = new Map<string, SessionState>()
   /** EventEmitter used to push AG-UI events to the SSE stream endpoint. */
   readonly events = new EventEmitter()
+  readonly agentId = 'copilot'
+  readonly agentName = 'GitHub Copilot'
 
   constructor(
     private readonly createProcess: ProcessFactory,
-    private readonly createClient: ClientFactory,
+    private readonly createClient: ClientFactory
   ) {}
 
   /**
@@ -30,7 +43,7 @@ export class CopilotAdapter {
     const proc = this.createProcess((code) => {
       this.sessions.delete(sessionId)
       for (const ev of new StreamTranslator(sessionId, 'subprocess-exit').onRunError(
-        `Copilot process exited with code ${String(code)}`,
+        `Copilot process exited with code ${String(code)}`
       )) {
         this.events.emit(sessionId, ev)
       }
@@ -41,9 +54,12 @@ export class CopilotAdapter {
     this.sessions.set(sessionId, {
       id: sessionId,
       createdAt: new Date(),
+      updatedAt: new Date(),
+      title: 'New chat',
       agentProcess: proc,
       mcpServers,
       firstMessageSent: false,
+      messages: [],
     })
 
     return sessionId
@@ -62,6 +78,8 @@ export class CopilotAdapter {
       throw new Error(`Session not found: ${sessionId}`)
     }
 
+    this.pushUserMessage(session, text)
+
     const client = this.createClient(session.agentProcess.port!)
     const input = this.buildInput(session, text)
 
@@ -72,6 +90,7 @@ export class CopilotAdapter {
     const translator = new StreamTranslator(sessionId, runId)
 
     const emit = (events: BaseEvent[]) => {
+      this.applyEvents(session, events)
       for (const ev of events) this.events.emit(sessionId, ev)
     }
 
@@ -96,6 +115,22 @@ export class CopilotAdapter {
 
   get sessionCount(): number {
     return this.sessions.size
+  }
+
+  listSessions(): SessionSummary[] {
+    return Array.from(this.sessions.values())
+      .map((session) => this.toSessionSummary(session))
+      .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+  }
+
+  getSession(sessionId: string): SessionDetails | null {
+    const session = this.sessions.get(sessionId)
+    if (!session) return null
+
+    return {
+      ...this.toSessionSummary(session),
+      messages: session.messages.map((message) => ({ ...message })),
+    }
   }
 
   /**
@@ -123,4 +158,82 @@ export class CopilotAdapter {
     }
     return text
   }
+
+  private toSessionSummary(session: SessionState): SessionSummary {
+    return {
+      id: session.id,
+      title: session.title,
+      updatedAt: session.updatedAt.toISOString(),
+      agentId: this.agentId,
+    }
+  }
+
+  private pushUserMessage(session: SessionState, text: string): void {
+    session.messages.push({
+      id: `user-${randomUUID()}`,
+      role: 'user',
+      content: text,
+    })
+    session.updatedAt = new Date()
+
+    if (session.title === 'New chat') {
+      session.title = deriveSessionTitle(text)
+    }
+  }
+
+  private applyEvents(session: SessionState, events: BaseEvent[]): void {
+    for (const event of events) {
+      switch (event.type) {
+        case EventType.TEXT_MESSAGE_START: {
+          const startEvent = event as TextMessageStartEvent
+          session.messages.push({
+            id: startEvent.messageId,
+            role: 'assistant',
+            content: '',
+          })
+          session.updatedAt = new Date()
+          break
+        }
+
+        case EventType.TEXT_MESSAGE_CONTENT: {
+          const contentEvent = event as TextMessageContentEvent
+          const assistantMessage = this.findOrCreateAssistantMessage(
+            session.messages,
+            contentEvent.messageId
+          )
+          assistantMessage.content += contentEvent.delta
+          session.updatedAt = new Date()
+          break
+        }
+
+        default:
+          break
+      }
+    }
+  }
+
+  private findOrCreateAssistantMessage(
+    messages: SessionMessage[],
+    messageId: string
+  ): SessionMessage {
+    const existingMessage = messages.find((message) => message.id === messageId)
+
+    if (existingMessage) {
+      return existingMessage
+    }
+
+    const fallbackMessage: SessionMessage = {
+      id: messageId,
+      role: 'assistant',
+      content: '',
+    }
+    messages.push(fallbackMessage)
+    return fallbackMessage
+  }
+}
+
+function deriveSessionTitle(text: string): string {
+  const compactText = text.trim().replace(/\s+/g, ' ')
+  if (compactText.length <= 48) return compactText
+  return `${compactText.slice(0, 45).trimEnd()}...`
 }

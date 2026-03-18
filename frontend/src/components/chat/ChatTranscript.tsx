@@ -1,6 +1,7 @@
 import type { ChatMessage } from '../../hooks/useAgUiChat.js'
 
 interface ChatTranscriptProps {
+  activeAgentName: string
   messages: ChatMessage[]
   loading: boolean
   ready: boolean
@@ -9,6 +10,7 @@ interface ChatTranscriptProps {
 }
 
 export function ChatTranscript({
+  activeAgentName,
   messages,
   loading,
   ready,
@@ -56,8 +58,8 @@ export function ChatTranscript({
               Start the conversation
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-slate-600">
-              Ask the agent to inspect code, explain a failure, or sketch a next step for the
-              current workspace.
+              Ask {activeAgentName} to inspect code, explain a failure, or sketch a next step for
+              the current workspace.
             </p>
           </section>
         )}
@@ -82,7 +84,7 @@ export function ChatTranscript({
                     isUser ? 'text-slate-300' : 'text-teal-700'
                   }`}
                 >
-                  {isUser ? 'You' : 'Agent'}
+                  {isUser ? 'You' : activeAgentName}
                 </p>
                 <p className="mt-2 whitespace-pre-wrap text-sm leading-6">{message.content}</p>
               </div>
