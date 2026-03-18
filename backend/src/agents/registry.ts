@@ -5,10 +5,12 @@ import type {
   AgentSummary,
   BackendSummary,
   BackendTestResult,
+  RegistryErrorCode,
   SessionAdapter,
   SessionDetails,
   SessionSummary,
 } from './types.js'
+import { RegistryError } from './types.js'
 import { detectAvailableCommand } from './discovery.js'
 import {
   createBackendId,
@@ -115,7 +117,7 @@ export class AgentRegistry {
     const index = config.findIndex((backend) => backend.id === agentId)
 
     if (index === -1) {
-      throw new Error(`Unknown backend: ${agentId}`)
+      throw new RegistryError('unknown_backend', `Unknown backend: ${agentId}`)
     }
 
     const current = config[index]!
@@ -135,11 +137,11 @@ export class AgentRegistry {
   async testBackend(agentId: string): Promise<BackendSummary> {
     const backend = this.agents.find((item) => item.id === agentId)
     if (!backend) {
-      throw new Error(`Unknown backend: ${agentId}`)
+      throw new RegistryError('unknown_backend', `Unknown backend: ${agentId}`)
     }
 
     if (!backend.command) {
-      throw new Error(`No command configured for backend: ${agentId}`)
+      throw new RegistryError('agent_unavailable', `No command configured for backend: ${agentId}`)
     }
 
     const testedAt = new Date().toISOString()
@@ -209,11 +211,11 @@ export class AgentRegistry {
     const adapter = this.findAdapterForSession(sessionId)
 
     if (!adapter) {
-      throw new Error(`Session not found: ${sessionId}`)
+      throw new RegistryError('session_not_found', `Session not found: ${sessionId}`)
     }
 
     if (agentId && agentId !== adapter.agentId) {
-      throw new Error(`Agent mismatch for session ${sessionId}`)
+      throw new RegistryError('agent_mismatch', `Agent mismatch for session ${sessionId}`)
     }
 
     await adapter.sendMessage(sessionId, text)
@@ -282,7 +284,7 @@ export class AgentRegistry {
   private requireBackend(agentId: string): BackendSummary {
     const backend = this.listBackends().find((item) => item.id === agentId)
     if (!backend) {
-      throw new Error(`Unknown backend: ${agentId}`)
+      throw new RegistryError('unknown_backend', `Unknown backend: ${agentId}`)
     }
 
     return backend
@@ -292,7 +294,7 @@ export class AgentRegistry {
     const agent = this.agents.find((item) => item.id === agentId)
 
     if (!agent?.adapter) {
-      throw new Error(`Agent unavailable: ${agentId}`)
+      throw new RegistryError('agent_unavailable', `Agent unavailable: ${agentId}`)
     }
 
     return agent.adapter
@@ -300,13 +302,17 @@ export class AgentRegistry {
 
   private findAdapterForSession(sessionId: string): SessionAdapter | null {
     for (const agent of this.agents) {
-      if (agent.adapter?.getSession(sessionId)) {
+      if (agent.adapter?.ownsSession(sessionId)) {
         return agent.adapter
       }
     }
 
     return null
   }
+}
+
+export function isRegistryError(error: unknown, code?: RegistryErrorCode): error is RegistryError {
+  return error instanceof RegistryError && (code === undefined || error.code === code)
 }
 
 function normalizeCommand(command: string | null | undefined): string | null {

@@ -25,8 +25,8 @@ const chatRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/chat',
   validateSearch: (search: Record<string, unknown>) => ({
-    session: typeof search.session === 'string' ? search.session : undefined,
-    agent: typeof search.agent === 'string' ? search.agent : undefined,
+    session: normalizeSearchString(search.session),
+    agent: normalizeSearchString(search.agent),
   }),
   component: ChatPage,
 })
@@ -57,6 +57,12 @@ export function createAppRouter() {
 export type AppRouter = ReturnType<typeof createAppRouter>
 
 export const router = createAppRouter()
+
+function normalizeSearchString(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : undefined
+}
 
 declare module '@tanstack/react-router' {
   interface Register {

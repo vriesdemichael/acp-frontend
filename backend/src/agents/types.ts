@@ -54,9 +54,26 @@ export interface SessionAdapter {
   readonly agentName: string
   readonly events: EventEmitter
   getEndpointSupport(): BackendEndpointSupport
+  ownsSession(sessionId: string): boolean
   newSession(mcpServers?: McpServer[]): Promise<string>
   sendMessage(sessionId: string, text: string): Promise<void>
   closeSession(sessionId: string): void
   listSessions(): SessionSummary[]
   getSession(sessionId: string): SessionDetails | null
+}
+
+export type RegistryErrorCode =
+  | 'unknown_backend'
+  | 'agent_unavailable'
+  | 'session_not_found'
+  | 'agent_mismatch'
+
+export class RegistryError extends Error {
+  constructor(
+    public readonly code: RegistryErrorCode,
+    message: string
+  ) {
+    super(message)
+    this.name = 'RegistryError'
+  }
 }
