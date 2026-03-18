@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, cleanup, within } from '@testing-library/react'
 import { EventType } from '@ag-ui/core'
 import { App } from '../App.js'
 import { createAppRouter } from '../router.js'
@@ -50,8 +50,8 @@ function mockFetch(options?: {
         ok: true,
         json: () =>
           Promise.resolve([
-            { id: 'copilot', name: 'GitHub Copilot', status: 'active' },
-            { id: 'claude-code', name: 'Claude Code', status: 'unavailable' },
+            { id: 'copilot', name: 'GitHub Copilot', status: 'active', command: 'copilot' },
+            { id: 'claude-code', name: 'Claude Code', status: 'unavailable', command: null },
           ]),
       } as Response)
     }
@@ -168,7 +168,7 @@ describe('ChatPage', () => {
   it('renders the workspace shell with header and extension panels', async () => {
     renderChatPage('/chat?session=test-session-id&agent=copilot')
 
-    await waitFor(() => expect(screen.getByText('Chat Window')).toBeDefined())
+    await waitFor(() => expect(screen.getByText('Chat Workspace')).toBeDefined())
     expect(screen.getByTestId('chat-composer')).toBeDefined()
     expect(screen.getByTestId('chat-transcript')).toBeDefined()
 
@@ -181,9 +181,11 @@ describe('ChatPage', () => {
     renderChatPage('/chat?session=test-session-id&agent=copilot')
 
     await waitFor(() => expect(screen.getByTestId('agent-selector')).toBeDefined())
-    expect(screen.getByRole('button', { name: /GitHub Copilot/i })).toBeDefined()
+    expect(screen.getByRole('combobox', { name: /Active agent/i })).toBeDefined()
+    expect(screen.getByRole('option', { name: /GitHub Copilot/i })).toBeDefined()
+    expect(screen.getByText('GitHub Copilot: copilot')).toBeDefined()
     expect(
-      (screen.getByRole('button', { name: /Claude Code/i }) as HTMLButtonElement).disabled
+      (screen.getByRole('option', { name: /Claude Code/i }) as HTMLOptionElement).disabled
     ).toBe(true)
   })
 
@@ -230,10 +232,10 @@ describe('ChatPage', () => {
 
     await waitFor(() =>
       expect(
-        screen.getByText(
+        screen.getAllByText(
           'Unable to start a chat session right now. Reload or try again in a moment.'
-        )
-      ).toBeDefined()
+        ).length
+      ).toBeGreaterThan(0)
     )
   })
 
@@ -250,8 +252,9 @@ describe('ChatPage', () => {
 
     await waitFor(() =>
       expect(
-        screen.getByText('Message failed to send. Check the agent connection and try again.')
-      ).toBeDefined()
+        screen.getAllByText('Message failed to send. Check the agent connection and try again.')
+          .length
+      ).toBeGreaterThan(0)
     )
   })
 
@@ -296,10 +299,95 @@ describe('ChatPage', () => {
 
     renderChatPage('/chat?agent=copilot')
 
-    await waitFor(() =>
-      expect(
-        screen.getByText('No sessions yet. Start a fresh chat to create your first transcript.')
-      ).toBeDefined()
+    await waitFor(() => expect(screen.getByText('No chats yet for this backend.')).toBeDefined())
+  })
+
+  it('groups chats by backend and keeps unavailable backends visible', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
+        if (url === '/api/agents') {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve([
+                { id: 'copilot', name: 'GitHub Copilot', status: 'active', command: 'copilot' },
+                { id: 'gemini-cli', name: 'Gemini CLI', status: 'active', command: 'gemini' },
+                { id: 'claude-code', name: 'Claude Code', status: 'unavailable', command: null },
+              ]),
+          } as Response)
+        }
+
+        if (url === '/api/sessions') {
+          if (opts?.method === 'POST') {
+            return Promise.resolve({
+              ok: true,
+              status: 201,
+              json: () =>
+                Promise.resolve({
+                  id: SESSION_ID,
+                  title: 'New chat',
+                  updatedAt: '2026-03-18T08:00:00.000Z',
+                  agentId: 'copilot',
+                  messages: [],
+                }),
+            } as Response)
+          }
+
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve([
+                {
+                  id: SESSION_ID,
+                  title: 'Inspect auth bug',
+                  updatedAt: '2026-03-18T08:00:00.000Z',
+                  agentId: 'copilot',
+                },
+                {
+                  id: 'gemini-session-id',
+                  title: 'Gemini discovery notes',
+                  updatedAt: '2026-03-18T10:00:00.000Z',
+                  agentId: 'gemini-cli',
+                },
+                {
+                  id: 'claude-session-id',
+                  title: 'Claude backlog',
+                  updatedAt: '2026-03-17T06:00:00.000Z',
+                  agentId: 'claude-code',
+                },
+              ]),
+          } as Response)
+        }
+
+        if (url === `/api/sessions/${SESSION_ID}`) {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                id: SESSION_ID,
+                title: 'Inspect auth bug',
+                updatedAt: '2026-03-18T08:00:00.000Z',
+                agentId: 'copilot',
+                messages: [],
+              }),
+          } as Response)
+        }
+
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+      })
     )
+
+    renderChatPage('/chat?session=test-session-id&agent=copilot')
+
+    const sessionPanel = await screen.findByTestId('chat-session-panel')
+
+    await waitFor(() => expect(within(sessionPanel).getByText('GitHub Copilot')).toBeDefined())
+    expect(within(sessionPanel).getByText('Gemini CLI')).toBeDefined()
+    expect(within(sessionPanel).getByText('Claude Code')).toBeDefined()
+    expect(within(sessionPanel).getByText('Claude backlog')).toBeDefined()
+    expect(within(sessionPanel).getAllByText('Ready').length).toBeGreaterThan(0)
+    expect(within(sessionPanel).getByText('Offline')).toBeDefined()
+    expect(within(sessionPanel).getByText('Selected')).toBeDefined()
   })
 })

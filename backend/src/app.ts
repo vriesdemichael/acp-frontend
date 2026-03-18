@@ -13,7 +13,7 @@ export function createApp(adapter: CopilotAdapter): Hono {
   app.route('/', healthRoutes())
   app.route('/api', agentsRoutes(registry))
   app.route('/api', sessionsRoutes(registry))
-  app.route('/api', streamRoute(adapter))
+  app.route('/api', streamRoute(registry))
   app.route('/api/agents/copilot', copilotRoutes(adapter))
   return app
 }

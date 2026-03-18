@@ -7,44 +7,53 @@ interface AgentSelectorProps {
 }
 
 export function AgentSelector({ agents, selectedAgentId, onSelect }: AgentSelectorProps) {
-  const availableAgents = agents.filter((agent) => agent.status === 'active')
+  const selectedAgent = agents.find((agent) => agent.id === selectedAgentId) ?? null
+
+  function getStatusSuffix(agent: AgentSummary): string {
+    if (agent.status === 'active') return ''
+    if (agent.status === 'detected') return '(Detected)'
+    return '(Unavailable)'
+  }
 
   return (
-    <div className="rounded-2xl border border-amber-200/80 bg-amber-50/80 px-4 py-3">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-amber-700">Agent</p>
-      <div className="mt-3 flex flex-wrap gap-2" data-testid="agent-selector">
-        {agents.map((agent) => {
-          const selected = agent.id === selectedAgentId
-          const disabled = agent.status !== 'active'
-
-          return (
-            <button
-              key={agent.id}
-              type="button"
-              onClick={() => onSelect(agent.id)}
-              disabled={disabled}
-              aria-pressed={selected}
-              className={`rounded-full border px-3 py-2 text-left text-xs font-semibold transition ${
-                selected
-                  ? 'border-slate-900 bg-slate-900 text-white'
-                  : disabled
-                    ? 'cursor-not-allowed border-slate-200 bg-white/70 text-slate-400'
-                    : 'border-amber-300 bg-white text-slate-800 hover:border-amber-500 hover:bg-amber-100'
-              }`}
-            >
-              <span className="block">{agent.name}</span>
-              <span className="mt-1 block text-[10px] uppercase tracking-[0.18em] opacity-75">
-                {disabled ? 'Unavailable' : 'Ready'}
-              </span>
-            </button>
-          )
-        })}
+    <div className="min-w-0" data-testid="agent-selector">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">Agent</p>
+      <div className="mt-2">
+        <label className="block">
+          <span className="sr-only">Active agent</span>
+          <select
+            value={selectedAgentId ?? ''}
+            onChange={(event) => onSelect(event.target.value)}
+            className="w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-sm font-medium text-slate-100 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30"
+          >
+            <option value="" disabled>
+              Select an agent
+            </option>
+            {agents.map((agent) => (
+              <option key={agent.id} value={agent.id} disabled={agent.status !== 'active'}>
+                {agent.name} {getStatusSuffix(agent)}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
-      <p className="mt-3 text-xs text-slate-600">
-        {availableAgents.length > 0
-          ? 'Choose which adapter receives the next message.'
-          : 'No active adapters detected yet.'}
+      <p className="mt-2 text-[11px] text-slate-500">
+        {selectedAgent
+          ? `${selectedAgent.name} is selected for the next prompt.`
+          : 'Choose which adapter receives the next message.'}
       </p>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {agents
+          .filter((agent) => agent.command)
+          .map((agent) => (
+            <span
+              key={agent.id}
+              className="rounded-md border border-white/10 bg-slate-900 px-2 py-1 text-[10px] text-slate-400"
+            >
+              {agent.name}: {agent.command}
+            </span>
+          ))}
+      </div>
     </div>
   )
 }

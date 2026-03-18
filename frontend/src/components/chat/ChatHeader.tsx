@@ -1,3 +1,4 @@
+import { Link } from '@tanstack/react-router'
 import { AgentSelector } from '../AgentSelector.js'
 import type { AgentSummary } from '../../hooks/useAgUiChat.js'
 
@@ -6,14 +7,15 @@ interface ChatHeaderProps {
   agents: AgentSummary[]
   onAgentSelect: (agentId: string) => void
   sessionId: string | null
+  errorMessage: string | null
   ready: boolean
   thinking: boolean
 }
 
 function formatSessionLabel(sessionId: string | null, ready: boolean) {
-  if (!ready) return 'Starting session'
+  if (!ready) return 'Starting'
   if (!sessionId) return 'Unavailable'
-  return `Live ${sessionId.slice(0, 8)}`
+  return sessionId.slice(0, 8)
 }
 
 export function ChatHeader({
@@ -21,63 +23,87 @@ export function ChatHeader({
   agents,
   onAgentSelect,
   sessionId,
+  errorMessage,
   ready,
   thinking,
 }: ChatHeaderProps) {
+  const statusLabel = errorMessage
+    ? 'Needs attention'
+    : thinking
+      ? 'Thinking'
+      : ready
+        ? 'Ready'
+        : 'Connecting'
+  const statusDetail = errorMessage ?? (thinking ? 'Streaming response' : 'Realtime stream')
+
   return (
-    <header className="rounded-[2rem] border border-white/70 bg-white/75 p-5 shadow-[0_24px_80px_rgba(15,23,42,0.08)] backdrop-blur xl:p-6">
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-        <div className="max-w-2xl">
-          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-teal-700">
-            Agent Workspace
-          </p>
-          <h1 className="mt-3 font-[family:var(--font-display)] text-4xl leading-none text-slate-900 sm:text-5xl">
-            Chat Window
-          </h1>
-          <p className="mt-4 max-w-xl text-sm leading-6 text-slate-600 sm:text-base">
-            A dedicated shell for active conversations, context panels, and future approval flows.
-          </p>
-        </div>
-
-        <div className="grid gap-3 sm:grid-cols-3 xl:min-w-[30rem]">
-          <AgentSelector agents={agents} selectedAgentId={agentId} onSelect={onAgentSelect} />
-
-          <div className="rounded-2xl border border-teal-200/80 bg-teal-50/80 px-4 py-3">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-teal-700">
-              Session
+    <header className="border-b border-white/10 bg-slate-950/92 px-4 py-3 text-slate-100 shadow-[0_10px_40px_rgba(2,6,23,0.45)] backdrop-blur sm:px-5 lg:px-6">
+      <div className="flex min-h-12 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-slate-900 text-sm font-semibold text-teal-300">
+            ACP
+          </div>
+          <div className="min-w-0">
+            <h1 className="truncate font-[family:var(--font-display)] text-xl text-slate-50 sm:text-2xl">
+              Chat Workspace
+            </h1>
+            <p className="text-xs text-slate-400">
+              Focused conversation layout with live agent state
             </p>
-            <p className="mt-2 text-sm font-medium text-slate-900">
-              {formatSessionLabel(sessionId, ready)}
-            </p>
-            <p className="mt-1 text-xs text-slate-600">Conversation stream</p>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">
+          <div className="hidden items-center gap-2 lg:flex">
+            <Link
+              to="/settings/backends"
+              className="inline-flex h-9 items-center justify-center rounded-lg border border-white/10 bg-slate-900/90 px-3 text-sm font-medium text-slate-100 transition hover:bg-slate-800"
+            >
+              Backends
+            </Link>
+            <Link
+              to="/settings/mcp"
+              className="inline-flex h-9 items-center justify-center rounded-lg border border-white/10 bg-slate-900/60 px-3 text-sm font-medium text-slate-300 transition hover:bg-slate-800"
+            >
+              MCP
+            </Link>
+          </div>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-[minmax(0,18rem)_9rem_11rem] lg:min-w-[40rem]">
+          <AgentSelector agents={agents} selectedAgentId={agentId} onSelect={onAgentSelect} />
+
+          <div className="rounded-lg border border-white/10 bg-slate-900/90 px-3 py-2.5">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
+              Session
+            </p>
+            <p className="mt-2 text-sm font-medium text-slate-100">
+              {formatSessionLabel(sessionId, ready)}
+            </p>
+            <p className="mt-1 text-[11px] text-slate-500">Live thread</p>
+          </div>
+
+          <div className="rounded-lg border border-white/10 bg-slate-900/90 px-3 py-2.5">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
               Status
             </p>
-            <p className="mt-2 text-sm font-medium text-slate-900">
-              {thinking ? 'Thinking' : ready ? 'Ready for input' : 'Connecting'}
-            </p>
-            <p className="mt-1 text-xs text-slate-600">Realtime stream health</p>
+            <p className="mt-2 text-sm font-medium text-slate-100">{statusLabel}</p>
+            <p className="mt-1 text-[11px] text-slate-500">{statusDetail}</p>
           </div>
         </div>
       </div>
 
-      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:hidden">
-        <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/70 px-4 py-3">
-          <p className="text-sm font-medium text-slate-900">Session switcher</p>
-          <p className="mt-1 text-xs leading-5 text-slate-600">
-            Scroll the chat page to browse previous conversations and open a new chat.
-          </p>
-        </div>
-
-        <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/70 px-4 py-3">
-          <p className="text-sm font-medium text-slate-900">Project drawer placeholder</p>
-          <p className="mt-1 text-xs leading-5 text-slate-600">
-            Future workspace context and approval details live here.
-          </p>
-        </div>
+      <div className="mt-3 flex gap-2 lg:hidden">
+        <Link
+          to="/settings/backends"
+          className="inline-flex h-9 items-center justify-center rounded-lg border border-white/10 bg-slate-900/90 px-3 text-sm font-medium text-slate-100 transition hover:bg-slate-800"
+        >
+          Backends
+        </Link>
+        <Link
+          to="/settings/mcp"
+          className="inline-flex h-9 items-center justify-center rounded-lg border border-white/10 bg-slate-900/60 px-3 text-sm font-medium text-slate-300 transition hover:bg-slate-800"
+        >
+          MCP
+        </Link>
       </div>
     </header>
   )

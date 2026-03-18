@@ -11,25 +11,32 @@
   "scripts": {
     "dev:frontend": "vite",
     "dev:backend": "tsx watch backend/src/index.ts",
+    "storybook": "storybook dev -p 6006 --host 0.0.0.0",
+    "build:storybook": "storybook build",
     "build:frontend": "vite build",
     "build:backend": "tsc -p backend/tsconfig.build.json",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:ct": "playwright test -c playwright-ct.config.ts",
+    "test:ct:update": "playwright test -c playwright-ct.config.ts --update-snapshots",
     "lint": "eslint .",
     "typecheck": "tsc -p frontend/tsconfig.json && tsc -p backend/tsconfig.json",
     "prepare": "husky"
   },
   "dependencies": {
     "@ag-ui/core": "^0.0.47",
+    "@agentclientprotocol/sdk": "^0.16.1",
     "@copilotkit/react-core": "^1.54.0",
     "@hono/node-server": "^1.19.11",
     "@tanstack/react-router": "^1.0.0",
-    "acp-sdk": "^1.0.3",
     "hono": "^4.12.8",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "zod": "^4.3.6"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
@@ -38,6 +45,11 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",
+    "@playwright/experimental-ct-react": "^1.58.2",
+    "@playwright/test": "^1.58.2",
+    "@storybook/addon-a11y": "10.3.0",
+    "@storybook/addon-vitest": "10.3.0",
+    "@storybook/react-vite": "^10.3.0",
     "@tailwindcss/vite": "^4.0.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
@@ -54,11 +66,13 @@
     "happy-dom": "^20.8.4",
     "husky": "^9.0.0",
     "prettier": "^3.0.0",
+    "storybook": "^10.3.0",
     "tailwindcss": "^4.0.0",
     "tsx": "^4.0.0",
     "typescript": "^5.0.0",
     "typescript-eslint": "^8.0.0",
     "vite": "^6.0.0",
+    "vite-tsconfig-paths": "^6.1.1",
     "vitest": "^4.1.0"
   }
 }

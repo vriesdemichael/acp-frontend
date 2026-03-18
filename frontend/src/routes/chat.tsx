@@ -67,27 +67,30 @@ export function ChatPage() {
   }
 
   return (
-    <main className="min-h-screen px-4 py-4 sm:px-6 sm:py-6 lg:px-8">
-      <div className="mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-[1600px] flex-col gap-4 sm:min-h-[calc(100vh-3rem)] lg:gap-5">
+    <main className="min-h-screen bg-[#05070b] text-slate-100">
+      <div className="mx-auto flex min-h-screen w-full max-w-[1800px] flex-col">
         <ChatHeader
           agentId={activeAgentId}
           agents={agents}
+          errorMessage={errorMessage}
           onAgentSelect={selectAgent}
           sessionId={activeSessionId}
           ready={ready}
           thinking={thinking}
         />
 
-        <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[18rem_minmax(0,1fr)] xl:grid-cols-[18rem_minmax(0,1fr)_20rem]">
+        <div className="grid min-h-0 flex-1 lg:grid-cols-[19rem_minmax(0,1fr)] xl:grid-cols-[19rem_minmax(0,1fr)_18rem]">
           <SessionList
+            agents={agents}
             sessions={sessions}
+            selectedAgentId={activeAgentId}
             activeSessionId={activeSessionId}
             creatingSession={creatingSession}
             onCreate={startNewSession}
             onSelect={selectSession}
           />
 
-          <section className="flex min-h-[32rem] min-w-0 flex-col overflow-hidden rounded-[2rem] border border-white/70 bg-[rgba(255,255,255,0.68)] shadow-[0_22px_70px_rgba(15,23,42,0.08)] backdrop-blur">
+          <section className="flex min-h-[32rem] min-w-0 flex-col overflow-hidden bg-[#070b12] xl:border-x xl:border-white/8">
             <ChatTranscript
               activeAgentName={activeAgentName}
               messages={messages}
@@ -116,8 +119,7 @@ export function ChatPage() {
         </div>
       </div>
 
-      <div className="pointer-events-none fixed inset-x-0 top-0 -z-10 h-[28rem] bg-[radial-gradient(circle_at_top_left,rgba(20,184,166,0.18),transparent_38%),radial-gradient(circle_at_top_right,rgba(251,191,36,0.16),transparent_34%)]" />
-      <div className="pointer-events-none fixed inset-x-0 bottom-0 -z-10 h-[18rem] bg-[radial-gradient(circle_at_bottom,rgba(15,23,42,0.08),transparent_55%)]" />
+      <div className="pointer-events-none fixed inset-x-0 top-0 -z-10 h-40 bg-[radial-gradient(circle_at_top,rgba(45,212,191,0.1),transparent_42%)]" />
     </main>
   )
 }
