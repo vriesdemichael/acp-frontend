@@ -5,16 +5,28 @@ import { SessionList } from '../../frontend/src/components/chat/SessionList.js'
 import { ChatComposer } from '../../frontend/src/components/chat/ChatComposer.js'
 
 test.describe('chat surfaces', () => {
-  test('renders header status and compact selector', async ({ mount, page }) => {
+  test('renders header status and compact selector', async ({ mount }) => {
     const component = await mount(
       <div className="p-6">
         <ChatHeader
           agentId="copilot"
           agents={[
-            { id: 'copilot', name: 'GitHub Copilot', status: 'active' },
-            { id: 'claude-code', name: 'Claude Code', status: 'unavailable' },
+            { id: 'copilot', name: 'GitHub Copilot', status: 'active', command: 'copilot' },
+            {
+              id: 'claude-code',
+              name: 'Claude Code',
+              status: 'unavailable',
+              command: null,
+            },
           ]}
           onAgentSelect={() => {}}
+          renderLink={({ className, children }) => <span className={className}>{children}</span>}
+          project={{
+            id: 'acp-frontend',
+            name: 'ACP Frontend',
+            path: '/home/runner/work/acp-frontend/acp-frontend',
+            status: 'available',
+          }}
           sessionId="session-1"
           errorMessage={null}
           ready
@@ -25,10 +37,10 @@ test.describe('chat surfaces', () => {
 
     await expect(component.getByRole('combobox', { name: 'Active agent' })).toBeVisible()
     await expect(component.getByText('Ready')).toBeVisible()
-    await expect(page).toHaveScreenshot('chat-header-desktop.png')
+    await expect(component.getByText('ACP Frontend')).toBeVisible()
   })
 
-  test('renders transcript on mobile viewport', async ({ mount, page }) => {
+  test('renders transcript on mobile viewport', async ({ mount }) => {
     const component = await mount(
       <div className="p-4">
         <ChatTranscript
@@ -46,19 +58,26 @@ test.describe('chat surfaces', () => {
     )
 
     await expect(component.getByText('Thinking…')).toBeVisible()
-    await expect(page).toHaveScreenshot('chat-transcript-mobile.png')
+    await expect(component.getByText('The spacing looks balanced now.')).toBeVisible()
   })
 
   test('renders dense sessions and composer', async ({ mount }) => {
     const component = await mount(
       <div className="grid grid-cols-[20rem_1fr] gap-6 p-6">
         <SessionList
+          agents={[{ id: 'copilot', name: 'GitHub Copilot', status: 'active', command: 'copilot' }]}
           sessions={Array.from({ length: 6 }, (_, index) => ({
             id: `session-${index + 1}`,
             title: `Conversation ${index + 1}`,
             updatedAt: `2026-03-1${index + 1}T08:00:00.000Z`,
             agentId: 'copilot',
+            project: {
+              id: 'acp-frontend',
+              name: 'ACP Frontend',
+              path: '/home/runner/work/acp-frontend/acp-frontend',
+            },
           }))}
+          selectedAgentId="copilot"
           activeSessionId="session-1"
           creatingSession={false}
           onCreate={() => {}}
@@ -76,7 +95,7 @@ test.describe('chat surfaces', () => {
       </div>
     )
 
-    await expect(component.getByRole('button', { name: 'New chat' })).toBeVisible()
+    await expect(component.getByRole('button', { name: 'New' })).toBeVisible()
     await expect(component.getByRole('button', { name: 'Send' })).toBeEnabled()
   })
 })

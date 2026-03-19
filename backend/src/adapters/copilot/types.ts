@@ -5,7 +5,7 @@ import type {
   PromptResponse,
   SessionNotification,
 } from '@agentclientprotocol/sdk'
-import type { SessionMessage } from '../../agents/types.js'
+import type { SessionMessage, SessionProjectContext } from '../../agents/types.js'
 import type { CopilotSessionClient } from './process.js'
 
 export interface SessionState {
@@ -13,6 +13,7 @@ export interface SessionState {
   createdAt: Date
   updatedAt: Date
   title: string
+  project: SessionProjectContext | null
   agentProcess: CopilotProcess
   acpClient: CopilotSessionClient
   acpSessionId: string

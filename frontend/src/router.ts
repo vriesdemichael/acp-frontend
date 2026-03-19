@@ -17,7 +17,10 @@ const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
   beforeLoad: () => {
-    throw redirect({ to: '/chat', search: { session: undefined, agent: undefined } })
+    throw redirect({
+      to: '/chat',
+      search: { session: undefined, agent: undefined, project: undefined },
+    })
   },
 })
 
@@ -27,6 +30,7 @@ const chatRoute = createRoute({
   validateSearch: (search: Record<string, unknown>) => ({
     session: normalizeSearchString(search.session),
     agent: normalizeSearchString(search.agent),
+    project: normalizeSearchString(search.project),
   }),
   component: ChatPage,
 })

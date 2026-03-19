@@ -40,13 +40,13 @@ describe('CopilotAdapter', () => {
   })
 
   it('spawns a process and returns a UUID', async () => {
-    const sessionId = await adapter.newSession()
+    const sessionId = await adapter.newSession(null)
     expect(typeof sessionId).toBe('string')
     expect(sessionId).toMatch(/^[0-9a-f-]{36}$/i)
   })
 
   it('calls createProcess and proc.start()', async () => {
-    await adapter.newSession()
+    await adapter.newSession(null)
     expect(createProcess).toHaveBeenCalledOnce()
     const proc = createProcess.mock.results[0]!.value
     expect(proc.start).toHaveBeenCalledOnce()
@@ -54,7 +54,7 @@ describe('CopilotAdapter', () => {
 
   it('increments sessionCount', async () => {
     expect(adapter.sessionCount).toBe(0)
-    await adapter.newSession()
+    await adapter.newSession(null)
     expect(adapter.sessionCount).toBe(1)
   })
 
@@ -63,7 +63,7 @@ describe('CopilotAdapter', () => {
   })
 
   it('emits RUN_STARTED and RUN_FINISHED for a prompt', async () => {
-    const sessionId = await adapter.newSession()
+    const sessionId = await adapter.newSession(null)
     const emitted: BaseEvent[] = []
     adapter.events.on(sessionId, (e: BaseEvent) => emitted.push(e))
 
@@ -89,7 +89,7 @@ describe('CopilotAdapter', () => {
     })
     adapter = new CopilotAdapter(createProcess as unknown as ProcessFactory)
 
-    const sessionId = await adapter.newSession()
+    const sessionId = await adapter.newSession(null)
     const emitted: BaseEvent[] = []
     adapter.events.on(sessionId, (e: BaseEvent) => emitted.push(e))
 
@@ -120,7 +120,7 @@ describe('CopilotAdapter', () => {
     })
     adapter = new CopilotAdapter(createProcess as unknown as ProcessFactory)
 
-    const sessionId = await adapter.newSession()
+    const sessionId = await adapter.newSession(null)
     const emitted: BaseEvent[] = []
     adapter.events.on(sessionId, (e: BaseEvent) => emitted.push(e))
 
@@ -142,7 +142,7 @@ describe('CopilotAdapter', () => {
     })
     adapter = new CopilotAdapter(createProcess as unknown as ProcessFactory)
 
-    const sessionId = await adapter.newSession()
+    const sessionId = await adapter.newSession(null)
     const emitted: BaseEvent[] = []
     adapter.events.on(sessionId, (e: BaseEvent) => emitted.push(e))
 
@@ -154,7 +154,7 @@ describe('CopilotAdapter', () => {
   })
 
   it('stops the process and removes the session', async () => {
-    const sessionId = await adapter.newSession()
+    const sessionId = await adapter.newSession(null)
     expect(adapter.sessionCount).toBe(1)
 
     adapter.closeSession(sessionId)
@@ -165,7 +165,7 @@ describe('CopilotAdapter', () => {
   })
 
   it('removes all event listeners for the session', async () => {
-    const sessionId = await adapter.newSession()
+    const sessionId = await adapter.newSession(null)
     const listener = vi.fn()
     adapter.events.on(sessionId, listener)
     expect(new EventEmitter().listenerCount(sessionId)).toBe(0)

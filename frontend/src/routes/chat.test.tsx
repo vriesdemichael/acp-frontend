@@ -57,6 +57,59 @@ function mockFetch(options?: {
       } as Response)
     }
 
+    if (url === '/api/projects') {
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve([
+            {
+              id: 'acp-frontend',
+              name: 'ACP Frontend',
+              path: '/home/vries/projects/acp-frontend',
+              status: 'available',
+            },
+            {
+              id: 'docs-site',
+              name: 'Docs Site',
+              path: '/home/vries/projects/docs-site',
+              status: 'missing',
+            },
+          ]),
+      } as Response)
+    }
+
+    if (url === '/api/projects/acp-frontend/tree') {
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve([
+            { name: 'src', path: 'src', type: 'directory', hasChildren: true },
+            { name: 'package.json', path: 'package.json', type: 'file', hasChildren: false },
+          ]),
+      } as Response)
+    }
+
+    if (url === '/api/projects/acp-frontend/tree?path=src') {
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve([
+            { name: 'routes', path: 'src/routes', type: 'directory', hasChildren: true },
+            { name: 'main.tsx', path: 'src/main.tsx', type: 'file', hasChildren: false },
+          ]),
+      } as Response)
+    }
+
+    if (url === '/api/projects/acp-frontend/tree?path=src%2Froutes') {
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve([
+            { name: 'index.tsx', path: 'src/routes/index.tsx', type: 'file', hasChildren: false },
+          ]),
+      } as Response)
+    }
+
     if (url === '/api/sessions') {
       if (opts?.method === 'POST') {
         if (options?.sessionFails) {
@@ -72,6 +125,11 @@ function mockFetch(options?: {
               title: 'New chat',
               updatedAt: '2026-03-18T08:00:00.000Z',
               agentId: 'copilot',
+              project: {
+                id: 'acp-frontend',
+                name: 'ACP Frontend',
+                path: '/home/vries/projects/acp-frontend',
+              },
               messages: [],
             }),
         } as Response)
@@ -89,12 +147,22 @@ function mockFetch(options?: {
                     title: 'Inspect auth bug',
                     updatedAt: '2026-03-18T08:00:00.000Z',
                     agentId: 'copilot',
+                    project: {
+                      id: 'acp-frontend',
+                      name: 'ACP Frontend',
+                      path: '/home/vries/projects/acp-frontend',
+                    },
                   },
                   {
                     id: SECOND_SESSION_ID,
                     title: 'Review SSE handling',
                     updatedAt: '2026-03-17T09:30:00.000Z',
                     agentId: 'copilot',
+                    project: {
+                      id: 'acp-frontend',
+                      name: 'ACP Frontend',
+                      path: '/home/vries/projects/acp-frontend',
+                    },
                   },
                 ]
           ),
@@ -110,6 +178,11 @@ function mockFetch(options?: {
             title: 'Inspect auth bug',
             updatedAt: '2026-03-18T08:00:00.000Z',
             agentId: 'copilot',
+            project: {
+              id: 'acp-frontend',
+              name: 'ACP Frontend',
+              path: '/home/vries/projects/acp-frontend',
+            },
             messages: [],
           }),
       } as Response)
@@ -124,6 +197,11 @@ function mockFetch(options?: {
             title: 'Review SSE handling',
             updatedAt: '2026-03-17T09:30:00.000Z',
             agentId: 'copilot',
+            project: {
+              id: 'acp-frontend',
+              name: 'ACP Frontend',
+              path: '/home/vries/projects/acp-frontend',
+            },
             messages: [{ id: 'assistant-1', role: 'assistant', content: 'Previous answer' }],
           }),
       } as Response)
@@ -161,13 +239,13 @@ describe('ChatPage', () => {
   })
 
   it('renders the input field', async () => {
-    renderChatPage('/chat?session=test-session-id&agent=copilot')
+    renderChatPage('/chat?session=test-session-id&agent=copilot&project=acp-frontend')
     await waitFor(() => expect(screen.getByPlaceholderText('Type a message…')).toBeDefined())
     await waitFor(() => expect(MockEventSource.instance).not.toBeNull())
   })
 
   it('renders the workspace shell with header and extension panels', async () => {
-    renderChatPage('/chat?session=test-session-id&agent=copilot')
+    renderChatPage('/chat?session=test-session-id&agent=copilot&project=acp-frontend')
 
     await waitFor(() => expect(screen.getByText('Chat Workspace')).toBeDefined())
     expect(screen.getByTestId('chat-composer')).toBeDefined()
@@ -176,10 +254,15 @@ describe('ChatPage', () => {
     await waitFor(() => expect(MockEventSource.instance).not.toBeNull())
     expect(screen.getByTestId('chat-session-panel')).toBeDefined()
     expect(screen.getByTestId('chat-context-panel')).toBeDefined()
+    expect(screen.getByRole('combobox', { name: /Active project/i })).toBeDefined()
+    expect(screen.getByText('/home/vries/projects/acp-frontend')).toBeDefined()
+    expect(screen.getByRole('button', { name: /Workspace/i }).getAttribute('aria-expanded')).toBe(
+      'false'
+    )
   })
 
   it('shows the agent selector with unavailable agents disabled', async () => {
-    renderChatPage('/chat?session=test-session-id&agent=copilot')
+    renderChatPage('/chat?session=test-session-id&agent=copilot&project=acp-frontend')
 
     await waitFor(() => expect(screen.getByTestId('agent-selector')).toBeDefined())
     expect(screen.getByRole('combobox', { name: /Active agent/i })).toBeDefined()
@@ -191,7 +274,7 @@ describe('ChatPage', () => {
   })
 
   it('shows the empty transcript state once session is ready', async () => {
-    renderChatPage('/chat?session=test-session-id&agent=copilot')
+    renderChatPage('/chat?session=test-session-id&agent=copilot&project=acp-frontend')
 
     await waitFor(() => expect(screen.getByText('Start the conversation')).toBeDefined())
   })
@@ -200,7 +283,7 @@ describe('ChatPage', () => {
     const fetchSpy = mockFetch()
     vi.stubGlobal('fetch', fetchSpy)
 
-    renderChatPage('/chat?session=test-session-id&agent=copilot')
+    renderChatPage('/chat?session=test-session-id&agent=copilot&project=acp-frontend')
     await waitFor(() => expect(screen.getByPlaceholderText('Type a message…')).toBeDefined())
     const input = screen.getByPlaceholderText('Type a message…')
     await waitFor(() => expect((input as HTMLInputElement).disabled).toBe(false))
@@ -234,7 +317,7 @@ describe('ChatPage', () => {
   })
 
   it('shows user message immediately on submit', async () => {
-    renderChatPage('/chat?session=test-session-id&agent=copilot')
+    renderChatPage('/chat?session=test-session-id&agent=copilot&project=acp-frontend')
     await waitFor(() => expect(screen.getByPlaceholderText('Type a message…')).toBeDefined())
     const input = screen.getByPlaceholderText('Type a message…')
     await waitFor(() => expect((input as HTMLInputElement).disabled).toBe(false))
@@ -248,7 +331,7 @@ describe('ChatPage', () => {
   it('shows a session error state when creating a session fails', async () => {
     vi.stubGlobal('fetch', mockFetch({ noSessions: true, sessionFails: true }))
 
-    renderChatPage('/chat?session=test-session-id&agent=copilot')
+    renderChatPage('/chat?session=test-session-id&agent=copilot&project=acp-frontend')
 
     await waitFor(() =>
       expect(
@@ -262,7 +345,7 @@ describe('ChatPage', () => {
   it('shows a send error state when posting a message fails', async () => {
     vi.stubGlobal('fetch', mockFetch({ messageFails: true }))
 
-    renderChatPage('/chat?session=test-session-id&agent=copilot')
+    renderChatPage('/chat?session=test-session-id&agent=copilot&project=acp-frontend')
     await waitFor(() => expect(screen.getByPlaceholderText('Type a message…')).toBeDefined())
     const input = screen.getByPlaceholderText('Type a message…')
     await waitFor(() => expect((input as HTMLInputElement).disabled).toBe(false))
@@ -291,7 +374,11 @@ describe('ChatPage', () => {
     renderChatPage('/chat?session=test-session-id&agent=copilot')
     await waitFor(() => expect(screen.getByText('Start the conversation')).toBeDefined())
 
-    window.history.pushState({}, '', `/chat?session=${SECOND_SESSION_ID}&agent=copilot`)
+    window.history.pushState(
+      {},
+      '',
+      `/chat?session=${SECOND_SESSION_ID}&agent=copilot&project=acp-frontend`
+    )
     window.dispatchEvent(new PopStateEvent('popstate'))
 
     await waitFor(() => expect(screen.getByText('Previous answer')).toBeDefined())
@@ -327,9 +414,57 @@ describe('ChatPage', () => {
   it('renders an empty session state when no sessions exist', async () => {
     vi.stubGlobal('fetch', mockFetch({ noSessions: true }))
 
-    renderChatPage('/chat?agent=copilot')
+    renderChatPage('/chat?agent=copilot&project=acp-frontend')
 
     await waitFor(() => expect(screen.getByText('No chats yet for this backend.')).toBeDefined())
+  })
+
+  it('shows a helpful error when no available projects exist', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation((url: string) => {
+        if (url === '/api/agents') {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve([
+                { id: 'copilot', name: 'GitHub Copilot', status: 'active', command: 'copilot' },
+              ]),
+          } as Response)
+        }
+
+        if (url === '/api/projects') {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve([
+                {
+                  id: 'docs-site',
+                  name: 'Docs Site',
+                  path: '/home/vries/projects/docs-site',
+                  status: 'missing',
+                },
+              ]),
+          } as Response)
+        }
+
+        if (url === '/api/sessions') {
+          return Promise.resolve({ ok: true, json: () => Promise.resolve([]) } as Response)
+        }
+
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+      })
+    )
+
+    renderChatPage('/chat?agent=copilot')
+
+    await waitFor(() =>
+      expect(
+        screen.getAllByText(
+          'No projects are currently available. Check the generated workspace config and try again.'
+        ).length
+      ).toBeGreaterThan(0)
+    )
   })
 
   it('groups chats by backend and keeps unavailable backends visible', async () => {
@@ -348,6 +483,34 @@ describe('ChatPage', () => {
           } as Response)
         }
 
+        if (url === '/api/projects') {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve([
+                {
+                  id: 'acp-frontend',
+                  name: 'ACP Frontend',
+                  path: '/home/vries/projects/acp-frontend',
+                  status: 'available',
+                },
+                {
+                  id: 'docs-site',
+                  name: 'Docs Site',
+                  path: '/home/vries/projects/docs-site',
+                  status: 'available',
+                },
+              ]),
+          } as Response)
+        }
+
+        if (url === '/api/projects/acp-frontend/tree') {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve([]),
+          } as Response)
+        }
+
         if (url === '/api/sessions') {
           if (opts?.method === 'POST') {
             return Promise.resolve({
@@ -359,6 +522,11 @@ describe('ChatPage', () => {
                   title: 'New chat',
                   updatedAt: '2026-03-18T08:00:00.000Z',
                   agentId: 'copilot',
+                  project: {
+                    id: 'acp-frontend',
+                    name: 'ACP Frontend',
+                    path: '/home/vries/projects/acp-frontend',
+                  },
                   messages: [],
                 }),
             } as Response)
@@ -373,18 +541,33 @@ describe('ChatPage', () => {
                   title: 'Inspect auth bug',
                   updatedAt: '2026-03-18T08:00:00.000Z',
                   agentId: 'copilot',
+                  project: {
+                    id: 'acp-frontend',
+                    name: 'ACP Frontend',
+                    path: '/home/vries/projects/acp-frontend',
+                  },
                 },
                 {
                   id: 'gemini-session-id',
                   title: 'Gemini discovery notes',
                   updatedAt: '2026-03-18T10:00:00.000Z',
                   agentId: 'gemini-cli',
+                  project: {
+                    id: 'docs-site',
+                    name: 'Docs Site',
+                    path: '/home/vries/projects/docs-site',
+                  },
                 },
                 {
                   id: 'claude-session-id',
                   title: 'Claude backlog',
                   updatedAt: '2026-03-17T06:00:00.000Z',
                   agentId: 'claude-code',
+                  project: {
+                    id: 'docs-site',
+                    name: 'Docs Site',
+                    path: '/home/vries/projects/docs-site',
+                  },
                 },
               ]),
           } as Response)
@@ -399,6 +582,11 @@ describe('ChatPage', () => {
                 title: 'Inspect auth bug',
                 updatedAt: '2026-03-18T08:00:00.000Z',
                 agentId: 'copilot',
+                project: {
+                  id: 'acp-frontend',
+                  name: 'ACP Frontend',
+                  path: '/home/vries/projects/acp-frontend',
+                },
                 messages: [],
               }),
           } as Response)
@@ -408,7 +596,7 @@ describe('ChatPage', () => {
       })
     )
 
-    renderChatPage('/chat?session=test-session-id&agent=copilot')
+    renderChatPage('/chat?session=test-session-id&agent=copilot&project=acp-frontend')
 
     const sessionPanel = await screen.findByTestId('chat-session-panel')
 

@@ -35,7 +35,7 @@ export function SessionList({
             Chats
           </h2>
           <p className="mt-2 text-xs text-slate-500">
-            Grouped by backend. New chats open with the selected agent.
+            Grouped by backend. New chats open with the selected agent and project.
           </p>
         </div>
 
@@ -98,6 +98,11 @@ export function SessionList({
                         <p className="mt-2 text-[11px] text-slate-500">
                           Updated {formatUpdatedAt(session.updatedAt)}
                         </p>
+                        {session.project ? (
+                          <p className="mt-1 truncate text-[11px] text-slate-500">
+                            {session.project.name}
+                          </p>
+                        ) : null}
                       </button>
                     )
                   })}

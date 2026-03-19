@@ -100,6 +100,28 @@ function mockFetch() {
       } as Response)
     }
 
+    if (url === '/api/projects') {
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve([
+            {
+              id: 'acp-frontend',
+              name: 'ACP Frontend',
+              path: '/home/vries/projects/acp-frontend',
+              status: 'available',
+            },
+          ]),
+      } as Response)
+    }
+
+    if (url === '/api/projects/acp-frontend/tree') {
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve([]),
+      } as Response)
+    }
+
     if (url === '/api/sessions') {
       if (opts?.method === 'POST') {
         return Promise.resolve({
@@ -111,6 +133,11 @@ function mockFetch() {
               title: 'New chat',
               updatedAt: '2026-03-18T08:00:00.000Z',
               agentId: 'copilot',
+              project: {
+                id: 'acp-frontend',
+                name: 'ACP Frontend',
+                path: '/home/vries/projects/acp-frontend',
+              },
               messages: [],
             }),
         } as Response)
@@ -125,6 +152,11 @@ function mockFetch() {
               title: 'New chat',
               updatedAt: '2026-03-18T08:00:00.000Z',
               agentId: 'copilot',
+              project: {
+                id: 'acp-frontend',
+                name: 'ACP Frontend',
+                path: '/home/vries/projects/acp-frontend',
+              },
             },
           ]),
       } as Response)
@@ -139,6 +171,11 @@ function mockFetch() {
             title: 'New chat',
             updatedAt: '2026-03-18T08:00:00.000Z',
             agentId: 'copilot',
+            project: {
+              id: 'acp-frontend',
+              name: 'ACP Frontend',
+              path: '/home/vries/projects/acp-frontend',
+            },
             messages: [],
           }),
       } as Response)
@@ -171,6 +208,11 @@ describe('app router', () => {
 
   it('navigates to backend settings from the chat header', async () => {
     window.history.pushState({}, '', '/chat?session=test-session-id&agent=copilot')
+    window.history.replaceState(
+      {},
+      '',
+      '/chat?session=test-session-id&agent=copilot&project=acp-frontend'
+    )
 
     render(<App routerInstance={createAppRouter()} />)
 
@@ -203,11 +245,11 @@ describe('app router', () => {
   })
 
   it('normalizes blank chat search params to undefined', async () => {
-    window.history.pushState({}, '', '/chat?session=%20%20%20&agent=')
+    window.history.pushState({}, '', '/chat?session=%20%20%20&agent=&project=')
 
     render(<App routerInstance={createAppRouter()} />)
 
     await waitFor(() => expect(screen.getByPlaceholderText('Type a message…')).toBeDefined())
-    await waitFor(() => expect(window.location.search).toBe('?agent=copilot'))
+    await waitFor(() => expect(window.location.search).toBe('?agent=copilot&project=acp-frontend'))
   })
 })

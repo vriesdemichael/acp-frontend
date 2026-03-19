@@ -43,10 +43,17 @@ export interface SessionSummary {
   title: string
   updatedAt: string
   agentId: string
+  project: SessionProjectContext | null
 }
 
 export interface SessionDetails extends SessionSummary {
   messages: SessionMessage[]
+}
+
+export interface SessionProjectContext {
+  id: string
+  name: string
+  path: string
 }
 
 export interface SessionAdapter {
@@ -55,7 +62,7 @@ export interface SessionAdapter {
   readonly events: EventEmitter
   getEndpointSupport(): BackendEndpointSupport
   ownsSession(sessionId: string): boolean
-  newSession(mcpServers?: McpServer[]): Promise<string>
+  newSession(project: SessionProjectContext | null, mcpServers?: McpServer[]): Promise<string>
   sendMessage(sessionId: string, text: string): Promise<void>
   closeSession(sessionId: string): void
   listSessions(): SessionSummary[]

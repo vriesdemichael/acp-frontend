@@ -8,6 +8,35 @@ vi.mock('../mcp.js', () => ({
   loadMcpServers: () => [],
 }))
 
+vi.mock('../projects/service.js', () => ({
+  getProjectById: vi.fn((id: string) => {
+    if (id === 'repo-1') {
+      return {
+        id: 'repo-1',
+        name: 'ACP Frontend',
+        path: '/work/acp-frontend',
+        status: 'available',
+      }
+    }
+
+    if (id === 'repo-2') {
+      return {
+        id: 'repo-2',
+        name: 'Missing Project',
+        path: '/work/missing',
+        status: 'missing',
+      }
+    }
+
+    return null
+  }),
+  toSessionProjectContext: vi.fn((project) => ({
+    id: project.id,
+    name: project.name,
+    path: project.path,
+  })),
+}))
+
 function createRegistryStub(overrides?: Partial<AgentRegistry>): AgentRegistry {
   return {
     listSessions: vi.fn(() => []),
@@ -52,5 +81,66 @@ describe('sessions routes', () => {
     })
 
     expect(res.status).toBe(503)
+  })
+
+  it('passes the selected project when creating a session', async () => {
+    const registry = createRegistryStub({
+      getSession: vi.fn(() => ({
+        id: 'session-1',
+        title: 'New chat',
+        updatedAt: '2026-03-19T10:00:00.000Z',
+        agentId: 'copilot',
+        project: {
+          id: 'repo-1',
+          name: 'ACP Frontend',
+          path: '/work/acp-frontend',
+        },
+        messages: [],
+      })),
+    })
+    const app = new Hono().route('/api', sessionsRoutes(registry))
+
+    const res = await app.request('/api/sessions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ agentId: 'copilot', projectId: 'repo-1' }),
+    })
+
+    expect(res.status).toBe(201)
+    expect(vi.mocked(registry.createSession)).toHaveBeenCalledWith(
+      'copilot',
+      {
+        id: 'repo-1',
+        name: 'ACP Frontend',
+        path: '/work/acp-frontend',
+      },
+      []
+    )
+  })
+
+  it('rejects unknown projects when creating a session', async () => {
+    const registry = createRegistryStub()
+    const app = new Hono().route('/api', sessionsRoutes(registry))
+
+    const res = await app.request('/api/sessions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ agentId: 'copilot', projectId: 'unknown' }),
+    })
+
+    expect(res.status).toBe(404)
+  })
+
+  it('rejects unavailable projects when creating a session', async () => {
+    const registry = createRegistryStub()
+    const app = new Hono().route('/api', sessionsRoutes(registry))
+
+    const res = await app.request('/api/sessions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ agentId: 'copilot', projectId: 'repo-2' }),
+    })
+
+    expect(res.status).toBe(409)
   })
 })

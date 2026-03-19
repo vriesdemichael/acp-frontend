@@ -13,6 +13,7 @@ import type {
   SessionAdapter,
   SessionDetails,
   SessionMessage,
+  SessionProjectContext,
   SessionSummary,
 } from '../../agents/types.js'
 import { deriveEndpointSupport } from '../shared/capabilities.js'
@@ -35,7 +36,10 @@ export class CopilotAdapter implements SessionAdapter {
 
   constructor(private readonly createProcess: ProcessFactory) {}
 
-  async newSession(mcpServers: McpServer[] = []): Promise<string> {
+  async newSession(
+    project: SessionProjectContext | null,
+    mcpServers: McpServer[] = []
+  ): Promise<string> {
     const sessionId = randomUUID()
 
     const proc = this.createProcess({
@@ -55,13 +59,17 @@ export class CopilotAdapter implements SessionAdapter {
     const client = await proc.start()
     const initializeResponse = await client.initialize()
     this.lastKnownEndpointSupport = deriveEndpointSupport(initializeResponse)
-    const createdSession = await client.newSession({ cwd: process.cwd(), mcpServers })
+    const createdSession = await client.newSession({
+      cwd: project?.path ?? process.cwd(),
+      mcpServers,
+    })
 
     this.sessions.set(sessionId, {
       id: sessionId,
       createdAt: new Date(),
       updatedAt: new Date(),
       title: 'New chat',
+      project,
       agentProcess: proc,
       acpClient: client,
       acpSessionId: createdSession.sessionId,
@@ -168,6 +176,7 @@ export class CopilotAdapter implements SessionAdapter {
       title: session.title,
       updatedAt: session.updatedAt.toISOString(),
       agentId: this.agentId,
+      project: session.project,
     }
   }
 

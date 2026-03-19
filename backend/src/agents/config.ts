@@ -61,6 +61,7 @@ const DEFAULT_BACKENDS: BackendDefinitionRecord[] = [
 ]
 
 export function readBackendConfig(): BackendDefinitionRecord[] {
+  ensureBackendConfigExists()
   const file = readBackendConfigFile()
   const configured = file.backends
 
@@ -100,6 +101,14 @@ function readBackendConfigFile(): BackendConfigFile {
   } catch {
     return {}
   }
+}
+
+function ensureBackendConfigExists(): void {
+  if (existsSync(BACKEND_CONFIG_PATH)) {
+    return
+  }
+
+  writeBackendConfig(DEFAULT_BACKENDS)
 }
 
 function normalizeBackendRecord(record: BackendDefinitionRecord): BackendDefinitionRecord {
