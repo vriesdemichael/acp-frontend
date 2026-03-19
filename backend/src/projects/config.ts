@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { basename, dirname, join, resolve } from 'node:path'
+import { basename, dirname, resolve } from 'node:path'
+import { getConfigPath } from '../storage.js'
 
 export interface ProjectDefinitionRecord {
   id: string
@@ -12,7 +13,7 @@ interface ProjectConfigFile {
 }
 
 const PROJECTS_CONFIG_PATH =
-  process.env['ACP_PROJECTS_CONFIG_PATH'] ?? join(process.cwd(), '.acp', 'projects.json')
+  process.env['ACP_PROJECTS_CONFIG_PATH'] ?? getConfigPath('projects.json')
 
 export function readProjectConfig(): ProjectDefinitionRecord[] {
   ensureProjectConfigExists()
