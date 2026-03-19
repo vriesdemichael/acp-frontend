@@ -88,9 +88,21 @@ export function useAgUiChat({
     () => agents.filter((candidate) => candidate.status === 'active'),
     [agents]
   )
+  const currentSession = useMemo(
+    () => sessions.find((s) => s.id === currentSessionId) ?? null,
+    [sessions, currentSessionId]
+  )
+  const currentSessionAgent = useMemo(
+    () => (currentSession ? (agents.find((a) => a.id === currentSession.agentId) ?? null) : null),
+    [agents, currentSession]
+  )
   const ready = useMemo(
-    () => currentSessionId !== null && selectedProject?.status === 'available' && !creatingSession,
-    [creatingSession, currentSessionId, selectedProject]
+    () =>
+      currentSessionId !== null &&
+      currentSessionAgent?.status === 'active' &&
+      selectedProject?.status === 'available' &&
+      !creatingSession,
+    [creatingSession, currentSessionId, currentSessionAgent, selectedProject]
   )
 
   const fetchJson = useCallback(async <T>(url: string, init?: RequestInit): Promise<T> => {

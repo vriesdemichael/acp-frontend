@@ -413,7 +413,7 @@ describe('ChatPage', () => {
 
     renderChatPage('/chat?project=acp-frontend')
 
-    await waitFor(() => expect(screen.getByText('No chats yet for this backend.')).toBeDefined())
+    await waitFor(() => expect(screen.getByText('No chats yet.')).toBeDefined())
   })
 
   it('shows a helpful error when no available projects exist', async () => {

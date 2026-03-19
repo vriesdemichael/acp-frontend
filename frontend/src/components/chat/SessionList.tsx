@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { AgentSummary, SessionSummary } from '../../hooks/useAgUiChat.js'
 
 interface SessionListProps {
@@ -20,10 +20,15 @@ export function SessionList({
 }: SessionListProps) {
   const [pickerOpen, setPickerOpen] = useState(false)
 
-  const activeAgents = agents.filter((agent) => agent.status === 'active')
-  const visibleSessions = sessions
-    .filter((session) => !isSessionFromDisabledAgent(session, agents))
-    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+  const agentById = useMemo(() => new Map(agents.map((a) => [a.id, a])), [agents])
+  const activeAgents = useMemo(() => agents.filter((agent) => agent.status === 'active'), [agents])
+  const visibleSessions = useMemo(
+    () =>
+      sessions
+        .filter((session) => agentById.get(session.agentId)?.status !== 'disabled')
+        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
+    [sessions, agentById]
+  )
 
   function handleAgentPick(agentId: string) {
     setPickerOpen(false)
@@ -72,15 +77,14 @@ export function SessionList({
 
           {pickerOpen && activeAgents.length > 1 && (
             <div
-              role="listbox"
+              role="menu"
               aria-label="Pick an agent for the new chat"
               className="absolute right-0 top-full z-20 mt-1 w-48 rounded-xl border border-white/10 bg-slate-900 py-1 shadow-xl"
             >
               {activeAgents.map((agent) => (
                 <button
                   key={agent.id}
-                  role="option"
-                  aria-selected={false}
+                  role="menuitem"
                   type="button"
                   onClick={() => handleAgentPick(agent.id)}
                   className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-100 hover:bg-slate-800"
@@ -99,12 +103,12 @@ export function SessionList({
           <div className="rounded-xl border border-dashed border-white/10 bg-slate-900/70 p-4 text-sm text-slate-400">
             {activeAgents.length === 0
               ? 'No backends are ready yet. Start an adapter and reload to continue.'
-              : 'No chats yet for this backend.'}
+              : 'No chats yet.'}
           </div>
         ) : (
           visibleSessions.map((session) => {
             const active = session.id === activeSessionId
-            const agent = agents.find((a) => a.id === session.agentId)
+            const agent = agentById.get(session.agentId)
 
             return (
               <button
@@ -135,13 +139,6 @@ export function SessionList({
       </div>
     </aside>
   )
-}
-
-function isSessionFromDisabledAgent(session: SessionSummary, agents: AgentSummary[]): boolean {
-  const agent = agents.find((a) => a.id === session.agentId)
-  // If the agent is known and explicitly disabled, hide its sessions.
-  // Sessions from unknown agents (not in config) remain visible.
-  return agent?.status === 'disabled'
 }
 
 interface AgentDotProps {
