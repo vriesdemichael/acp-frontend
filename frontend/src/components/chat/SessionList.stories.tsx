@@ -23,7 +23,6 @@ const meta = {
       { id: 'claude-code', name: 'Claude Code', status: 'unavailable', command: null },
     ],
     sessions: denseSessions,
-    selectedAgentId: 'copilot',
     activeSessionId: 'session-1',
     creatingSession: false,
     onCreate: () => {},
@@ -49,7 +48,7 @@ export const Creating: Story = {
   },
 }
 
-export const GroupedByBackend: Story = {
+export const MixedAgents: Story = {
   args: {
     sessions: [
       ...denseSessions,
@@ -65,6 +64,5 @@ export const GroupedByBackend: Story = {
         },
       },
     ],
-    selectedAgentId: 'gemini-cli',
   },
 }

@@ -239,13 +239,13 @@ describe('ChatPage', () => {
   })
 
   it('renders the input field', async () => {
-    renderChatPage('/chat?session=test-session-id&agent=copilot&project=acp-frontend')
+    renderChatPage('/chat?session=test-session-id&project=acp-frontend')
     await waitFor(() => expect(screen.getByPlaceholderText('Type a message…')).toBeDefined())
     await waitFor(() => expect(MockEventSource.instance).not.toBeNull())
   })
 
   it('renders the workspace shell with header and extension panels', async () => {
-    renderChatPage('/chat?session=test-session-id&agent=copilot&project=acp-frontend')
+    renderChatPage('/chat?session=test-session-id&project=acp-frontend')
 
     await waitFor(() => expect(screen.getByText('Chat Workspace')).toBeDefined())
     expect(screen.getByTestId('chat-composer')).toBeDefined()
@@ -261,20 +261,21 @@ describe('ChatPage', () => {
     )
   })
 
-  it('shows the agent selector with unavailable agents disabled', async () => {
-    renderChatPage('/chat?session=test-session-id&agent=copilot&project=acp-frontend')
+  it('shows agent status dot and name for each session', async () => {
+    renderChatPage('/chat?session=test-session-id&project=acp-frontend')
 
-    await waitFor(() => expect(screen.getByTestId('agent-selector')).toBeDefined())
-    expect(screen.getByRole('combobox', { name: /Active agent/i })).toBeDefined()
-    expect(screen.getByRole('option', { name: /GitHub Copilot/i })).toBeDefined()
-    expect(screen.getByText('GitHub Copilot: copilot')).toBeDefined()
-    expect(
-      (screen.getByRole('option', { name: /Claude Code/i }) as HTMLOptionElement).disabled
-    ).toBe(true)
+    const sessionPanel = await screen.findByTestId('chat-session-panel')
+
+    await waitFor(() =>
+      expect(within(sessionPanel).getAllByText('GitHub Copilot').length).toBeGreaterThan(0)
+    )
+    // Status dot for active agent should carry aria-label "online"
+    const dots = within(sessionPanel).getAllByLabelText('online')
+    expect(dots.length).toBeGreaterThan(0)
   })
 
   it('shows the empty transcript state once session is ready', async () => {
-    renderChatPage('/chat?session=test-session-id&agent=copilot&project=acp-frontend')
+    renderChatPage('/chat?session=test-session-id&project=acp-frontend')
 
     await waitFor(() => expect(screen.getByText('Start the conversation')).toBeDefined())
   })
@@ -283,7 +284,7 @@ describe('ChatPage', () => {
     const fetchSpy = mockFetch()
     vi.stubGlobal('fetch', fetchSpy)
 
-    renderChatPage('/chat?session=test-session-id&agent=copilot&project=acp-frontend')
+    renderChatPage('/chat?session=test-session-id&project=acp-frontend')
     await waitFor(() => expect(screen.getByPlaceholderText('Type a message…')).toBeDefined())
     const input = screen.getByPlaceholderText('Type a message…')
     await waitFor(() => expect((input as HTMLInputElement).disabled).toBe(false))
@@ -317,7 +318,7 @@ describe('ChatPage', () => {
   })
 
   it('shows user message immediately on submit', async () => {
-    renderChatPage('/chat?session=test-session-id&agent=copilot&project=acp-frontend')
+    renderChatPage('/chat?session=test-session-id&project=acp-frontend')
     await waitFor(() => expect(screen.getByPlaceholderText('Type a message…')).toBeDefined())
     const input = screen.getByPlaceholderText('Type a message…')
     await waitFor(() => expect((input as HTMLInputElement).disabled).toBe(false))
@@ -331,7 +332,7 @@ describe('ChatPage', () => {
   it('shows a session error state when creating a session fails', async () => {
     vi.stubGlobal('fetch', mockFetch({ noSessions: true, sessionFails: true }))
 
-    renderChatPage('/chat?session=test-session-id&agent=copilot&project=acp-frontend')
+    renderChatPage('/chat?session=test-session-id&project=acp-frontend')
 
     await waitFor(() =>
       expect(
@@ -345,7 +346,7 @@ describe('ChatPage', () => {
   it('shows a send error state when posting a message fails', async () => {
     vi.stubGlobal('fetch', mockFetch({ messageFails: true }))
 
-    renderChatPage('/chat?session=test-session-id&agent=copilot&project=acp-frontend')
+    renderChatPage('/chat?session=test-session-id&project=acp-frontend')
     await waitFor(() => expect(screen.getByPlaceholderText('Type a message…')).toBeDefined())
     const input = screen.getByPlaceholderText('Type a message…')
     await waitFor(() => expect((input as HTMLInputElement).disabled).toBe(false))
@@ -371,14 +372,10 @@ describe('ChatPage', () => {
   })
 
   it('reloads transcript content when the route session changes externally', async () => {
-    renderChatPage('/chat?session=test-session-id&agent=copilot')
+    renderChatPage('/chat?session=test-session-id')
     await waitFor(() => expect(screen.getByText('Start the conversation')).toBeDefined())
 
-    window.history.pushState(
-      {},
-      '',
-      `/chat?session=${SECOND_SESSION_ID}&agent=copilot&project=acp-frontend`
-    )
+    window.history.pushState({}, '', `/chat?session=${SECOND_SESSION_ID}&project=acp-frontend`)
     window.dispatchEvent(new PopStateEvent('popstate'))
 
     await waitFor(() => expect(screen.getByText('Previous answer')).toBeDefined())
@@ -414,9 +411,9 @@ describe('ChatPage', () => {
   it('renders an empty session state when no sessions exist', async () => {
     vi.stubGlobal('fetch', mockFetch({ noSessions: true }))
 
-    renderChatPage('/chat?agent=copilot&project=acp-frontend')
+    renderChatPage('/chat?project=acp-frontend')
 
-    await waitFor(() => expect(screen.getByText('No chats yet for this backend.')).toBeDefined())
+    await waitFor(() => expect(screen.getByText('No chats yet.')).toBeDefined())
   })
 
   it('shows a helpful error when no available projects exist', async () => {
@@ -456,7 +453,7 @@ describe('ChatPage', () => {
       })
     )
 
-    renderChatPage('/chat?agent=copilot')
+    renderChatPage('/chat')
 
     await waitFor(() =>
       expect(
@@ -467,7 +464,7 @@ describe('ChatPage', () => {
     )
   })
 
-  it('groups chats by backend and keeps unavailable backends visible', async () => {
+  it('shows flat session list with agent dots for all active backends', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
@@ -553,9 +550,9 @@ describe('ChatPage', () => {
                   updatedAt: '2026-03-18T10:00:00.000Z',
                   agentId: 'gemini-cli',
                   project: {
-                    id: 'docs-site',
-                    name: 'Docs Site',
-                    path: '/home/vries/projects/docs-site',
+                    id: 'acp-frontend',
+                    name: 'ACP Frontend',
+                    path: '/home/vries/projects/acp-frontend',
                   },
                 },
                 {
@@ -564,9 +561,9 @@ describe('ChatPage', () => {
                   updatedAt: '2026-03-17T06:00:00.000Z',
                   agentId: 'claude-code',
                   project: {
-                    id: 'docs-site',
-                    name: 'Docs Site',
-                    path: '/home/vries/projects/docs-site',
+                    id: 'acp-frontend',
+                    name: 'ACP Frontend',
+                    path: '/home/vries/projects/acp-frontend',
                   },
                 },
               ]),
@@ -596,18 +593,26 @@ describe('ChatPage', () => {
       })
     )
 
-    renderChatPage('/chat?session=test-session-id&agent=copilot&project=acp-frontend')
+    renderChatPage('/chat?session=test-session-id')
 
     const sessionPanel = await screen.findByTestId('chat-session-panel')
 
-    await waitFor(() => expect(within(sessionPanel).getByText('GitHub Copilot')).toBeDefined())
+    // Flat list shows sessions from all non-disabled agents within selected project
+    await waitFor(() => expect(within(sessionPanel).getByText('Inspect auth bug')).toBeDefined())
+    expect(within(sessionPanel).getByText('Gemini discovery notes')).toBeDefined()
+    // Sessions from 'unavailable' agents are visible (only 'disabled' status hides sessions)
+    expect(within(sessionPanel).getByText('Claude backlog')).toBeDefined()
+
+    // Agent names appear as row labels on each session
+    expect(within(sessionPanel).getAllByText('GitHub Copilot').length).toBeGreaterThan(0)
     expect(within(sessionPanel).getByText('Gemini CLI')).toBeDefined()
-    expect(within(sessionPanel).queryByText('Claude Code')).toBeNull()
-    expect(within(sessionPanel).getByText('Inspect auth bug')).toBeDefined()
-    expect(within(sessionPanel).queryByText('Claude backlog')).toBeNull()
-    expect(within(sessionPanel).queryByText('Gemini discovery notes')).toBeNull()
-    expect(within(sessionPanel).getAllByText('Ready').length).toBeGreaterThan(0)
+    // claude-code agent name appears since its sessions are not hidden
+    expect(within(sessionPanel).getByText('Claude Code')).toBeDefined()
+
+    // Active agents have online dots; no pill badges for grouping
+    expect(within(sessionPanel).getAllByLabelText('online').length).toBeGreaterThan(0)
+    expect(within(sessionPanel).queryByText('Selected')).toBeNull()
+    expect(within(sessionPanel).queryByText('Ready')).toBeNull()
     expect(within(sessionPanel).queryByText('Offline')).toBeNull()
-    expect(within(sessionPanel).getByText('Selected')).toBeDefined()
   })
 })

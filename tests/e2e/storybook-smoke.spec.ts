@@ -5,7 +5,7 @@ test.describe('storybook smoke', () => {
     await page.goto('/?path=/story/chat-chatheader--ready')
     const preview = await waitForPreviewFrame(page)
     await expect(preview.getByText('Chat Workspace')).toBeVisible({ timeout: 15_000 })
-    await expect(preview.getByRole('combobox', { name: 'Active agent' })).toBeVisible({
+    await expect(preview.getByText('Ready')).toBeVisible({
       timeout: 15_000,
     })
   })

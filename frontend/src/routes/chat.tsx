@@ -14,18 +14,7 @@ export function ChatPage() {
   const navigate = useNavigate({ from: '/chat' })
   const search = useSearch({ from: '/chat' })
   const sessionId = search.session ?? null
-  const agentId = search.agent ?? null
   const projectId = search.project ?? null
-
-  const onAgentSelected = useCallback(
-    (nextAgentId: string) => {
-      void navigate({
-        to: '/chat',
-        search: (current) => ({ ...current, agent: nextAgentId }),
-      })
-    },
-    [navigate]
-  )
 
   const onProjectSelected = useCallback(
     (nextProjectId: string | null) => {
@@ -58,17 +47,15 @@ export function ChatPage() {
   )
 
   const {
-    agentId: activeAgentId,
     agents,
+    activeAgents,
     creatingSession,
     errorMessage,
     loading,
     messages,
     projects,
     ready,
-    selectedAgent,
     selectedProject,
-    selectAgent,
     selectProject,
     selectSession,
     sendMessage,
@@ -78,9 +65,7 @@ export function ChatPage() {
     thinking,
   } = useAgUiChat({
     sessionId,
-    agentId,
     projectId,
-    onAgentSelected,
     onProjectSelected,
     onSessionCreated,
     onSessionSelected,
@@ -92,10 +77,13 @@ export function ChatPage() {
   const [treeError, setTreeError] = useState<string | null>(null)
   const [expandedPaths, setExpandedPaths] = useState<string[]>([])
   const [selectedEntryPath, setSelectedEntryPath] = useState<string | null>(null)
-  const activeAgentName = useMemo(
-    () => selectedAgent?.name ?? 'the selected agent',
-    [selectedAgent]
-  )
+
+  // Derive the name of the agent that owns the current session for transcript display
+  const activeAgentName = useMemo(() => {
+    const currentSession = sessions.find((s) => s.id === activeSessionId)
+    const agent = agents.find((a) => a.id === currentSession?.agentId)
+    return agent?.name ?? 'the agent'
+  }, [activeSessionId, agents, sessions])
 
   const getParentTreePath = useCallback((path: string): string | null => {
     const lastSlash = path.lastIndexOf('/')
@@ -159,10 +147,7 @@ export function ChatPage() {
     <main className="min-h-screen bg-[#05070b] text-slate-100">
       <div className="mx-auto flex min-h-screen w-full max-w-[1800px] flex-col">
         <ChatHeader
-          agentId={activeAgentId}
-          agents={agents}
           errorMessage={errorMessage}
-          onAgentSelect={selectAgent}
           project={selectedProject}
           sessionId={activeSessionId}
           ready={ready}
@@ -177,7 +162,6 @@ export function ChatPage() {
                 ? sessions.filter((session) => session.project?.id === selectedProject.id)
                 : sessions
             }
-            selectedAgentId={activeAgentId}
             activeSessionId={activeSessionId}
             creatingSession={creatingSession}
             onCreate={startNewSession}
@@ -207,6 +191,7 @@ export function ChatPage() {
             projects={projects}
             selectedProjectId={selectedProject?.id ?? null}
             onProjectSelect={selectProject}
+            activeAgentCount={activeAgents.length}
             tree={tree}
             treePath={treePath}
             treeLoading={treeLoading}

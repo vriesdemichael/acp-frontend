@@ -13,13 +13,7 @@ function ChatLayoutStory() {
     <main className="min-h-screen bg-[#05070b] text-slate-100">
       <div className="mx-auto flex min-h-screen w-full max-w-[1800px] flex-col">
         <ChatHeader
-          agentId="copilot"
-          agents={[
-            { id: 'copilot', name: 'GitHub Copilot', status: 'active', command: 'copilot' },
-            { id: 'claude-code', name: 'Claude Code', status: 'unavailable', command: null },
-          ]}
           errorMessage={null}
-          onAgentSelect={() => {}}
           renderLink={({ className, children }) => <span className={className}>{children}</span>}
           project={{
             id: 'acp-frontend',
@@ -85,7 +79,6 @@ function ChatLayoutStory() {
                 },
               },
             ]}
-            selectedAgentId="copilot"
             activeSessionId="session-12345678"
             creatingSession={false}
             onCreate={() => {}}
@@ -146,6 +139,7 @@ function ChatLayoutStory() {
             ]}
             selectedProjectId="acp-frontend"
             onProjectSelect={() => {}}
+            activeAgentCount={2}
             tree={[
               { name: 'src', path: 'src', type: 'directory', hasChildren: true },
               { name: 'package.json', path: 'package.json', type: 'file', hasChildren: false },

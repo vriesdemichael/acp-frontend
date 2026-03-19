@@ -5,21 +5,10 @@ import { SessionList } from '../../frontend/src/components/chat/SessionList.js'
 import { ChatComposer } from '../../frontend/src/components/chat/ChatComposer.js'
 
 test.describe('chat surfaces', () => {
-  test('renders header status and compact selector', async ({ mount }) => {
+  test('renders header status info', async ({ mount }) => {
     const component = await mount(
       <div className="p-6">
         <ChatHeader
-          agentId="copilot"
-          agents={[
-            { id: 'copilot', name: 'GitHub Copilot', status: 'active', command: 'copilot' },
-            {
-              id: 'claude-code',
-              name: 'Claude Code',
-              status: 'unavailable',
-              command: null,
-            },
-          ]}
-          onAgentSelect={() => {}}
           renderLink={({ className, children }) => <span className={className}>{children}</span>}
           project={{
             id: 'acp-frontend',
@@ -35,7 +24,6 @@ test.describe('chat surfaces', () => {
       </div>
     )
 
-    await expect(component.getByRole('combobox', { name: 'Active agent' })).toBeVisible()
     await expect(component.getByText('Ready')).toBeVisible()
     await expect(component.getByText('ACP Frontend')).toBeVisible()
   })
@@ -77,7 +65,6 @@ test.describe('chat surfaces', () => {
               path: '/home/runner/work/acp-frontend/acp-frontend',
             },
           }))}
-          selectedAgentId="copilot"
           activeSessionId="session-1"
           creatingSession={false}
           onCreate={() => {}}
