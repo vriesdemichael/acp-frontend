@@ -195,7 +195,16 @@ export function useAgUiChat({
     async (nextAgentId?: string, nextProjectId?: string) => {
       const effectiveAgentId = nextAgentId ?? currentAgentId ?? agentId
       const effectiveProjectId = nextProjectId ?? currentProjectId ?? projectId
-      if (!effectiveAgentId || !effectiveProjectId) return null
+
+      if (!effectiveAgentId) {
+        setErrorMessage('Select an available agent before starting a new chat.')
+        return null
+      }
+
+      if (!effectiveProjectId) {
+        setErrorMessage('Select an available project before starting a new chat.')
+        return null
+      }
 
       setCreatingSession(true)
       setThinking(false)
@@ -328,6 +337,9 @@ export function useAgUiChat({
 
         if (!preferredProjectId) {
           setMessages([])
+          setErrorMessage(
+            'No projects are currently available. Check the generated workspace config and try again.'
+          )
           return
         }
 

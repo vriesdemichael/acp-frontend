@@ -1,5 +1,5 @@
 import { existsSync, statSync } from 'node:fs'
-import { readdir } from 'node:fs/promises'
+import { opendir, readdir } from 'node:fs/promises'
 import { relative, resolve, sep } from 'node:path'
 import { readProjectConfig } from './config.js'
 import type { ProjectSummary, ProjectTreeEntry, SessionProjectContext } from './types.js'
@@ -84,7 +84,8 @@ function ensureWithinProject(projectRoot: string, absolutePath: string): void {
   const relativePath = relative(projectRoot, absolutePath)
   if (
     relativePath === '' ||
-    (!relativePath.startsWith('..') && !relativePath.includes(`..${sep}`))
+    relativePath === '.' ||
+    (relativePath !== '..' && !relativePath.startsWith(`..${sep}`))
   ) {
     return
   }
@@ -93,8 +94,14 @@ function ensureWithinProject(projectRoot: string, absolutePath: string): void {
 }
 
 async function directoryHasChildren(directoryPath: string): Promise<boolean> {
-  const children = await readdir(directoryPath)
-  return children.length > 0
+  const directory = await opendir(directoryPath)
+
+  try {
+    const entry = await directory.read()
+    return entry !== null
+  } finally {
+    await directory.close()
+  }
 }
 
 function compareTreeEntries(left: ProjectTreeEntry, right: ProjectTreeEntry): number {
@@ -103,4 +110,9 @@ function compareTreeEntries(left: ProjectTreeEntry, right: ProjectTreeEntry): nu
   }
 
   return left.name.localeCompare(right.name)
+}
+
+export const __projectServiceTestUtils = {
+  ensureWithinProject,
+  directoryHasChildren,
 }

@@ -76,6 +76,11 @@ export function ChatPage() {
     [selectedAgent]
   )
 
+  const getParentTreePath = useCallback((path: string): string | null => {
+    const lastSlash = path.lastIndexOf('/')
+    return lastSlash >= 0 ? path.slice(0, lastSlash) : null
+  }, [])
+
   const loadTree = useCallback(
     async (nextPath: string | null = null) => {
       if (!selectedProject) {
@@ -183,10 +188,13 @@ export function ChatPage() {
             treeError={treeError}
             expandedPaths={expandedPaths}
             onToggleFolder={async (path) => {
+              const collapsing = expandedPaths.includes(path)
+
               setExpandedPaths((current) =>
-                current.includes(path) ? current.filter((item) => item !== path) : [path]
+                collapsing ? current.filter((item) => item !== path) : [path]
               )
-              await loadTree(path)
+
+              await loadTree(collapsing ? getParentTreePath(path) : path)
             }}
             selectedEntryPath={selectedEntryPath}
             onSelectEntry={setSelectedEntryPath}

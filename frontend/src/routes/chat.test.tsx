@@ -100,6 +100,16 @@ function mockFetch(options?: {
       } as Response)
     }
 
+    if (url === '/api/projects/acp-frontend/tree?path=src%2Froutes') {
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve([
+            { name: 'index.tsx', path: 'src/routes/index.tsx', type: 'file', hasChildren: false },
+          ]),
+      } as Response)
+    }
+
     if (url === '/api/sessions') {
       if (opts?.method === 'POST') {
         if (options?.sessionFails) {
@@ -246,6 +256,9 @@ describe('ChatPage', () => {
     expect(screen.getByTestId('chat-context-panel')).toBeDefined()
     expect(screen.getByRole('combobox', { name: /Active project/i })).toBeDefined()
     expect(screen.getByText('/home/vries/projects/acp-frontend')).toBeDefined()
+    expect(screen.getByRole('button', { name: /Workspace/i }).getAttribute('aria-expanded')).toBe(
+      'false'
+    )
   })
 
   it('shows the agent selector with unavailable agents disabled', async () => {
@@ -404,6 +417,54 @@ describe('ChatPage', () => {
     renderChatPage('/chat?agent=copilot&project=acp-frontend')
 
     await waitFor(() => expect(screen.getByText('No chats yet for this backend.')).toBeDefined())
+  })
+
+  it('shows a helpful error when no available projects exist', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation((url: string) => {
+        if (url === '/api/agents') {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve([
+                { id: 'copilot', name: 'GitHub Copilot', status: 'active', command: 'copilot' },
+              ]),
+          } as Response)
+        }
+
+        if (url === '/api/projects') {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve([
+                {
+                  id: 'docs-site',
+                  name: 'Docs Site',
+                  path: '/home/vries/projects/docs-site',
+                  status: 'missing',
+                },
+              ]),
+          } as Response)
+        }
+
+        if (url === '/api/sessions') {
+          return Promise.resolve({ ok: true, json: () => Promise.resolve([]) } as Response)
+        }
+
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+      })
+    )
+
+    renderChatPage('/chat?agent=copilot')
+
+    await waitFor(() =>
+      expect(
+        screen.getAllByText(
+          'No projects are currently available. Check the generated workspace config and try again.'
+        ).length
+      ).toBeGreaterThan(0)
+    )
   })
 
   it('groups chats by backend and keeps unavailable backends visible', async () => {

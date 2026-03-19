@@ -1,8 +1,8 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { Hono } from 'hono'
 import { projectsRoutes } from './projects.js'
 
-vi.mock('../projects/service.js', () => ({
+const mocks = vi.hoisted(() => ({
   listProjects: vi.fn(() => [
     {
       id: 'repo-1',
@@ -48,7 +48,17 @@ vi.mock('../projects/service.js', () => ({
   ]),
 }))
 
+vi.mock('../projects/service.js', () => ({
+  listProjects: mocks.listProjects,
+  getProjectById: mocks.getProjectById,
+  readProjectTree: mocks.readProjectTree,
+}))
+
 describe('projects routes', () => {
+  beforeEach(() => {
+    mocks.readProjectTree.mockClear()
+  })
+
   it('lists configured projects', async () => {
     const app = new Hono().route('/api', projectsRoutes())
 
@@ -82,5 +92,16 @@ describe('projects routes', () => {
 
     const res = await app.request('/api/projects/unknown/tree')
     expect(res.status).toBe(404)
+  })
+
+  it('returns 400 when the tree path escapes the selected project', async () => {
+    mocks.readProjectTree.mockRejectedValueOnce(
+      new Error('Path must stay within the selected project')
+    )
+
+    const app = new Hono().route('/api', projectsRoutes())
+
+    const res = await app.request('/api/projects/repo-1/tree?path=../outside')
+    expect(res.status).toBe(400)
   })
 })

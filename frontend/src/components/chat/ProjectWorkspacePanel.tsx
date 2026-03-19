@@ -36,6 +36,7 @@ export function ProjectWorkspacePanel({
   onSelectEntry,
 }: ProjectWorkspacePanelProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
+  const panelId = 'project-workspace-panel'
   const selectedProject = useMemo(
     () => projects.find((project) => project.id === selectedProjectId) ?? null,
     [projects, selectedProjectId]
@@ -47,6 +48,8 @@ export function ProjectWorkspacePanel({
       <button
         type="button"
         onClick={() => setMobileOpen((current) => !current)}
+        aria-expanded={mobileOpen}
+        aria-controls={panelId}
         className="mx-4 mt-3 inline-flex items-center justify-between rounded-xl border border-white/10 bg-slate-950/80 px-4 py-3 text-left text-slate-100 shadow-[0_18px_40px_rgba(2,6,23,0.32)] xl:hidden"
       >
         <span>
@@ -61,6 +64,7 @@ export function ProjectWorkspacePanel({
       </button>
 
       <aside
+        id={panelId}
         data-testid="chat-context-panel"
         className={[
           mobileOpen ? 'flex' : 'hidden',
