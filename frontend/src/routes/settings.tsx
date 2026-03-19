@@ -50,7 +50,7 @@ export function SettingsPage() {
             <div className="flex gap-2">
               <Link
                 to="/chat"
-                search={{ session: undefined, agent: undefined, project: undefined }}
+                search={{ session: undefined, project: undefined }}
                 className="inline-flex h-10 items-center justify-center rounded-lg border border-white/10 bg-slate-900/90 px-3 text-sm font-medium text-slate-100 transition hover:bg-slate-800"
               >
                 Back To Chat

@@ -1,86 +1,123 @@
+import type { ReactNode } from 'react'
+import { Link } from '@tanstack/react-router'
 import type { ProjectSummary } from '../../hooks/useAgUiChat.js'
-import { AgentIcon } from './icons/AgentIcon.js'
+
+interface HeaderLinkProps {
+  to: '/settings/backends' | '/settings/mcp'
+  className: string
+  children: ReactNode
+}
 
 interface ChatHeaderProps {
-  agentId: string | null
-  agentName: string | null
-  onToggleSidebar?: () => void
+  renderLink?: (props: HeaderLinkProps) => ReactNode
   project: ProjectSummary | null
-  sessionTitle: string | null
+  sessionId: string | null
   errorMessage: string | null
   ready: boolean
   thinking: boolean
 }
 
+function formatSessionLabel(sessionId: string | null, ready: boolean) {
+  if (!ready) return 'Starting'
+  if (!sessionId) return 'Unavailable'
+  return sessionId.slice(0, 8)
+}
+
 export function ChatHeader({
-  agentId,
-  agentName,
-  onToggleSidebar,
+  renderLink,
   project,
-  sessionTitle,
+  sessionId,
   errorMessage,
   ready,
   thinking,
 }: ChatHeaderProps) {
-  const connectionLabel = errorMessage
+  const headerLink = renderLink ?? defaultHeaderLink
+  const statusLabel = errorMessage
     ? 'Needs attention'
     : thinking
-      ? 'Streaming'
+      ? 'Thinking'
       : ready
-        ? 'Connected'
+        ? 'Ready'
         : 'Connecting'
-  const connectionDetail =
-    errorMessage ?? (thinking ? 'Receiving agent output' : 'ACP transport healthy')
-  const sessionLabel = sessionTitle?.trim() || (ready ? 'New chat' : 'Starting session')
+  const statusDetail = errorMessage ?? (thinking ? 'Streaming response' : 'Realtime stream')
 
   return (
-    <header className="border-b border-white/10 bg-slate-950/92 px-4 py-2.5 text-slate-100 shadow-[0_10px_40px_rgba(2,6,23,0.45)] backdrop-blur sm:px-5 lg:px-6">
-      <div className="flex min-h-11 items-center justify-between gap-4">
+    <header className="border-b border-white/10 bg-slate-950/92 px-4 py-3 text-slate-100 shadow-[0_10px_40px_rgba(2,6,23,0.45)] backdrop-blur sm:px-5 lg:px-6">
+      <div className="flex min-h-12 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex min-w-0 items-center gap-3">
-          {onToggleSidebar ? (
-            <button
-              type="button"
-              aria-label="Open navigation"
-              onClick={onToggleSidebar}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-slate-900 text-slate-300 transition hover:bg-slate-800"
-            >
-              <span className="text-base leading-none">≡</span>
-            </button>
-          ) : null}
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-slate-900 text-sm font-semibold text-teal-300">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-slate-900 text-sm font-semibold text-teal-300">
             ACP
           </div>
           <div className="min-w-0">
-            <p className="truncate text-base font-medium text-slate-50 sm:text-lg">
-              {sessionLabel}
+            <h1 className="truncate font-[family:var(--font-display)] text-xl text-slate-50 sm:text-2xl">
+              Chat Workspace
+            </h1>
+            <p className="text-xs text-slate-400">
+              {project
+                ? `${project.name} · ${project.path}`
+                : 'Focused conversation layout with live agent state'}
             </p>
-            <p className="truncate text-xs text-slate-500">
-              {[project?.name, agentName].filter(Boolean).join(' · ') ||
-                'No active session context'}
-            </p>
+          </div>
+
+          <div className="hidden items-center gap-2 lg:flex">
+            {headerLink({
+              to: '/settings/backends',
+              className:
+                'inline-flex h-9 items-center justify-center rounded-lg border border-white/10 bg-slate-900/90 px-3 text-sm font-medium text-slate-100 transition hover:bg-slate-800',
+              children: 'Backends',
+            })}
+            {headerLink({
+              to: '/settings/mcp',
+              className:
+                'inline-flex h-9 items-center justify-center rounded-lg border border-white/10 bg-slate-900/60 px-3 text-sm font-medium text-slate-300 transition hover:bg-slate-800',
+              children: 'MCP',
+            })}
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-2">
-          <div className="hidden items-center gap-1.5 rounded-full border border-white/10 bg-slate-900/80 px-3 py-1 text-xs text-slate-400 md:flex">
-            {agentName ? (
-              <>
-                <AgentIcon agentId={agentId ?? undefined} className="h-4 w-4" />
-                <span>{agentName}</span>
-              </>
-            ) : (
-              'No agent selected'
-            )}
+        <div className="grid gap-3 sm:grid-cols-[9rem_11rem]">
+          <div className="rounded-lg border border-white/10 bg-slate-900/90 px-3 py-2.5">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
+              Session
+            </p>
+            <p className="mt-2 text-sm font-medium text-slate-100">
+              {formatSessionLabel(sessionId, ready)}
+            </p>
+            <p className="mt-1 text-[11px] text-slate-500">Live thread</p>
           </div>
-          <div className="hidden rounded-full border border-white/10 bg-slate-900/80 px-3 py-1.5 text-xs text-slate-400 lg:block">
-            {project ? project.name : 'No project selected'}
-          </div>
-          <div className="rounded-full border border-white/10 bg-slate-900/80 px-2.5 py-1.5 text-[11px] sm:px-3 sm:text-xs">
-            <span className="font-medium text-slate-100">{connectionLabel}</span>
-            <span className="ml-2 hidden text-slate-500 sm:inline">{connectionDetail}</span>
+
+          <div className="rounded-lg border border-white/10 bg-slate-900/90 px-3 py-2.5">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
+              Status
+            </p>
+            <p className="mt-2 text-sm font-medium text-slate-100">{statusLabel}</p>
+            <p className="mt-1 text-[11px] text-slate-500">{statusDetail}</p>
           </div>
         </div>
       </div>
+
+      <div className="mt-3 flex gap-2 lg:hidden">
+        {headerLink({
+          to: '/settings/backends',
+          className:
+            'inline-flex h-9 items-center justify-center rounded-lg border border-white/10 bg-slate-900/90 px-3 text-sm font-medium text-slate-100 transition hover:bg-slate-800',
+          children: 'Backends',
+        })}
+        {headerLink({
+          to: '/settings/mcp',
+          className:
+            'inline-flex h-9 items-center justify-center rounded-lg border border-white/10 bg-slate-900/60 px-3 text-sm font-medium text-slate-300 transition hover:bg-slate-800',
+          children: 'MCP',
+        })}
+      </div>
     </header>
+  )
+}
+
+function defaultHeaderLink({ to, className, children }: HeaderLinkProps) {
+  return (
+    <Link key={`${to}-${String(children)}`} to={to} className={className}>
+      {children}
+    </Link>
   )
 }

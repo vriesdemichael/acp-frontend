@@ -5,19 +5,18 @@ import { SessionList } from '../../frontend/src/components/chat/SessionList.js'
 import { ChatComposer } from '../../frontend/src/components/chat/ChatComposer.js'
 
 test.describe('chat surfaces', () => {
-  test('renders header status and active session context', async ({ mount }) => {
+  test('renders header status info', async ({ mount }) => {
     const component = await mount(
       <div className="p-6">
         <ChatHeader
-          agentId="copilot"
-          agentName="GitHub Copilot"
+          renderLink={({ className, children }) => <span className={className}>{children}</span>}
           project={{
             id: 'acp-frontend',
             name: 'ACP Frontend',
             path: '/home/runner/work/acp-frontend/acp-frontend',
             status: 'available',
           }}
-          sessionTitle="Investigate session history"
+          sessionId="session-1"
           errorMessage={null}
           ready
           thinking={false}
@@ -25,10 +24,8 @@ test.describe('chat surfaces', () => {
       </div>
     )
 
-    await expect(component.getByText('Investigate session history')).toBeVisible()
-    await expect(component.getByText('Connected')).toBeVisible()
-    await expect(component.getByText('GitHub Copilot', { exact: true })).toBeVisible()
-    await expect(component.getByText('ACP Frontend', { exact: true })).toBeVisible()
+    await expect(component.getByText('Ready')).toBeVisible()
+    await expect(component.getByText('ACP Frontend')).toBeVisible()
   })
 
   test('renders transcript on mobile viewport', async ({ mount }) => {
@@ -40,7 +37,6 @@ test.describe('chat surfaces', () => {
             { id: 'user-1', role: 'user', content: 'Please inspect the layout.' },
             { id: 'assistant-1', role: 'assistant', content: 'The spacing looks balanced now.' },
           ]}
-          hasSession
           loading={false}
           ready
           thinking
@@ -68,9 +64,7 @@ test.describe('chat surfaces', () => {
               name: 'ACP Frontend',
               path: '/home/runner/work/acp-frontend/acp-frontend',
             },
-            source: 'live' as const,
           }))}
-          selectedAgentId="copilot"
           activeSessionId="session-1"
           creatingSession={false}
           onCreate={() => {}}

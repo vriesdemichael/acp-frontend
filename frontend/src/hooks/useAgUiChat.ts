@@ -1,18 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { EventType } from '@ag-ui/core'
-import { ENABLE_A2UI } from '../config/features.js'
-import type { A2UIToolCallPayload, StructuredBlock } from '../components/chat/a2ui-types.js'
-
-const CHAT_AGENT_STORAGE_KEY = 'acp.chat.agent'
-const CHAT_PROJECT_STORAGE_KEY = 'acp.chat.project'
-const CHAT_SESSION_STORAGE_KEY = 'acp.chat.session'
-const CHAT_VISIBLE_PROJECTS_STORAGE_KEY = 'acp.chat.visible-projects'
 
 export interface ChatMessage {
   id: string
   role: 'user' | 'assistant'
   content: string
-  structuredBlocks?: StructuredBlock[]
 }
 
 export interface AgentSummary {
@@ -41,7 +33,6 @@ export interface SessionSummary {
   updatedAt: string
   agentId: string
   project: SessionProjectContext | null
-  source: 'live' | 'history'
 }
 
 interface SessionDetails extends SessionSummary {
@@ -50,37 +41,23 @@ interface SessionDetails extends SessionSummary {
 
 interface UseAgUiChatOptions {
   sessionId: string | null
-  agentId: string | null
   projectId: string | null
   onSessionCreated: (sessionId: string) => void
-  onSessionSelected: (sessionId: string | null) => void
-  onAgentSelected: (agentId: string) => void
+  onSessionSelected: (sessionId: string) => void
   onProjectSelected: (projectId: string | null) => void
 }
 
 export function useAgUiChat({
   sessionId,
-  agentId,
   projectId,
   onSessionCreated,
   onSessionSelected,
-  onAgentSelected,
   onProjectSelected,
 }: UseAgUiChatOptions) {
-  const [currentSessionId, setCurrentSessionId] = useState<string | null>(
-    () => sessionId ?? readStoredSelection(CHAT_SESSION_STORAGE_KEY)
-  )
-  const [currentAgentId, setCurrentAgentId] = useState<string | null>(
-    () => agentId ?? readStoredSelection(CHAT_AGENT_STORAGE_KEY)
-  )
-  const [currentProjectId, setCurrentProjectId] = useState<string | null>(
-    () => projectId ?? readStoredSelection(CHAT_PROJECT_STORAGE_KEY)
-  )
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(sessionId)
+  const [currentProjectId, setCurrentProjectId] = useState<string | null>(projectId)
   const [agents, setAgents] = useState<AgentSummary[]>([])
   const [projects, setProjects] = useState<ProjectSummary[]>([])
-  const [visibleProjectIds, setVisibleProjectIds] = useState<string[]>(() =>
-    readStoredSelections(CHAT_VISIBLE_PROJECTS_STORAGE_KEY)
-  )
   const [sessions, setSessions] = useState<SessionSummary[]>([])
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [thinking, setThinking] = useState(false)
@@ -88,46 +65,17 @@ export function useAgUiChat({
   const [loading, setLoading] = useState(true)
   const [creatingSession, setCreatingSession] = useState(false)
   const activeSessionRef = useRef<string | null>(sessionId)
-  const pendingRouteSessionRef = useRef<string | null>(null)
   const didBootstrapRef = useRef(false)
-  // Stable ref to the latest loadSession so the bootstrap effect doesn't need it
-  // in its dependency array (which would cause infinite re-bootstrap loops).
-  const loadSessionRef = useRef<
-    ((id: string, syncRoute?: boolean) => Promise<SessionDetails | null>) | null
-  >(null)
+  // Stable refs so the one-shot bootstrap effect can call the latest version of
+  // these callbacks without listing them (and their transitive deps) in the dep
+  // array, which would cause the effect to re-run mid-flight and cancel itself.
+  const createSessionRef = useRef<typeof createSession | null>(null)
+  const loadSessionRef = useRef<typeof loadSession | null>(null)
 
   useEffect(() => {
-    if (agentId) {
-      setCurrentAgentId(agentId)
-    }
-  }, [agentId])
-
-  useEffect(() => {
-    if (projectId) {
-      setCurrentProjectId(projectId)
-    }
+    setCurrentProjectId(projectId)
   }, [projectId])
 
-  useEffect(() => {
-    writeStoredSelection(CHAT_AGENT_STORAGE_KEY, currentAgentId)
-  }, [currentAgentId])
-
-  useEffect(() => {
-    writeStoredSelection(CHAT_PROJECT_STORAGE_KEY, currentProjectId)
-  }, [currentProjectId])
-
-  useEffect(() => {
-    writeStoredSelection(CHAT_SESSION_STORAGE_KEY, currentSessionId)
-  }, [currentSessionId])
-
-  useEffect(() => {
-    writeStoredSelections(CHAT_VISIBLE_PROJECTS_STORAGE_KEY, visibleProjectIds)
-  }, [visibleProjectIds])
-
-  const selectedAgent = useMemo(
-    () => agents.find((candidate) => candidate.id === currentAgentId) ?? null,
-    [agents, currentAgentId]
-  )
   const selectedProject = useMemo(
     () => projects.find((candidate) => candidate.id === currentProjectId) ?? null,
     [projects, currentProjectId]
@@ -136,13 +84,13 @@ export function useAgUiChat({
     () => projects.filter((candidate) => candidate.status === 'available'),
     [projects]
   )
+  const activeAgents = useMemo(
+    () => agents.filter((candidate) => candidate.status === 'active'),
+    [agents]
+  )
   const ready = useMemo(
-    () =>
-      currentSessionId !== null &&
-      selectedAgent?.status === 'active' &&
-      selectedProject?.status === 'available' &&
-      !creatingSession,
-    [creatingSession, currentSessionId, selectedAgent, selectedProject]
+    () => currentSessionId !== null && selectedProject?.status === 'available' && !creatingSession,
+    [creatingSession, currentSessionId, selectedProject]
   )
 
   const fetchJson = useCallback(async <T>(url: string, init?: RequestInit): Promise<T> => {
@@ -183,12 +131,7 @@ export function useAgUiChat({
         setMessages(session.messages)
 
         setCurrentSessionId(nextSessionId)
-        setCurrentAgentId(session.agentId)
         setCurrentProjectId(session.project?.id ?? null)
-
-        if (syncRoute && session.agentId !== agentId) {
-          onAgentSelected(session.agentId)
-        }
 
         if (syncRoute && session.project?.id !== projectId) {
           onProjectSelected(session.project?.id ?? null)
@@ -208,34 +151,17 @@ export function useAgUiChat({
         return null
       }
     },
-    [
-      agentId,
-      fetchJson,
-      onAgentSelected,
-      onProjectSelected,
-      onSessionSelected,
-      projectId,
-      sessionId,
-    ]
+    [fetchJson, onProjectSelected, onSessionSelected, projectId, sessionId]
   )
-
-  // Keep the ref in sync so the bootstrap effect can call the latest version
-  // without declaring loadSession as a dependency.
-  loadSessionRef.current = loadSession
 
   useEffect(() => {
     if (!sessionId) return
-    if (pendingRouteSessionRef.current && sessionId !== pendingRouteSessionRef.current) {
-      return
-    }
     if (sessionId === currentSessionId) {
       activeSessionRef.current = sessionId
-      pendingRouteSessionRef.current = null
       return
     }
 
     activeSessionRef.current = sessionId
-    pendingRouteSessionRef.current = null
     setCurrentSessionId(sessionId)
     setErrorMessage(null)
     setThinking(false)
@@ -243,11 +169,10 @@ export function useAgUiChat({
   }, [currentSessionId, loadSession, sessionId])
 
   const createSession = useCallback(
-    async (nextAgentId?: string, nextProjectId?: string) => {
-      const effectiveAgentId = nextAgentId ?? currentAgentId ?? agentId
+    async (agentId: string, nextProjectId?: string) => {
       const effectiveProjectId = nextProjectId ?? currentProjectId ?? projectId
 
-      if (!effectiveAgentId) {
+      if (!agentId) {
         setErrorMessage('Select an available agent before starting a new chat.')
         return null
       }
@@ -264,19 +189,14 @@ export function useAgUiChat({
         const session = await fetchJson<SessionDetails>('/api/sessions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ agentId: effectiveAgentId, projectId: effectiveProjectId }),
+          body: JSON.stringify({ agentId, projectId: effectiveProjectId }),
         })
 
         activeSessionRef.current = session.id
         setCurrentSessionId(session.id)
         setMessages(session.messages)
-        setCurrentAgentId(session.agentId)
         setCurrentProjectId(session.project?.id ?? effectiveProjectId)
         onSessionCreated(session.id)
-
-        if (session.agentId !== agentId) {
-          onAgentSelected(session.agentId)
-        }
 
         if (session.project?.id !== projectId) {
           onProjectSelected(session.project?.id ?? effectiveProjectId)
@@ -294,26 +214,16 @@ export function useAgUiChat({
         setCreatingSession(false)
       }
     },
-    [
-      agentId,
-      currentAgentId,
-      currentProjectId,
-      fetchJson,
-      onAgentSelected,
-      onProjectSelected,
-      onSessionCreated,
-      projectId,
-      refreshSessions,
-    ]
+    [currentProjectId, fetchJson, onProjectSelected, onSessionCreated, projectId, refreshSessions]
   )
 
   // Keep refs in sync so the one-shot bootstrap effect always calls the latest
   // version without having them in its dependency array.
+  createSessionRef.current = createSession
   loadSessionRef.current = loadSession
 
   useEffect(() => {
     let cancelled = false
-    let bootstrapCompleted = false
 
     void (async () => {
       if (didBootstrapRef.current) return
@@ -331,36 +241,16 @@ export function useAgUiChat({
         setAgents(nextAgents)
         setProjects(nextProjects)
         setSessions(nextSessions)
-        setVisibleProjectIds((current) => {
-          const availableIds = new Set(nextProjects.map((project) => project.id))
-          const filtered = current.filter((projectId) => availableIds.has(projectId))
-          if (filtered.length > 0) {
-            return filtered
-          }
-
-          return nextProjects.map((project) => project.id)
-        })
 
         if (cancelled) return
 
-        const activeAgents = nextAgents.filter((candidate) => candidate.status === 'active')
-        if (activeAgents.length === 0) {
+        const nextActiveAgents = nextAgents.filter((candidate) => candidate.status === 'active')
+        if (nextActiveAgents.length === 0) {
           setErrorMessage(
             'No agents are currently available. Start an adapter and reload to continue.'
           )
           setMessages([])
           return
-        }
-
-        const preferredAgentId =
-          currentAgentId && activeAgents.some((candidate) => candidate.id === currentAgentId)
-            ? currentAgentId
-            : activeAgents[0]!.id
-
-        setCurrentAgentId(preferredAgentId)
-
-        if (preferredAgentId !== agentId) {
-          onAgentSelected(preferredAgentId)
         }
 
         const availableProjectIds = new Set(
@@ -389,7 +279,8 @@ export function useAgUiChat({
           (sessionId && nextSessions.find((session) => session.id === sessionId)) ??
           nextSessions.find(
             (session) =>
-              session.agentId === preferredAgentId && session.project?.id === preferredProjectId
+              nextActiveAgents.some((agent) => agent.id === session.agentId) &&
+              session.project?.id === preferredProjectId
           ) ??
           null
 
@@ -405,16 +296,12 @@ export function useAgUiChat({
           setErrorMessage(
             'No projects are currently available. Check the generated workspace config and try again.'
           )
-          bootstrapCompleted = true
           return
         }
 
-        setMessages([])
-        setCurrentSessionId(null)
-        activeSessionRef.current = null
-        pendingRouteSessionRef.current = null
-        onSessionSelected(null)
-        bootstrapCompleted = true
+        if (cancelled) return
+        // Pick the first active agent for the automatic bootstrap session
+        await createSessionRef.current!(nextActiveAgents[0]!.id)
       } catch (error) {
         console.error('[useAgUiChat] bootstrap failed:', error)
         setErrorMessage('Unable to load chat data right now. Reload or try again in a moment.')
@@ -427,27 +314,14 @@ export function useAgUiChat({
 
     return () => {
       cancelled = true
-      if (!bootstrapCompleted) {
-        didBootstrapRef.current = false
-      }
     }
-  }, [
-    agentId,
-    currentAgentId,
-    currentProjectId,
-    fetchJson,
-    onAgentSelected,
-    onProjectSelected,
-    onSessionSelected,
-    projectId,
-    sessionId,
-  ])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     if (!currentSessionId) return
 
     activeSessionRef.current = currentSessionId
-    setErrorMessage(null)
     const sse = new EventSource(`/api/stream?sessionId=${encodeURIComponent(currentSessionId)}`)
 
     sse.addEventListener(EventType.RUN_STARTED, () => {
@@ -485,69 +359,6 @@ export function useAgUiChat({
       })
     })
 
-    if (ENABLE_A2UI) {
-      sse.addEventListener(EventType.CUSTOM, (event: MessageEvent<string>) => {
-        if (activeSessionRef.current !== currentSessionId) return
-
-        try {
-          const parsed = JSON.parse(event.data) as { name?: string; value?: unknown }
-          if (parsed.name !== 'a2ui:tool_call') return
-
-          const payload = parsed.value as A2UIToolCallPayload
-          if (!payload?.callId) return
-
-          const block: StructuredBlock = { kind: 'tool_call', payload }
-
-          setMessages((current) => {
-            // Find the index of the most recent user message (start of current run)
-            const lastUserIdx = current.reduceRight(
-              (found, msg, idx) => (found === -1 && msg.role === 'user' ? idx : found),
-              -1
-            )
-
-            // Only attach to an assistant message that appears after the most recent user message.
-            // This prevents accidentally mutating the previous run's assistant message when a
-            // tool_call CUSTOM event arrives before TEXT_MESSAGE_START for the new run.
-            const searchFrom = lastUserIdx === -1 ? 0 : lastUserIdx + 1
-            const lastAssistantIdx = current.reduceRight(
-              (found, msg, idx) =>
-                found === -1 && idx >= searchFrom && msg.role === 'assistant' ? idx : found,
-              -1
-            )
-
-            if (lastAssistantIdx === -1) {
-              const syntheticId = `a2ui-${payload.callId}`
-              const existing = current.find((m) => m.id === syntheticId)
-              if (existing) {
-                return current.map((m) =>
-                  m.id === syntheticId
-                    ? { ...m, structuredBlocks: upsertBlock(m.structuredBlocks, block) }
-                    : m
-                )
-              }
-              return [
-                ...current,
-                {
-                  id: syntheticId,
-                  role: 'assistant',
-                  content: '',
-                  structuredBlocks: [block],
-                },
-              ]
-            }
-
-            return current.map((m, idx) =>
-              idx === lastAssistantIdx
-                ? { ...m, structuredBlocks: upsertBlock(m.structuredBlocks, block) }
-                : m
-            )
-          })
-        } catch {
-          // Malformed CUSTOM event — ignore silently
-        }
-      })
-    }
-
     const finishRun = () => {
       if (activeSessionRef.current !== currentSessionId) return
       setThinking(false)
@@ -572,6 +383,10 @@ export function useAgUiChat({
     async (text: string) => {
       if (!currentSessionId) return
 
+      // Find which agent owns the current session so we can pass agentId in the payload
+      const currentSession = sessions.find((s) => s.id === currentSessionId)
+      const agentId = currentSession?.agentId ?? null
+
       setErrorMessage(null)
       setMessages((current) => [
         ...current,
@@ -584,7 +399,7 @@ export function useAgUiChat({
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(buildSendMessagePayload(text, currentAgentId)),
+            body: JSON.stringify(buildSendMessagePayload(text, agentId)),
           }
         )
 
@@ -599,13 +414,12 @@ export function useAgUiChat({
         throw error
       }
     },
-    [currentAgentId, currentSessionId, refreshSessions]
+    [currentSessionId, refreshSessions, sessions]
   )
 
   const selectSession = useCallback(
     async (nextSessionId: string) => {
       if (nextSessionId === currentSessionId) return
-      pendingRouteSessionRef.current = nextSessionId
       activeSessionRef.current = nextSessionId
       setCurrentSessionId(nextSessionId)
       setErrorMessage(null)
@@ -613,24 +427,6 @@ export function useAgUiChat({
       await loadSession(nextSessionId, true)
     },
     [currentSessionId, loadSession]
-  )
-
-  const selectAgent = useCallback(
-    (nextAgentId: string) => {
-      if (nextAgentId === currentAgentId) {
-        return
-      }
-
-      const candidate = agents.find((agent) => agent.id === nextAgentId)
-      if (!candidate || candidate.status !== 'active') {
-        return
-      }
-
-      setErrorMessage(null)
-      setCurrentAgentId(nextAgentId)
-      onAgentSelected(nextAgentId)
-    },
-    [agents, currentAgentId, onAgentSelected]
   )
 
   const selectProject = useCallback(
@@ -650,135 +446,40 @@ export function useAgUiChat({
       setCurrentProjectId(nextProjectId)
       onProjectSelected(nextProjectId)
 
-      const matchingSession = sessions.find(
-        (session) => session.project?.id === nextProjectId && session.agentId === currentAgentId
-      )
-
-      if (matchingSession) {
-        pendingRouteSessionRef.current = matchingSession.id
-        activeSessionRef.current = matchingSession.id
-        setCurrentSessionId(matchingSession.id)
-        await loadSession(matchingSession.id, true)
+      // Pick the first active agent for the new project session
+      const firstActive = agents.find((agent) => agent.status === 'active')
+      if (!firstActive) {
         return
       }
 
       activeSessionRef.current = null
-      pendingRouteSessionRef.current = null
       setCurrentSessionId(null)
-      onSessionSelected(null)
+      await createSession(firstActive.id, nextProjectId)
     },
-    [
-      currentAgentId,
-      currentProjectId,
-      loadSession,
-      onProjectSelected,
-      onSessionSelected,
-      projects,
-      sessions,
-    ]
-  )
-
-  const addProject = useCallback(
-    async (name: string, path: string): Promise<ProjectSummary> => {
-      const project = await fetchJson<ProjectSummary>('/api/projects', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, path }),
-      })
-
-      // Re-fetch the canonical list to pick up backend normalisations and correct ordering
-      const refreshed = await fetchJson<ProjectSummary[]>('/api/projects')
-      setProjects(refreshed)
-      setVisibleProjectIds((current) => {
-        const currentSet = new Set(current)
-        return refreshed
-          .map((project) => project.id)
-          .filter((projectId) => currentSet.has(projectId) || projectId === project.id)
-      })
-
-      return project
-    },
-    [fetchJson]
-  )
-
-  const removeProject = useCallback(
-    async (projectId: string): Promise<void> => {
-      const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}`, {
-        method: 'DELETE',
-      })
-      if (!response.ok) {
-        throw new Error(`project delete failed with status ${response.status}`)
-      }
-
-      const refreshed = await fetchJson<ProjectSummary[]>('/api/projects')
-      setProjects(refreshed)
-      setVisibleProjectIds((current) => {
-        const refreshedIds = new Set(refreshed.map((project) => project.id))
-        return current.filter((id) => refreshedIds.has(id))
-      })
-
-      if (currentProjectId === projectId) {
-        const nextProjectId =
-          refreshed.find((project) => project.status === 'available')?.id ?? null
-        setCurrentProjectId(nextProjectId)
-        onProjectSelected(nextProjectId)
-        setMessages([])
-        setCurrentSessionId(null)
-        activeSessionRef.current = null
-        pendingRouteSessionRef.current = null
-        onSessionSelected(null)
-      }
-    },
-    [currentProjectId, fetchJson, onProjectSelected, onSessionSelected]
+    [agents, createSession, currentProjectId, onProjectSelected, projects]
   )
 
   const startNewSession = useCallback(
-    async (nextAgentId: string) => {
+    async (agentId: string) => {
       setErrorMessage(null)
-      setCurrentAgentId(nextAgentId)
-      if (nextAgentId !== agentId) {
-        onAgentSelected(nextAgentId)
-      }
-      await createSession(nextAgentId)
+      await createSession(agentId)
     },
-    [agentId, createSession, onAgentSelected]
-  )
-
-  const setProjectVisibility = useCallback(
-    (projectId: string, visible: boolean) => {
-      setVisibleProjectIds((current) => {
-        const currentSet = new Set(current)
-        if (visible) {
-          currentSet.add(projectId)
-        } else {
-          currentSet.delete(projectId)
-        }
-
-        return projects.map((project) => project.id).filter((id) => currentSet.has(id))
-      })
-    },
-    [projects]
+    [createSession]
   )
 
   return {
-    addProject,
-    agentId: currentAgentId,
+    activeAgents,
     agents,
     creatingSession,
     errorMessage,
     loading,
     messages,
     projects,
-    removeProject,
-    visibleProjectIds,
     ready,
-    selectedAgent,
     selectedProject,
-    selectAgent,
     selectProject,
     selectSession,
     sendMessage,
-    setProjectVisibility,
     sessionId: currentSessionId,
     sessions,
     startNewSession,
@@ -792,80 +493,4 @@ export function buildSendMessagePayload(message: string, agentId: string | null)
     ...(agentId ? { agentId } : {}),
     message,
   }
-}
-
-function readStoredSelection(storageKey: string): string | null {
-  if (typeof window === 'undefined' || !window.localStorage) {
-    return null
-  }
-
-  const value = window.localStorage.getItem(storageKey)?.trim()
-  return value ? value : null
-}
-
-function writeStoredSelection(storageKey: string, value: string | null): void {
-  if (typeof window === 'undefined' || !window.localStorage) {
-    return
-  }
-
-  if (!value) {
-    window.localStorage.removeItem(storageKey)
-    return
-  }
-
-  window.localStorage.setItem(storageKey, value)
-}
-
-function readStoredSelections(storageKey: string): string[] {
-  if (typeof window === 'undefined' || !window.localStorage) {
-    return []
-  }
-
-  try {
-    const value = window.localStorage.getItem(storageKey)
-    if (!value) {
-      return []
-    }
-
-    const parsed = JSON.parse(value) as unknown
-    return Array.isArray(parsed)
-      ? parsed.filter((item): item is string => typeof item === 'string')
-      : []
-  } catch {
-    return []
-  }
-}
-
-function writeStoredSelections(storageKey: string, values: string[]): void {
-  if (typeof window === 'undefined' || !window.localStorage) {
-    return
-  }
-
-  if (values.length === 0) {
-    window.localStorage.removeItem(storageKey)
-    return
-  }
-
-  window.localStorage.setItem(storageKey, JSON.stringify(values))
-}
-
-/**
- * Upsert a StructuredBlock into a blocks array by callId.
- * If a block with the same callId exists, its payload is merged (existing fields
- * are preserved and the incoming payload is overlaid), so partial updates
- * (e.g. only result/done) don't discard earlier fields like toolName or args.
- * If no matching block exists, the new block is appended.
- */
-function upsertBlock(
-  existing: StructuredBlock[] | undefined,
-  block: StructuredBlock
-): StructuredBlock[] {
-  if (!existing) return [block]
-  const idx = existing.findIndex(
-    (b) => b.kind === block.kind && b.payload.callId === block.payload.callId
-  )
-  if (idx === -1) return [...existing, block]
-  const next = [...existing]
-  next[idx] = { ...block, payload: { ...existing[idx]!.payload, ...block.payload } }
-  return next
 }
