@@ -7,7 +7,8 @@ interface AgentSelectorProps {
 }
 
 export function AgentSelector({ agents, selectedAgentId, onSelect }: AgentSelectorProps) {
-  const selectedAgent = agents.find((agent) => agent.id === selectedAgentId) ?? null
+  const visibleAgents = agents.filter((agent) => agent.status !== 'disabled')
+  const selectedAgent = visibleAgents.find((agent) => agent.id === selectedAgentId) ?? null
 
   function getStatusSuffix(agent: AgentSummary): string {
     if (agent.status === 'active') return ''
@@ -29,7 +30,7 @@ export function AgentSelector({ agents, selectedAgentId, onSelect }: AgentSelect
             <option value="" disabled>
               Select an agent
             </option>
-            {agents.map((agent) => (
+            {visibleAgents.map((agent) => (
               <option key={agent.id} value={agent.id} disabled={agent.status !== 'active'}>
                 {agent.name} {getStatusSuffix(agent)}
               </option>
@@ -43,7 +44,7 @@ export function AgentSelector({ agents, selectedAgentId, onSelect }: AgentSelect
           : 'Choose which adapter receives the next message.'}
       </p>
       <div className="mt-2 flex flex-wrap gap-1.5">
-        {agents
+        {visibleAgents
           .filter((agent) => agent.command)
           .map((agent) => (
             <span

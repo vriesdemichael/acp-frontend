@@ -10,7 +10,7 @@ export interface ChatMessage {
 export interface AgentSummary {
   id: string
   name: string
-  status: 'active' | 'detected' | 'unavailable'
+  status: 'active' | 'disabled' | 'detected' | 'unavailable'
   command: string | null
 }
 
@@ -71,6 +71,11 @@ export function useAgUiChat({
   const [creatingSession, setCreatingSession] = useState(false)
   const activeSessionRef = useRef<string | null>(sessionId)
   const didBootstrapRef = useRef(false)
+  // Stable refs so the one-shot bootstrap effect can call the latest version of
+  // these callbacks without listing them (and their transitive deps) in the dep
+  // array, which would cause the effect to re-run mid-flight and cancel itself.
+  const createSessionRef = useRef<typeof createSession | null>(null)
+  const loadSessionRef = useRef<typeof loadSession | null>(null)
 
   useEffect(() => {
     if (agentId) {
@@ -256,6 +261,11 @@ export function useAgUiChat({
     ]
   )
 
+  // Keep refs in sync so the one-shot bootstrap effect always calls the latest
+  // version without having them in its dependency array.
+  createSessionRef.current = createSession
+  loadSessionRef.current = loadSession
+
   useEffect(() => {
     let cancelled = false
 
@@ -272,11 +282,11 @@ export function useAgUiChat({
           fetchJson<SessionSummary[]>('/api/sessions'),
         ])
 
-        if (cancelled) return
-
         setAgents(nextAgents)
         setProjects(nextProjects)
         setSessions(nextSessions)
+
+        if (cancelled) return
 
         const activeAgents = nextAgents.filter((candidate) => candidate.status === 'active')
         if (activeAgents.length === 0) {
@@ -331,7 +341,7 @@ export function useAgUiChat({
         if (preferredSession) {
           activeSessionRef.current = preferredSession.id
           setCurrentSessionId(preferredSession.id)
-          await loadSession(preferredSession.id, false)
+          await loadSessionRef.current!(preferredSession.id, false)
           return
         }
 
@@ -344,7 +354,7 @@ export function useAgUiChat({
         }
 
         if (cancelled) return
-        await createSession(preferredAgentId)
+        await createSessionRef.current!(preferredAgentId)
       } catch (error) {
         console.error('[useAgUiChat] bootstrap failed:', error)
         setErrorMessage('Unable to load chat data right now. Reload or try again in a moment.')
@@ -358,18 +368,8 @@ export function useAgUiChat({
     return () => {
       cancelled = true
     }
-  }, [
-    agentId,
-    createSession,
-    currentAgentId,
-    currentProjectId,
-    fetchJson,
-    loadSession,
-    onAgentSelected,
-    onProjectSelected,
-    projectId,
-    sessionId,
-  ])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     if (!currentSessionId) return

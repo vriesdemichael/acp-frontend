@@ -136,9 +136,14 @@ function buildSessionGroups({
   sessions,
   selectedAgentId,
 }: SessionGroupInput): SessionGroup[] {
+  const disabledAgentIds = new Set(
+    agents.filter((agent) => agent.status === 'disabled').map((agent) => agent.id)
+  )
+
   const sessionsByAgent = new Map<string, SessionSummary[]>()
 
   for (const session of sessions) {
+    if (disabledAgentIds.has(session.agentId)) continue
     const currentSessions = sessionsByAgent.get(session.agentId) ?? []
     currentSessions.push(session)
     sessionsByAgent.set(session.agentId, currentSessions)
@@ -148,7 +153,11 @@ function buildSessionGroups({
     ...new Set([
       ...(selectedAgentId ? [selectedAgentId] : []),
       ...agents
-        .filter((agent) => agent.status !== 'unavailable' || sessionsByAgent.has(agent.id))
+        .filter(
+          (agent) =>
+            agent.status !== 'disabled' &&
+            (agent.status !== 'unavailable' || sessionsByAgent.has(agent.id))
+        )
         .sort((left, right) => {
           const leftSelected = left.id === selectedAgentId ? 1 : 0
           const rightSelected = right.id === selectedAgentId ? 1 : 0

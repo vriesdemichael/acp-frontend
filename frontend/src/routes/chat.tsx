@@ -16,6 +16,47 @@ export function ChatPage() {
   const sessionId = search.session ?? null
   const agentId = search.agent ?? null
   const projectId = search.project ?? null
+
+  const onAgentSelected = useCallback(
+    (nextAgentId: string) => {
+      void navigate({
+        to: '/chat',
+        search: (current) => ({ ...current, agent: nextAgentId }),
+      })
+    },
+    [navigate]
+  )
+
+  const onProjectSelected = useCallback(
+    (nextProjectId: string | null) => {
+      void navigate({
+        to: '/chat',
+        search: (current) => ({ ...current, project: nextProjectId ?? undefined }),
+      })
+    },
+    [navigate]
+  )
+
+  const onSessionCreated = useCallback(
+    (nextSessionId: string) => {
+      void navigate({
+        to: '/chat',
+        search: (current) => ({ ...current, session: nextSessionId }),
+      })
+    },
+    [navigate]
+  )
+
+  const onSessionSelected = useCallback(
+    (nextSessionId: string) => {
+      void navigate({
+        to: '/chat',
+        search: (current) => ({ ...current, session: nextSessionId }),
+      })
+    },
+    [navigate]
+  )
+
   const {
     agentId: activeAgentId,
     agents,
@@ -39,30 +80,10 @@ export function ChatPage() {
     sessionId,
     agentId,
     projectId,
-    onAgentSelected: (nextAgentId) => {
-      void navigate({
-        to: '/chat',
-        search: (current) => ({ ...current, agent: nextAgentId }),
-      })
-    },
-    onProjectSelected: (nextProjectId) => {
-      void navigate({
-        to: '/chat',
-        search: (current) => ({ ...current, project: nextProjectId ?? undefined }),
-      })
-    },
-    onSessionCreated: (nextSessionId) => {
-      void navigate({
-        to: '/chat',
-        search: (current) => ({ ...current, session: nextSessionId }),
-      })
-    },
-    onSessionSelected: (nextSessionId) => {
-      void navigate({
-        to: '/chat',
-        search: (current) => ({ ...current, session: nextSessionId }),
-      })
-    },
+    onAgentSelected,
+    onProjectSelected,
+    onSessionCreated,
+    onSessionSelected,
   })
   const [input, setInput] = useState('')
   const [tree, setTree] = useState<ProjectTreeEntry[]>([])
@@ -151,7 +172,11 @@ export function ChatPage() {
         <div className="grid min-h-0 flex-1 lg:grid-cols-[19rem_minmax(0,1fr)] xl:grid-cols-[19rem_minmax(0,1fr)_18rem]">
           <SessionList
             agents={agents}
-            sessions={sessions}
+            sessions={
+              selectedProject
+                ? sessions.filter((session) => session.project?.id === selectedProject.id)
+                : sessions
+            }
             selectedAgentId={activeAgentId}
             activeSessionId={activeSessionId}
             creatingSession={creatingSession}

@@ -1,6 +1,6 @@
 import { readFileSync, existsSync } from 'node:fs'
-import { join } from 'node:path'
 import type { McpServer } from '@agentclientprotocol/sdk'
+import { getConfigPath } from './storage.js'
 
 interface McpServerConfig {
   command: string
@@ -12,7 +12,7 @@ interface McpConfig {
   mcpServers: Record<string, McpServerConfig>
 }
 
-const MCP_JSON_PATH = process.env['MCP_JSON_PATH'] ?? join(process.cwd(), 'mcp.json')
+const MCP_JSON_PATH = process.env['MCP_JSON_PATH'] ?? getConfigPath('mcp.json')
 
 export function loadMcpServers(): McpServer[] {
   if (!existsSync(MCP_JSON_PATH)) {
