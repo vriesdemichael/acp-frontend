@@ -1,11 +1,19 @@
+import type { ReactNode } from 'react'
 import { Link } from '@tanstack/react-router'
 import { AgentSelector } from '../AgentSelector.js'
 import type { AgentSummary, ProjectSummary } from '../../hooks/useAgUiChat.js'
+
+interface HeaderLinkProps {
+  to: '/settings/backends' | '/settings/mcp'
+  className: string
+  children: ReactNode
+}
 
 interface ChatHeaderProps {
   agentId: string | null
   agents: AgentSummary[]
   onAgentSelect: (agentId: string) => void
+  renderLink?: (props: HeaderLinkProps) => ReactNode
   project: ProjectSummary | null
   sessionId: string | null
   errorMessage: string | null
@@ -23,12 +31,14 @@ export function ChatHeader({
   agentId,
   agents,
   onAgentSelect,
+  renderLink,
   project,
   sessionId,
   errorMessage,
   ready,
   thinking,
 }: ChatHeaderProps) {
+  const headerLink = renderLink ?? defaultHeaderLink
   const statusLabel = errorMessage
     ? 'Needs attention'
     : thinking
@@ -57,18 +67,18 @@ export function ChatHeader({
           </div>
 
           <div className="hidden items-center gap-2 lg:flex">
-            <Link
-              to="/settings/backends"
-              className="inline-flex h-9 items-center justify-center rounded-lg border border-white/10 bg-slate-900/90 px-3 text-sm font-medium text-slate-100 transition hover:bg-slate-800"
-            >
-              Backends
-            </Link>
-            <Link
-              to="/settings/mcp"
-              className="inline-flex h-9 items-center justify-center rounded-lg border border-white/10 bg-slate-900/60 px-3 text-sm font-medium text-slate-300 transition hover:bg-slate-800"
-            >
-              MCP
-            </Link>
+            {headerLink({
+              to: '/settings/backends',
+              className:
+                'inline-flex h-9 items-center justify-center rounded-lg border border-white/10 bg-slate-900/90 px-3 text-sm font-medium text-slate-100 transition hover:bg-slate-800',
+              children: 'Backends',
+            })}
+            {headerLink({
+              to: '/settings/mcp',
+              className:
+                'inline-flex h-9 items-center justify-center rounded-lg border border-white/10 bg-slate-900/60 px-3 text-sm font-medium text-slate-300 transition hover:bg-slate-800',
+              children: 'MCP',
+            })}
           </div>
         </div>
 
@@ -96,19 +106,27 @@ export function ChatHeader({
       </div>
 
       <div className="mt-3 flex gap-2 lg:hidden">
-        <Link
-          to="/settings/backends"
-          className="inline-flex h-9 items-center justify-center rounded-lg border border-white/10 bg-slate-900/90 px-3 text-sm font-medium text-slate-100 transition hover:bg-slate-800"
-        >
-          Backends
-        </Link>
-        <Link
-          to="/settings/mcp"
-          className="inline-flex h-9 items-center justify-center rounded-lg border border-white/10 bg-slate-900/60 px-3 text-sm font-medium text-slate-300 transition hover:bg-slate-800"
-        >
-          MCP
-        </Link>
+        {headerLink({
+          to: '/settings/backends',
+          className:
+            'inline-flex h-9 items-center justify-center rounded-lg border border-white/10 bg-slate-900/90 px-3 text-sm font-medium text-slate-100 transition hover:bg-slate-800',
+          children: 'Backends',
+        })}
+        {headerLink({
+          to: '/settings/mcp',
+          className:
+            'inline-flex h-9 items-center justify-center rounded-lg border border-white/10 bg-slate-900/60 px-3 text-sm font-medium text-slate-300 transition hover:bg-slate-800',
+          children: 'MCP',
+        })}
       </div>
     </header>
+  )
+}
+
+function defaultHeaderLink({ to, className, children }: HeaderLinkProps) {
+  return (
+    <Link key={`${to}-${String(children)}`} to={to} className={className}>
+      {children}
+    </Link>
   )
 }
