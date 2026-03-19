@@ -147,7 +147,12 @@ function ChatLayoutStory() {
             selectedProjectId="acp-frontend"
             onProjectSelect={() => {}}
             onAddProject={() =>
-              Promise.resolve({ id: '', name: '', path: '', status: 'available' as const })
+              Promise.resolve({
+                id: 'new-project',
+                name: 'New Project',
+                path: '/home/vries/projects/new-project',
+                status: 'available' as const,
+              })
             }
             tree={[
               { name: 'src', path: 'src', type: 'directory', hasChildren: true },

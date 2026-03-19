@@ -1,5 +1,7 @@
+import { isAbsolute } from 'node:path'
 import { Hono } from 'hono'
 import {
+  DuplicateProjectIdError,
   addProject,
   getProjectById,
   listProjects,
@@ -40,10 +42,18 @@ export function projectsRoutes(): Hono {
       return c.json({ error: 'path must not be blank' }, 422)
     }
 
+    if (!isAbsolute(path)) {
+      return c.json({ error: 'path must be an absolute filesystem path' }, 422)
+    }
+
     try {
       const project = addProject(name, path)
       return c.json(project, 201)
     } catch (error) {
+      if (error instanceof DuplicateProjectIdError) {
+        return c.json({ error: error.message }, 409)
+      }
+
       const message = error instanceof Error ? error.message : String(error)
       return c.json({ error: message }, 500)
     }

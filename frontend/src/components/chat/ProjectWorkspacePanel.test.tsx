@@ -125,7 +125,32 @@ describe('ProjectWorkspacePanel', () => {
     await waitFor(() => expect(onAddProject).toHaveBeenCalledWith('New Project', '/work/new'))
   })
 
-  it('closes the form and resets fields after a successful add', async () => {
+  it('defaults name to the last path segment when name is left blank', async () => {
+    const onAddProject = vi
+      .fn<(name: string, path: string) => Promise<ProjectSummary>>()
+      .mockResolvedValue({
+        id: 'new-project',
+        name: 'new-project',
+        path: '/work/new-project',
+        status: 'available',
+      })
+
+    renderPanel({ onAddProject })
+    fireEvent.click(screen.getByRole('button', { name: /Add project/i }))
+
+    await waitFor(() => screen.getByRole('textbox', { name: /Project path/i }))
+
+    fireEvent.change(screen.getByRole('textbox', { name: /Project path/i }), {
+      target: { value: '/work/new-project' },
+    })
+    fireEvent.submit(screen.getByRole('form', { name: /Add project form/i }))
+
+    await waitFor(() =>
+      expect(onAddProject).toHaveBeenCalledWith('new-project', '/work/new-project')
+    )
+  })
+
+  it('closes the form, resets fields, and auto-selects the new project after a successful add', async () => {
     const onAddProject = vi
       .fn<(name: string, path: string) => Promise<ProjectSummary>>()
       .mockResolvedValue({
@@ -152,22 +177,7 @@ describe('ProjectWorkspacePanel', () => {
       expect(screen.queryByRole('form', { name: /Add project form/i })).toBeNull()
     )
     expect(screen.getByRole('combobox', { name: /Active project/i })).toBeDefined()
-  })
-
-  it('shows validation error when name is empty', async () => {
-    renderPanel()
-    fireEvent.click(screen.getByRole('button', { name: /Add project/i }))
-
-    await waitFor(() => screen.getByRole('form', { name: /Add project form/i }))
-
-    fireEvent.change(screen.getByRole('textbox', { name: /Project path/i }), {
-      target: { value: '/work/new' },
-    })
-    fireEvent.submit(screen.getByRole('form', { name: /Add project form/i }))
-
-    await waitFor(() => expect(screen.getByRole('alert')).toBeDefined())
-    expect(screen.getByText('Name is required.')).toBeDefined()
-    expect(DEFAULT_PROPS.onAddProject).not.toHaveBeenCalled()
+    expect(DEFAULT_PROPS.onProjectSelect).toHaveBeenCalledWith('new-project')
   })
 
   it('shows validation error when path is empty', async () => {

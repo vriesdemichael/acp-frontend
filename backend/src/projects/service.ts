@@ -112,21 +112,28 @@ function compareTreeEntries(left: ProjectTreeEntry, right: ProjectTreeEntry): nu
   return left.name.localeCompare(right.name)
 }
 
+export class DuplicateProjectIdError extends Error {
+  constructor(id: string) {
+    super(`A project with id "${id}" already exists`)
+    this.name = 'DuplicateProjectIdError'
+  }
+}
+
 export function addProject(name: string, path: string): ProjectSummary {
   const existing = readProjectConfig()
-  const id = buildUniqueId(
-    slugifyProjectId(name),
-    existing.map((p) => p.id)
-  )
-  const resolvedPath = resolve(path)
+  const id = slugifyProjectId(name)
 
-  writeProjectConfig([...existing, { id, name: name.trim(), path: resolvedPath }])
+  if (existing.some((p) => p.id === id)) {
+    throw new DuplicateProjectIdError(id)
+  }
+
+  writeProjectConfig([...existing, { id, name: name.trim(), path }])
 
   return {
     id,
     name: name.trim(),
-    path: resolvedPath,
-    status: getProjectStatus(resolvedPath),
+    path,
+    status: getProjectStatus(path),
   }
 }
 
@@ -140,19 +147,6 @@ export function removeProject(projectId: string): boolean {
 
   writeProjectConfig(next)
   return true
-}
-
-function buildUniqueId(base: string, existingIds: string[]): string {
-  if (!existingIds.includes(base)) {
-    return base
-  }
-
-  let counter = 2
-  while (existingIds.includes(`${base}-${counter}`)) {
-    counter++
-  }
-
-  return `${base}-${counter}`
 }
 
 export const __projectServiceTestUtils = {

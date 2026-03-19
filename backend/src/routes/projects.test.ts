@@ -2,58 +2,68 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { Hono } from 'hono'
 import { projectsRoutes } from './projects.js'
 
-const mocks = vi.hoisted(() => ({
-  listProjects: vi.fn(() => [
-    {
-      id: 'repo-1',
-      name: 'ACP Frontend',
-      path: '/work/acp-frontend',
-      status: 'available',
-    },
-    {
-      id: 'repo-2',
-      name: 'Missing Project',
-      path: '/work/missing',
-      status: 'missing',
-    },
-  ]),
-  getProjectById: vi.fn((id: string) => {
-    if (id === 'repo-1') {
-      return {
+const mocks = vi.hoisted(() => {
+  class DuplicateProjectIdError extends Error {
+    constructor(id: string) {
+      super(`A project with id "${id}" already exists`)
+      this.name = 'DuplicateProjectIdError'
+    }
+  }
+
+  return {
+    listProjects: vi.fn(() => [
+      {
         id: 'repo-1',
         name: 'ACP Frontend',
         path: '/work/acp-frontend',
         status: 'available',
-      }
-    }
-
-    if (id === 'repo-2') {
-      return {
+      },
+      {
         id: 'repo-2',
         name: 'Missing Project',
         path: '/work/missing',
         status: 'missing',
+      },
+    ]),
+    getProjectById: vi.fn((id: string) => {
+      if (id === 'repo-1') {
+        return {
+          id: 'repo-1',
+          name: 'ACP Frontend',
+          path: '/work/acp-frontend',
+          status: 'available',
+        }
       }
-    }
 
-    return null
-  }),
-  readProjectTree: vi.fn(async (_project, path = '') => [
-    {
-      name: path ? 'nested.ts' : 'src',
-      path: path ? `${path}/nested.ts` : 'src',
-      type: path ? 'file' : 'directory',
-      hasChildren: !path,
-    },
-  ]),
-  addProject: vi.fn((name: string, path: string) => ({
-    id: 'new-project',
-    name,
-    path,
-    status: 'available',
-  })),
-  removeProject: vi.fn(() => true),
-}))
+      if (id === 'repo-2') {
+        return {
+          id: 'repo-2',
+          name: 'Missing Project',
+          path: '/work/missing',
+          status: 'missing',
+        }
+      }
+
+      return null
+    }),
+    readProjectTree: vi.fn(async (_project, path = '') => [
+      {
+        name: path ? 'nested.ts' : 'src',
+        path: path ? `${path}/nested.ts` : 'src',
+        type: path ? 'file' : 'directory',
+        hasChildren: !path,
+      },
+    ]),
+    addProject: vi.fn((name: string, path: string) => ({
+      id: 'new-project',
+      name,
+      path,
+      status: 'available',
+    })),
+    removeProject: vi.fn(() => true),
+    DuplicateProjectIdError,
+  }
+})
 
 vi.mock('../projects/service.js', () => ({
   listProjects: mocks.listProjects,
@@ -61,6 +71,7 @@ vi.mock('../projects/service.js', () => ({
   readProjectTree: mocks.readProjectTree,
   addProject: mocks.addProject,
   removeProject: mocks.removeProject,
+  DuplicateProjectIdError: mocks.DuplicateProjectIdError,
 }))
 
 describe('projects routes', () => {
@@ -194,6 +205,33 @@ describe('projects routes', () => {
       })
 
       expect(res.status).toBe(422)
+    })
+
+    it('returns 422 when path is a relative path', async () => {
+      const app = new Hono().route('/api', projectsRoutes())
+
+      const res = await app.request('/api/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'New Project', path: 'relative/path' }),
+      })
+
+      expect(res.status).toBe(422)
+    })
+
+    it('returns 409 when a project with the same id already exists', async () => {
+      mocks.addProject.mockImplementationOnce(() => {
+        throw new mocks.DuplicateProjectIdError('new-project')
+      })
+      const app = new Hono().route('/api', projectsRoutes())
+
+      const res = await app.request('/api/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'New Project', path: '/work/new-project' }),
+      })
+
+      expect(res.status).toBe(409)
     })
   })
 

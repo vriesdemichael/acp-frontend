@@ -52,27 +52,26 @@ export function ProjectWorkspacePanel({
 
   const handleAddSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    const trimmedName = addName.trim()
     const trimmedPath = addPath.trim()
-
-    if (!trimmedName) {
-      setAddError('Name is required.')
-      return
-    }
 
     if (!trimmedPath) {
       setAddError('Path is required.')
       return
     }
 
+    // Default name to the last path segment when left blank
+    const effectiveName =
+      addName.trim() || (trimmedPath.split('/').filter(Boolean).pop() ?? trimmedPath)
+
     setAddError(null)
     setAddSubmitting(true)
 
     try {
-      await onAddProject(trimmedName, trimmedPath)
+      const newProject = await onAddProject(effectiveName, trimmedPath)
       setAddName('')
       setAddPath('')
       setAddFormOpen(false)
+      await onProjectSelect(newProject.id)
     } catch {
       setAddError('Failed to add project. Check the name and path and try again.')
     } finally {
