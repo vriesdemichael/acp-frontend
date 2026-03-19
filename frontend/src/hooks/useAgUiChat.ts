@@ -532,7 +532,10 @@ export function useAgUiChat({
         body: JSON.stringify({ name, path }),
       })
 
-      setProjects((current) => [...current, project])
+      // Re-fetch the canonical list to pick up backend normalisations and correct ordering
+      const refreshed = await fetchJson<ProjectSummary[]>('/api/projects')
+      setProjects(refreshed)
+
       return project
     },
     [fetchJson]
