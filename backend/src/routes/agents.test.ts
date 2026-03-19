@@ -81,6 +81,11 @@ function createRegistryStub(): AgentRegistry {
         testedAt: '2026-03-18T18:00:00.000Z',
       },
     })),
+    listSessions: vi.fn(() => []),
+    getSession: vi.fn(() => null),
+    createSession: vi.fn(async () => 'session-1'),
+    sendMessage: vi.fn(async () => undefined),
+    closeSession: vi.fn(() => false),
   } as unknown as AgentRegistry
 }
 

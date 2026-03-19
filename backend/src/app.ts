@@ -6,6 +6,7 @@ import { sessionsRoutes } from './routes/sessions.js'
 import { streamRoute } from './routes/stream.js'
 import { copilotRoutes } from './adapters/copilot/routes.js'
 import type { CopilotAdapter } from './adapters/copilot/adapter.js'
+import { projectsRoutes } from './routes/projects.js'
 
 export function createApp(adapter: CopilotAdapter): Hono {
   const app = new Hono()
@@ -14,6 +15,7 @@ export function createApp(adapter: CopilotAdapter): Hono {
   app.route('/api', agentsRoutes(registry))
   app.route('/api', sessionsRoutes(registry))
   app.route('/api', streamRoute(registry))
+  app.route('/api', projectsRoutes())
   app.route('/api/agents/copilot', copilotRoutes(adapter))
   return app
 }

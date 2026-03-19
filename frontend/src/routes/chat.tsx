@@ -1,17 +1,21 @@
-import { useMemo, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import { ChatComposer } from '../components/chat/ChatComposer.js'
 import { ChatHeader } from '../components/chat/ChatHeader.js'
 import { SessionList } from '../components/chat/SessionList.js'
-import { ChatSidePanel } from '../components/chat/ChatSidePanel.js'
 import { ChatTranscript } from '../components/chat/ChatTranscript.js'
 import { useAgUiChat } from '../hooks/useAgUiChat.js'
+import {
+  ProjectWorkspacePanel,
+  type ProjectTreeEntry,
+} from '../components/chat/ProjectWorkspacePanel.js'
 
 export function ChatPage() {
   const navigate = useNavigate({ from: '/chat' })
   const search = useSearch({ from: '/chat' })
   const sessionId = search.session ?? null
   const agentId = search.agent ?? null
+  const projectId = search.project ?? null
   const {
     agentId: activeAgentId,
     agents,
@@ -19,9 +23,12 @@ export function ChatPage() {
     errorMessage,
     loading,
     messages,
+    projects,
     ready,
     selectedAgent,
+    selectedProject,
     selectAgent,
+    selectProject,
     selectSession,
     sendMessage,
     sessionId: activeSessionId,
@@ -31,8 +38,18 @@ export function ChatPage() {
   } = useAgUiChat({
     sessionId,
     agentId,
+    projectId,
     onAgentSelected: (nextAgentId) => {
-      void navigate({ to: '/chat', search: (current) => ({ ...current, agent: nextAgentId }) })
+      void navigate({
+        to: '/chat',
+        search: (current) => ({ ...current, agent: nextAgentId }),
+      })
+    },
+    onProjectSelected: (nextProjectId) => {
+      void navigate({
+        to: '/chat',
+        search: (current) => ({ ...current, project: nextProjectId ?? undefined }),
+      })
     },
     onSessionCreated: (nextSessionId) => {
       void navigate({
@@ -48,10 +65,56 @@ export function ChatPage() {
     },
   })
   const [input, setInput] = useState('')
+  const [tree, setTree] = useState<ProjectTreeEntry[]>([])
+  const [treePath, setTreePath] = useState<string | null>(null)
+  const [treeLoading, setTreeLoading] = useState(false)
+  const [treeError, setTreeError] = useState<string | null>(null)
+  const [expandedPaths, setExpandedPaths] = useState<string[]>([])
+  const [selectedEntryPath, setSelectedEntryPath] = useState<string | null>(null)
   const activeAgentName = useMemo(
     () => selectedAgent?.name ?? 'the selected agent',
     [selectedAgent]
   )
+
+  const loadTree = useCallback(
+    async (nextPath: string | null = null) => {
+      if (!selectedProject) {
+        setTree([])
+        setTreePath(null)
+        return
+      }
+
+      setTreeLoading(true)
+      setTreeError(null)
+
+      try {
+        const query = nextPath ? `?path=${encodeURIComponent(nextPath)}` : ''
+        const response = await fetch(
+          `/api/projects/${encodeURIComponent(selectedProject.id)}/tree${query}`
+        )
+        if (!response.ok) {
+          throw new Error(`Explorer request failed with status ${response.status}`)
+        }
+
+        const nextTree = (await response.json()) as ProjectTreeEntry[]
+        setTree(nextTree)
+        setTreePath(nextPath)
+      } catch (error) {
+        console.error('[ChatPage] project tree load failed:', error)
+        setTree([])
+        setTreeError('Unable to load the folder explorer right now. Try another project or reload.')
+      } finally {
+        setTreeLoading(false)
+      }
+    },
+    [selectedProject]
+  )
+
+  useEffect(() => {
+    setExpandedPaths([])
+    setSelectedEntryPath(null)
+    void loadTree(null)
+  }, [loadTree, selectedProject?.id])
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -74,6 +137,7 @@ export function ChatPage() {
           agents={agents}
           errorMessage={errorMessage}
           onAgentSelect={selectAgent}
+          project={selectedProject}
           sessionId={activeSessionId}
           ready={ready}
           thinking={thinking}
@@ -109,12 +173,23 @@ export function ChatPage() {
             />
           </section>
 
-          <ChatSidePanel
-            testId="chat-context-panel"
-            title="Workspace"
-            description="Reserved surface for project selection, folder context, and HITL activity without reshaping the chat pane."
-            bullets={['Project picker', 'Folder tree', 'Approvals']}
-            className="xl:flex xl:flex-col"
+          <ProjectWorkspacePanel
+            projects={projects}
+            selectedProjectId={selectedProject?.id ?? null}
+            onProjectSelect={selectProject}
+            tree={tree}
+            treePath={treePath}
+            treeLoading={treeLoading}
+            treeError={treeError}
+            expandedPaths={expandedPaths}
+            onToggleFolder={async (path) => {
+              setExpandedPaths((current) =>
+                current.includes(path) ? current.filter((item) => item !== path) : [path]
+              )
+              await loadTree(path)
+            }}
+            selectedEntryPath={selectedEntryPath}
+            onSelectEntry={setSelectedEntryPath}
           />
         </div>
       </div>

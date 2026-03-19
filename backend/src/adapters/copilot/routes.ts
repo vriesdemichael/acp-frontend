@@ -12,7 +12,7 @@ export function copilotRoutes(adapter: CopilotAdapter): Hono {
    */
   app.post('/session/new', async (c) => {
     const mcpServers = loadMcpServers()
-    const sessionId = await adapter.newSession(mcpServers)
+    const sessionId = await adapter.newSession(null, mcpServers)
     return c.json({ sessionId }, 201)
   })
 

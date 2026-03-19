@@ -6,3 +6,4 @@ coverage
 *.log
 playwright-report
 storybook-static
+.acp

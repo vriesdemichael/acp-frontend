@@ -13,6 +13,12 @@ const meta = {
     agentId: 'copilot',
     agents,
     onAgentSelect: () => {},
+    project: {
+      id: 'acp-frontend',
+      name: 'ACP Frontend',
+      path: '/home/vries/projects/acp-frontend',
+      status: 'available',
+    },
     sessionId: '8bde315f-d2a3-4521-80e2-a55a0f2598d8',
     errorMessage: null,
     ready: true,

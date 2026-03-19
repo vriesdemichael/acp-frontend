@@ -21,6 +21,7 @@ import {
 import { createGenericAcpAdapter } from '../adapters/generic/index.js'
 import { StdioAcpProcess } from '../adapters/shared/process.js'
 import { deriveEndpointSupport } from '../adapters/shared/capabilities.js'
+import type { SessionProjectContext } from './types.js'
 
 interface RegisteredAgent {
   id: string
@@ -188,8 +189,12 @@ export class AgentRegistry {
     }
   }
 
-  async createSession(agentId: string, mcpServers: McpServer[]): Promise<string> {
-    return this.requireAdapter(agentId).newSession(mcpServers)
+  async createSession(
+    agentId: string,
+    project: SessionProjectContext | null,
+    mcpServers: McpServer[]
+  ): Promise<string> {
+    return this.requireAdapter(agentId).newSession(project, mcpServers)
   }
 
   listSessions(): SessionSummary[] {

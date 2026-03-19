@@ -14,11 +14,25 @@ export interface AgentSummary {
   command: string | null
 }
 
+export interface ProjectSummary {
+  id: string
+  name: string
+  path: string
+  status: 'available' | 'missing' | 'invalid'
+}
+
+export interface SessionProjectContext {
+  id: string
+  name: string
+  path: string
+}
+
 export interface SessionSummary {
   id: string
   title: string
   updatedAt: string
   agentId: string
+  project: SessionProjectContext | null
 }
 
 interface SessionDetails extends SessionSummary {
@@ -28,21 +42,27 @@ interface SessionDetails extends SessionSummary {
 interface UseAgUiChatOptions {
   sessionId: string | null
   agentId: string | null
+  projectId: string | null
   onSessionCreated: (sessionId: string) => void
   onSessionSelected: (sessionId: string) => void
   onAgentSelected: (agentId: string) => void
+  onProjectSelected: (projectId: string | null) => void
 }
 
 export function useAgUiChat({
   sessionId,
   agentId,
+  projectId,
   onSessionCreated,
   onSessionSelected,
   onAgentSelected,
+  onProjectSelected,
 }: UseAgUiChatOptions) {
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(sessionId)
   const [currentAgentId, setCurrentAgentId] = useState<string | null>(agentId)
+  const [currentProjectId, setCurrentProjectId] = useState<string | null>(projectId)
   const [agents, setAgents] = useState<AgentSummary[]>([])
+  const [projects, setProjects] = useState<ProjectSummary[]>([])
   const [sessions, setSessions] = useState<SessionSummary[]>([])
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [thinking, setThinking] = useState(false)
@@ -58,13 +78,29 @@ export function useAgUiChat({
     }
   }, [agentId])
 
+  useEffect(() => {
+    setCurrentProjectId(projectId)
+  }, [projectId])
+
   const selectedAgent = useMemo(
     () => agents.find((candidate) => candidate.id === currentAgentId) ?? null,
     [agents, currentAgentId]
   )
+  const selectedProject = useMemo(
+    () => projects.find((candidate) => candidate.id === currentProjectId) ?? null,
+    [projects, currentProjectId]
+  )
+  const availableProjects = useMemo(
+    () => projects.filter((candidate) => candidate.status === 'available'),
+    [projects]
+  )
   const ready = useMemo(
-    () => currentSessionId !== null && selectedAgent?.status === 'active' && !creatingSession,
-    [creatingSession, currentSessionId, selectedAgent]
+    () =>
+      currentSessionId !== null &&
+      selectedAgent?.status === 'active' &&
+      selectedProject?.status === 'available' &&
+      !creatingSession,
+    [creatingSession, currentSessionId, selectedAgent, selectedProject]
   )
 
   const fetchJson = useCallback(async <T>(url: string, init?: RequestInit): Promise<T> => {
@@ -106,9 +142,14 @@ export function useAgUiChat({
 
         setCurrentSessionId(nextSessionId)
         setCurrentAgentId(session.agentId)
+        setCurrentProjectId(session.project?.id ?? null)
 
         if (syncRoute && session.agentId !== agentId) {
           onAgentSelected(session.agentId)
+        }
+
+        if (syncRoute && session.project?.id !== projectId) {
+          onProjectSelected(session.project?.id ?? null)
         }
 
         if (syncRoute && sessionId !== nextSessionId) {
@@ -125,7 +166,15 @@ export function useAgUiChat({
         return null
       }
     },
-    [agentId, fetchJson, onAgentSelected, onSessionSelected, sessionId]
+    [
+      agentId,
+      fetchJson,
+      onAgentSelected,
+      onProjectSelected,
+      onSessionSelected,
+      projectId,
+      sessionId,
+    ]
   )
 
   useEffect(() => {
@@ -143,9 +192,10 @@ export function useAgUiChat({
   }, [currentSessionId, loadSession, sessionId])
 
   const createSession = useCallback(
-    async (nextAgentId?: string) => {
+    async (nextAgentId?: string, nextProjectId?: string) => {
       const effectiveAgentId = nextAgentId ?? currentAgentId ?? agentId
-      if (!effectiveAgentId) return null
+      const effectiveProjectId = nextProjectId ?? currentProjectId ?? projectId
+      if (!effectiveAgentId || !effectiveProjectId) return null
 
       setCreatingSession(true)
       setThinking(false)
@@ -154,17 +204,22 @@ export function useAgUiChat({
         const session = await fetchJson<SessionDetails>('/api/sessions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ agentId: effectiveAgentId }),
+          body: JSON.stringify({ agentId: effectiveAgentId, projectId: effectiveProjectId }),
         })
 
         activeSessionRef.current = session.id
         setCurrentSessionId(session.id)
         setMessages(session.messages)
         setCurrentAgentId(session.agentId)
+        setCurrentProjectId(session.project?.id ?? effectiveProjectId)
         onSessionCreated(session.id)
 
         if (session.agentId !== agentId) {
           onAgentSelected(session.agentId)
+        }
+
+        if (session.project?.id !== projectId) {
+          onProjectSelected(session.project?.id ?? effectiveProjectId)
         }
 
         void refreshSessions()
@@ -179,7 +234,17 @@ export function useAgUiChat({
         setCreatingSession(false)
       }
     },
-    [agentId, currentAgentId, fetchJson, onAgentSelected, onSessionCreated, refreshSessions]
+    [
+      agentId,
+      currentAgentId,
+      currentProjectId,
+      fetchJson,
+      onAgentSelected,
+      onProjectSelected,
+      onSessionCreated,
+      projectId,
+      refreshSessions,
+    ]
   )
 
   useEffect(() => {
@@ -192,14 +257,16 @@ export function useAgUiChat({
       setErrorMessage(null)
 
       try {
-        const [nextAgents, nextSessions] = await Promise.all([
+        const [nextAgents, nextProjects, nextSessions] = await Promise.all([
           fetchJson<AgentSummary[]>('/api/agents'),
+          fetchJson<ProjectSummary[]>('/api/projects'),
           fetchJson<SessionSummary[]>('/api/sessions'),
         ])
 
         if (cancelled) return
 
         setAgents(nextAgents)
+        setProjects(nextProjects)
         setSessions(nextSessions)
 
         const activeAgents = nextAgents.filter((candidate) => candidate.status === 'active')
@@ -222,15 +289,45 @@ export function useAgUiChat({
           onAgentSelected(preferredAgentId)
         }
 
+        const availableProjectIds = new Set(
+          nextProjects
+            .filter((project) => project.status === 'available')
+            .map((project) => project.id)
+        )
+        const preferredProjectId =
+          projectId && availableProjectIds.has(projectId)
+            ? projectId
+            : currentProjectId && availableProjectIds.has(currentProjectId)
+              ? currentProjectId
+              : (nextSessions.find(
+                  (session) => session.project && availableProjectIds.has(session.project.id)
+                )?.project?.id ??
+                nextProjects.find((project) => project.status === 'available')?.id ??
+                null)
+
+        setCurrentProjectId(preferredProjectId)
+
+        if (preferredProjectId !== projectId) {
+          onProjectSelected(preferredProjectId)
+        }
+
         const preferredSession =
           (sessionId && nextSessions.find((session) => session.id === sessionId)) ??
-          nextSessions.find((session) => session.agentId === preferredAgentId) ??
+          nextSessions.find(
+            (session) =>
+              session.agentId === preferredAgentId && session.project?.id === preferredProjectId
+          ) ??
           null
 
         if (preferredSession) {
           activeSessionRef.current = preferredSession.id
           setCurrentSessionId(preferredSession.id)
           await loadSession(preferredSession.id, false)
+          return
+        }
+
+        if (!preferredProjectId) {
+          setMessages([])
           return
         }
 
@@ -249,7 +346,18 @@ export function useAgUiChat({
     return () => {
       cancelled = true
     }
-  }, [agentId, createSession, currentAgentId, fetchJson, loadSession, onAgentSelected, sessionId])
+  }, [
+    agentId,
+    createSession,
+    currentAgentId,
+    currentProjectId,
+    fetchJson,
+    loadSession,
+    onAgentSelected,
+    onProjectSelected,
+    projectId,
+    sessionId,
+  ])
 
   useEffect(() => {
     if (!currentSessionId) return
@@ -376,6 +484,34 @@ export function useAgUiChat({
     [agents, currentAgentId, onAgentSelected]
   )
 
+  const selectProject = useCallback(
+    async (nextProjectId: string) => {
+      if (nextProjectId === currentProjectId) {
+        return
+      }
+
+      const candidate = projects.find((project) => project.id === nextProjectId)
+      if (!candidate || candidate.status !== 'available') {
+        return
+      }
+
+      setErrorMessage(null)
+      setMessages([])
+      setThinking(false)
+      setCurrentProjectId(nextProjectId)
+      onProjectSelected(nextProjectId)
+
+      if (!currentAgentId) {
+        return
+      }
+
+      activeSessionRef.current = null
+      setCurrentSessionId(null)
+      await createSession(currentAgentId, nextProjectId)
+    },
+    [createSession, currentAgentId, currentProjectId, onProjectSelected, projects]
+  )
+
   const startNewSession = useCallback(async () => {
     setErrorMessage(null)
     await createSession()
@@ -388,15 +524,19 @@ export function useAgUiChat({
     errorMessage,
     loading,
     messages,
+    projects,
     ready,
     selectedAgent,
+    selectedProject,
     selectAgent,
+    selectProject,
     selectSession,
     sendMessage,
     sessionId: currentSessionId,
     sessions,
     startNewSession,
     thinking,
+    availableProjects,
   }
 }
 

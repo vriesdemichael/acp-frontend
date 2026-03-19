@@ -21,7 +21,7 @@ export function McpSettingsPage() {
             </Link>
             <Link
               to="/chat"
-              search={{ session: undefined, agent: undefined }}
+              search={{ session: undefined, agent: undefined, project: undefined }}
               className="inline-flex h-10 items-center justify-center rounded-lg border border-white/10 bg-slate-900/60 px-3 text-sm font-medium text-slate-300 transition hover:bg-slate-800"
             >
               Back To Chat

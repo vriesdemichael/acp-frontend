@@ -1,11 +1,12 @@
 import { Link } from '@tanstack/react-router'
 import { AgentSelector } from '../AgentSelector.js'
-import type { AgentSummary } from '../../hooks/useAgUiChat.js'
+import type { AgentSummary, ProjectSummary } from '../../hooks/useAgUiChat.js'
 
 interface ChatHeaderProps {
   agentId: string | null
   agents: AgentSummary[]
   onAgentSelect: (agentId: string) => void
+  project: ProjectSummary | null
   sessionId: string | null
   errorMessage: string | null
   ready: boolean
@@ -22,6 +23,7 @@ export function ChatHeader({
   agentId,
   agents,
   onAgentSelect,
+  project,
   sessionId,
   errorMessage,
   ready,
@@ -48,7 +50,9 @@ export function ChatHeader({
               Chat Workspace
             </h1>
             <p className="text-xs text-slate-400">
-              Focused conversation layout with live agent state
+              {project
+                ? `${project.name} · ${project.path}`
+                : 'Focused conversation layout with live agent state'}
             </p>
           </div>
 

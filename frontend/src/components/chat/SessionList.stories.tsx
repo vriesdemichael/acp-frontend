@@ -6,6 +6,11 @@ const denseSessions = Array.from({ length: 8 }, (_, index) => ({
   title: index === 0 ? 'Inspect auth bug' : `Conversation ${index + 1}`,
   updatedAt: `2026-03-1${Math.min(index + 1, 8)}T08:0${index}:00.000Z`,
   agentId: 'copilot',
+  project: {
+    id: 'acp-frontend',
+    name: 'ACP Frontend',
+    path: '/home/vries/projects/acp-frontend',
+  },
 }))
 
 const meta = {
@@ -53,6 +58,11 @@ export const GroupedByBackend: Story = {
         title: 'Gemini compatibility notes',
         updatedAt: '2026-03-18T11:20:00.000Z',
         agentId: 'gemini-cli',
+        project: {
+          id: 'docs-site',
+          name: 'Docs Site',
+          path: '/home/vries/projects/docs-site',
+        },
       },
     ],
     selectedAgentId: 'gemini-cli',

@@ -4,7 +4,11 @@ import type {
   PromptResponse,
   SessionNotification,
 } from '@agentclientprotocol/sdk'
-import type { BackendEndpointSupport, SessionMessage } from '../../agents/types.js'
+import type {
+  BackendEndpointSupport,
+  SessionMessage,
+  SessionProjectContext,
+} from '../../agents/types.js'
 import type { AcpSessionClient, StdioAcpProcess } from './process.js'
 
 export interface GenericSessionState {
@@ -12,6 +16,7 @@ export interface GenericSessionState {
   createdAt: Date
   updatedAt: Date
   title: string
+  project: SessionProjectContext | null
   agentProcess: StdioAcpProcess
   acpClient: AcpSessionClient
   acpSessionId: string

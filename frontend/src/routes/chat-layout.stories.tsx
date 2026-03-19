@@ -4,7 +4,7 @@ import { ChatHeader } from '../components/chat/ChatHeader.js'
 import { SessionList } from '../components/chat/SessionList.js'
 import { ChatTranscript } from '../components/chat/ChatTranscript.js'
 import { ChatComposer } from '../components/chat/ChatComposer.js'
-import { ChatSidePanel } from '../components/chat/ChatSidePanel.js'
+import { ProjectWorkspacePanel } from '../components/chat/ProjectWorkspacePanel.js'
 
 function ChatLayoutStory() {
   const [value, setValue] = useState('')
@@ -20,6 +20,12 @@ function ChatLayoutStory() {
           ]}
           errorMessage={null}
           onAgentSelect={() => {}}
+          project={{
+            id: 'acp-frontend',
+            name: 'ACP Frontend',
+            path: '/home/vries/projects/acp-frontend',
+            status: 'available',
+          }}
           sessionId="session-12345678"
           ready
           thinking={false}
@@ -38,24 +44,44 @@ function ChatLayoutStory() {
                 title: 'Agentic Coding Presentation Outline',
                 updatedAt: '2026-03-18T09:00:00.000Z',
                 agentId: 'copilot',
+                project: {
+                  id: 'acp-frontend',
+                  name: 'ACP Frontend',
+                  path: '/home/vries/projects/acp-frontend',
+                },
               },
               {
                 id: 'session-2',
                 title: 'CLI-Integrated Code Assistant Alternatives',
                 updatedAt: '2026-03-18T08:10:00.000Z',
                 agentId: 'copilot',
+                project: {
+                  id: 'acp-frontend',
+                  name: 'ACP Frontend',
+                  path: '/home/vries/projects/acp-frontend',
+                },
               },
               {
                 id: 'session-3',
                 title: 'VS Code YAML Frontmatter Validation Tooling',
                 updatedAt: '2026-03-17T16:42:00.000Z',
                 agentId: 'copilot',
+                project: {
+                  id: 'acp-frontend',
+                  name: 'ACP Frontend',
+                  path: '/home/vries/projects/acp-frontend',
+                },
               },
               {
                 id: 'session-4',
                 title: 'Gemini follow-up on grouped session discovery',
                 updatedAt: '2026-03-16T11:18:00.000Z',
                 agentId: 'gemini-cli',
+                project: {
+                  id: 'docs-site',
+                  name: 'Docs Site',
+                  path: '/home/vries/projects/docs-site',
+                },
               },
             ]}
             selectedAgentId="copilot"
@@ -102,12 +128,34 @@ function ChatLayoutStory() {
             />
           </section>
 
-          <ChatSidePanel
-            testId="storybook-chat-context-panel"
-            title="Workspace"
-            description="Reserved surface for project selection, folder context, and HITL activity without reshaping the transcript pane."
-            bullets={['Project picker', 'Folder tree', 'Approvals']}
-            className="xl:flex xl:flex-col"
+          <ProjectWorkspacePanel
+            projects={[
+              {
+                id: 'acp-frontend',
+                name: 'ACP Frontend',
+                path: '/home/vries/projects/acp-frontend',
+                status: 'available',
+              },
+              {
+                id: 'docs-site',
+                name: 'Docs Site',
+                path: '/home/vries/projects/docs-site',
+                status: 'missing',
+              },
+            ]}
+            selectedProjectId="acp-frontend"
+            onProjectSelect={() => {}}
+            tree={[
+              { name: 'src', path: 'src', type: 'directory', hasChildren: true },
+              { name: 'package.json', path: 'package.json', type: 'file', hasChildren: false },
+            ]}
+            treePath={null}
+            treeLoading={false}
+            treeError={null}
+            expandedPaths={[]}
+            onToggleFolder={() => {}}
+            selectedEntryPath="src"
+            onSelectEntry={() => {}}
           />
         </div>
       </div>
