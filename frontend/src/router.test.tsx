@@ -207,12 +207,8 @@ describe('app router', () => {
   })
 
   it('navigates to backend settings from the chat header', async () => {
-    window.history.pushState({}, '', '/chat?session=test-session-id&agent=copilot')
-    window.history.replaceState(
-      {},
-      '',
-      '/chat?session=test-session-id&agent=copilot&project=acp-frontend'
-    )
+    window.history.pushState({}, '', '/chat?session=test-session-id')
+    window.history.replaceState({}, '', '/chat?session=test-session-id&project=acp-frontend')
 
     render(<App routerInstance={createAppRouter()} />)
 
@@ -245,11 +241,11 @@ describe('app router', () => {
   })
 
   it('normalizes blank chat search params to undefined', async () => {
-    window.history.pushState({}, '', '/chat?session=%20%20%20&agent=&project=')
+    window.history.pushState({}, '', '/chat?session=%20%20%20&project=')
 
     render(<App routerInstance={createAppRouter()} />)
 
     await waitFor(() => expect(screen.getByPlaceholderText('Type a message…')).toBeDefined())
-    await waitFor(() => expect(window.location.search).toBe('?agent=copilot&project=acp-frontend'))
+    await waitFor(() => expect(window.location.search).toBe('?project=acp-frontend'))
   })
 })

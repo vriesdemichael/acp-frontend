@@ -12,6 +12,7 @@ interface ProjectWorkspacePanelProps {
   projects: ProjectSummary[]
   selectedProjectId: string | null
   onProjectSelect: (projectId: string) => void | Promise<void>
+  activeAgentCount: number
   tree: ProjectTreeEntry[]
   treePath: string | null
   treeLoading: boolean
@@ -26,6 +27,7 @@ export function ProjectWorkspacePanel({
   projects,
   selectedProjectId,
   onProjectSelect,
+  activeAgentCount,
   tree,
   treePath,
   treeLoading,
@@ -99,9 +101,9 @@ export function ProjectWorkspacePanel({
                 <option
                   key={project.id}
                   value={project.id}
-                  disabled={project.status !== 'available'}
+                  disabled={project.status !== 'available' || activeAgentCount === 0}
                 >
-                  {buildProjectOptionLabel(project)}
+                  {buildProjectOptionLabel(project, activeAgentCount)}
                 </option>
               ))}
             </select>
@@ -203,12 +205,16 @@ export function ProjectWorkspacePanel({
   )
 }
 
-function buildProjectOptionLabel(project: ProjectSummary): string {
-  if (project.status === 'available') {
-    return `${project.name} - ${project.path}`
+function buildProjectOptionLabel(project: ProjectSummary, activeAgentCount: number): string {
+  if (project.status !== 'available') {
+    return `${project.name} — ${project.status}`
   }
 
-  return `${project.name} - ${project.status}`
+  if (activeAgentCount === 0) {
+    return `${project.name} — no agent online`
+  }
+
+  return `${project.name} - ${project.path}`
 }
 
 function buildProjectStatusClassName(status: ProjectSummary['status']): string {

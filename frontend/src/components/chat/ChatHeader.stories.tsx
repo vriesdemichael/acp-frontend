@@ -1,18 +1,10 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { ChatHeader } from './ChatHeader.js'
 
-const agents = [
-  { id: 'copilot', name: 'GitHub Copilot', status: 'active' as const, command: 'copilot' },
-  { id: 'claude-code', name: 'Claude Code', status: 'unavailable' as const, command: null },
-]
-
 const meta = {
   title: 'Chat/ChatHeader',
   component: ChatHeader,
   args: {
-    agentId: 'copilot',
-    agents,
-    onAgentSelect: () => {},
     renderLink: ({ className, children }) => <span className={className}>{children}</span>,
     project: {
       id: 'acp-frontend',

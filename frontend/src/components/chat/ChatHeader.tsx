@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react'
 import { Link } from '@tanstack/react-router'
-import { AgentSelector } from '../AgentSelector.js'
-import type { AgentSummary, ProjectSummary } from '../../hooks/useAgUiChat.js'
+import type { ProjectSummary } from '../../hooks/useAgUiChat.js'
 
 interface HeaderLinkProps {
   to: '/settings/backends' | '/settings/mcp'
@@ -10,9 +9,6 @@ interface HeaderLinkProps {
 }
 
 interface ChatHeaderProps {
-  agentId: string | null
-  agents: AgentSummary[]
-  onAgentSelect: (agentId: string) => void
   renderLink?: (props: HeaderLinkProps) => ReactNode
   project: ProjectSummary | null
   sessionId: string | null
@@ -28,9 +24,6 @@ function formatSessionLabel(sessionId: string | null, ready: boolean) {
 }
 
 export function ChatHeader({
-  agentId,
-  agents,
-  onAgentSelect,
   renderLink,
   project,
   sessionId,
@@ -82,9 +75,7 @@ export function ChatHeader({
           </div>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-[minmax(0,18rem)_9rem_11rem] lg:min-w-[40rem]">
-          <AgentSelector agents={agents} selectedAgentId={agentId} onSelect={onAgentSelect} />
-
+        <div className="grid gap-3 sm:grid-cols-[9rem_11rem]">
           <div className="rounded-lg border border-white/10 bg-slate-900/90 px-3 py-2.5">
             <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
               Session
