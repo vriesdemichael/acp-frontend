@@ -13,6 +13,7 @@ const meta = {
     agentId: 'copilot',
     agents,
     onAgentSelect: () => {},
+    renderLink: ({ className, children }) => <span className={className}>{children}</span>,
     project: {
       id: 'acp-frontend',
       name: 'ACP Frontend',
