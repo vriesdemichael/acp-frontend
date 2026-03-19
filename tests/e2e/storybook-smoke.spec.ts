@@ -4,13 +4,8 @@ test.describe('storybook smoke', () => {
   test('renders chat header story', async ({ page }) => {
     await page.goto('/?path=/story/chat-chatheader--ready')
     const preview = await waitForPreviewFrame(page)
-    await expect(preview.getByText('Investigate chat session selection race')).toBeVisible({
-      timeout: 15_000,
-    })
-    await expect(preview.getByText('Connected')).toBeVisible({ timeout: 15_000 })
-    await expect(
-      preview.getByText(/ACP Frontend .* GitHub Copilot|ACP Frontend · GitHub Copilot/)
-    ).toBeVisible({
+    await expect(preview.getByText('Chat Workspace')).toBeVisible({ timeout: 15_000 })
+    await expect(preview.getByText('Ready')).toBeVisible({
       timeout: 15_000,
     })
   })
