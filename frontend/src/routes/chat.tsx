@@ -17,6 +17,7 @@ export function ChatPage() {
   const agentId = search.agent ?? null
   const projectId = search.project ?? null
   const {
+    addProject,
     agentId: activeAgentId,
     agents,
     creatingSession,
@@ -182,6 +183,7 @@ export function ChatPage() {
             projects={projects}
             selectedProjectId={selectedProject?.id ?? null}
             onProjectSelect={selectProject}
+            onAddProject={addProject}
             tree={tree}
             treePath={treePath}
             treeLoading={treeLoading}

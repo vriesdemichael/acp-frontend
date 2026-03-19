@@ -524,12 +524,27 @@ export function useAgUiChat({
     [createSession, currentAgentId, currentProjectId, onProjectSelected, projects]
   )
 
+  const addProject = useCallback(
+    async (name: string, path: string): Promise<ProjectSummary> => {
+      const project = await fetchJson<ProjectSummary>('/api/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, path }),
+      })
+
+      setProjects((current) => [...current, project])
+      return project
+    },
+    [fetchJson]
+  )
+
   const startNewSession = useCallback(async () => {
     setErrorMessage(null)
     await createSession()
   }, [createSession])
 
   return {
+    addProject,
     agentId: currentAgentId,
     agents,
     creatingSession,

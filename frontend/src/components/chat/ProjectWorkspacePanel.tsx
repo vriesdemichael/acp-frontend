@@ -12,6 +12,7 @@ interface ProjectWorkspacePanelProps {
   projects: ProjectSummary[]
   selectedProjectId: string | null
   onProjectSelect: (projectId: string) => void | Promise<void>
+  onAddProject: (name: string, path: string) => Promise<ProjectSummary>
   tree: ProjectTreeEntry[]
   treePath: string | null
   treeLoading: boolean
@@ -26,6 +27,7 @@ export function ProjectWorkspacePanel({
   projects,
   selectedProjectId,
   onProjectSelect,
+  onAddProject,
   tree,
   treePath,
   treeLoading,
@@ -36,12 +38,47 @@ export function ProjectWorkspacePanel({
   onSelectEntry,
 }: ProjectWorkspacePanelProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [addFormOpen, setAddFormOpen] = useState(false)
+  const [addName, setAddName] = useState('')
+  const [addPath, setAddPath] = useState('')
+  const [addError, setAddError] = useState<string | null>(null)
+  const [addSubmitting, setAddSubmitting] = useState(false)
   const panelId = 'project-workspace-panel'
   const selectedProject = useMemo(
     () => projects.find((project) => project.id === selectedProjectId) ?? null,
     [projects, selectedProjectId]
   )
   const expanded = new Set(expandedPaths)
+
+  const handleAddSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    const trimmedName = addName.trim()
+    const trimmedPath = addPath.trim()
+
+    if (!trimmedName) {
+      setAddError('Name is required.')
+      return
+    }
+
+    if (!trimmedPath) {
+      setAddError('Path is required.')
+      return
+    }
+
+    setAddError(null)
+    setAddSubmitting(true)
+
+    try {
+      await onAddProject(trimmedName, trimmedPath)
+      setAddName('')
+      setAddPath('')
+      setAddFormOpen(false)
+    } catch {
+      setAddError('Failed to add project. Check the name and path and try again.')
+    } finally {
+      setAddSubmitting(false)
+    }
+  }
 
   return (
     <>
@@ -82,32 +119,87 @@ export function ProjectWorkspacePanel({
         </p>
 
         <div className="mt-5 rounded-xl border border-white/10 bg-slate-900/80 p-3">
-          <label className="block">
+          <div className="flex items-center justify-between">
             <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
               Active Project
             </span>
-            <select
-              value={selectedProjectId ?? ''}
-              onChange={(event) => void onProjectSelect(event.target.value)}
-              aria-label="Active project"
-              className="mt-2 w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-teal-500"
+            <button
+              type="button"
+              aria-label={addFormOpen ? 'Cancel adding project' : 'Add project'}
+              onClick={() => {
+                setAddFormOpen((current) => !current)
+                setAddError(null)
+                setAddName('')
+                setAddPath('')
+              }}
+              className="text-[10px] font-semibold uppercase tracking-[0.18em] text-teal-400 hover:text-teal-300"
             >
-              <option value="" disabled>
-                {projects.length === 0 ? 'No projects configured' : 'Select a project'}
-              </option>
-              {projects.map((project) => (
-                <option
-                  key={project.id}
-                  value={project.id}
-                  disabled={project.status !== 'available'}
-                >
-                  {buildProjectOptionLabel(project)}
-                </option>
-              ))}
-            </select>
-          </label>
+              {addFormOpen ? 'Cancel' : '+ Add'}
+            </button>
+          </div>
 
-          {selectedProject ? (
+          {addFormOpen ? (
+            <form
+              aria-label="Add project form"
+              onSubmit={(e) => void handleAddSubmit(e)}
+              className="mt-3 space-y-2"
+            >
+              <input
+                type="text"
+                aria-label="Project name"
+                placeholder="Project name"
+                value={addName}
+                onChange={(e) => setAddName(e.target.value)}
+                disabled={addSubmitting}
+                className="w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 outline-none focus:border-teal-500"
+              />
+              <input
+                type="text"
+                aria-label="Project path"
+                placeholder="/absolute/path/to/project"
+                value={addPath}
+                onChange={(e) => setAddPath(e.target.value)}
+                disabled={addSubmitting}
+                className="w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 outline-none focus:border-teal-500"
+              />
+              {addError ? (
+                <p role="alert" className="text-[11px] text-rose-400">
+                  {addError}
+                </p>
+              ) : null}
+              <button
+                type="submit"
+                disabled={addSubmitting}
+                className="w-full rounded-lg border border-teal-500/30 bg-teal-500/10 px-3 py-2 text-sm font-medium text-teal-200 hover:bg-teal-500/20 disabled:opacity-50"
+              >
+                {addSubmitting ? 'Adding…' : 'Add project'}
+              </button>
+            </form>
+          ) : (
+            <label className="mt-2 block">
+              <select
+                value={selectedProjectId ?? ''}
+                onChange={(event) => void onProjectSelect(event.target.value)}
+                aria-label="Active project"
+                className="mt-2 w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-teal-500"
+              >
+                <option value="" disabled>
+                  {projects.length === 0 ? 'No projects configured' : 'Select a project'}
+                </option>
+                {projects.map((project) => (
+                  <option
+                    key={project.id}
+                    value={project.id}
+                    disabled={project.status !== 'available'}
+                  >
+                    {buildProjectOptionLabel(project)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+
+          {!addFormOpen && selectedProject ? (
             <div className="mt-3 rounded-lg border border-white/8 bg-slate-950/70 px-3 py-3">
               <div className="flex items-center justify-between gap-3">
                 <p className="truncate text-sm font-semibold text-slate-50">
