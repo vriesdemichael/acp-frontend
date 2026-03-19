@@ -18,7 +18,7 @@ export interface ChatMessage {
 export interface AgentSummary {
   id: string
   name: string
-  status: 'active' | 'detected' | 'unavailable'
+  status: 'active' | 'disabled' | 'detected' | 'unavailable'
   command: string | null
 }
 
@@ -307,6 +307,10 @@ export function useAgUiChat({
     ]
   )
 
+  // Keep refs in sync so the one-shot bootstrap effect always calls the latest
+  // version without having them in its dependency array.
+  loadSessionRef.current = loadSession
+
   useEffect(() => {
     let cancelled = false
     let bootstrapCompleted = false
@@ -324,8 +328,6 @@ export function useAgUiChat({
           fetchJson<SessionSummary[]>('/api/sessions'),
         ])
 
-        if (cancelled) return
-
         setAgents(nextAgents)
         setProjects(nextProjects)
         setSessions(nextSessions)
@@ -338,6 +340,8 @@ export function useAgUiChat({
 
           return nextProjects.map((project) => project.id)
         })
+
+        if (cancelled) return
 
         const activeAgents = nextAgents.filter((candidate) => candidate.status === 'active')
         if (activeAgents.length === 0) {
