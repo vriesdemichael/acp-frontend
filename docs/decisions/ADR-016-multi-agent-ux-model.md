@@ -23,7 +23,7 @@ The backend already supports multiple simultaneous active agents (see ADR-003, A
 - **Agent status dot colors:**
   - Emerald (with glow) — `status === 'active'`
   - Amber — `status === 'detected'`
-  - Slate — any other status (`unavailable`, `missing`, etc.)
+  - Slate — any other status (`unavailable`, `detected` when not the primary color, etc.)
 - **Sessions from agents with `status === 'disabled'` are hidden.** Sessions from agents with any other non-active status (e.g. `unavailable`, `detected`) remain visible with their status dot shown.
 - **"New chat" button behavior:**
   - If exactly one active agent exists: clicking immediately creates a session with that agent.
