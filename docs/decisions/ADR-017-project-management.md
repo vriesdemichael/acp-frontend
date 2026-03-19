@@ -29,7 +29,7 @@ The backend already has a config file at `.acp/projects.json` (or `$ACP_PROJECTS
 
 ### Backend API mutations
 
-- **`POST /api/projects`** — adds a new project entry. Request body: `{ name: string, path: string }`. The backend resolves the path to absolute, derives an `id`, appends to the config, persists via `writeProjectConfig()`, and returns the new `ProjectSummary`.
+- **`POST /api/projects`** — adds a new project entry. Request body: `{ name: string, path: string }`. The `path` must be an absolute filesystem path; the backend rejects relative paths with 422. The backend derives an `id`, appends to the config, persists via `writeProjectConfig()`, and returns the new `ProjectSummary`.
 - **`DELETE /api/projects/:id`** — removes a project by ID, persists the change, returns 204.
 - No filesystem scanning or discovery endpoint is provided. Users supply the path explicitly.
 
@@ -46,7 +46,7 @@ The backend already has a config file at `.acp/projects.json` (or `$ACP_PROJECTS
 
 - The existing `<select>` dropdown in `ProjectWorkspacePanel` lists all projects from the backend (including `missing` and `invalid`), with non-available ones shown as disabled options.
 - A project with `status === 'missing'` or `status === 'invalid'` shows a warning badge in the panel body.
-- No inline delete UI is provided in this iteration; projects are removed by editing the config file directly.
+- No inline delete UI is provided in this iteration; projects can be removed via `DELETE /api/projects/:id` (API exists, no UI) or by editing the config file directly.
 
 ## Rejected Alternatives
 
