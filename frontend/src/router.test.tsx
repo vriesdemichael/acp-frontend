@@ -206,74 +206,46 @@ describe('app router', () => {
     expect(screen.getByPlaceholderText('Type a message…')).toBeDefined()
   })
 
-  it('navigates to unified settings from the chat sidebar', async () => {
-    window.history.pushState({}, '', '/chat?session=test-session-id&agent=copilot')
-    window.history.replaceState(
-      {},
-      '',
-      '/chat?session=test-session-id&agent=copilot&project=acp-frontend'
-    )
+  it('navigates to backend settings from the chat header', async () => {
+    window.history.pushState({}, '', '/chat?session=test-session-id')
+    window.history.replaceState({}, '', '/chat?session=test-session-id&project=acp-frontend')
 
     render(<App routerInstance={createAppRouter()} />)
 
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'Open navigation' })).toBeDefined()
-    )
-    fireEvent.click(screen.getByRole('button', { name: 'Open navigation' }))
+    await waitFor(() => expect(screen.getAllByRole('link', { name: 'Backends' }).length).toBe(2))
+    fireEvent.click(screen.getAllByRole('link', { name: 'Backends' })[0]!)
 
-    await waitFor(() => expect(screen.getAllByRole('link', { name: 'Settings' }).length).toBe(2))
-    fireEvent.click(screen.getAllByRole('link', { name: 'Settings' })[0]!)
-
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'Settings' })).toBeDefined())
-    expect(screen.getByText('ACP Backends')).toBeDefined()
-    expect(screen.getByText('MCP Configuration')).toBeDefined()
+    await waitFor(() => expect(screen.getByText('ACP Backends')).toBeDefined())
   })
 
-  it('redirects the MCP settings route to unified settings', async () => {
+  it('renders the MCP settings route', async () => {
     window.history.pushState({}, '', '/settings/mcp')
 
     render(<App routerInstance={createAppRouter()} />)
 
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'Settings' })).toBeDefined())
-    expect(screen.getByText('MCP Configuration')).toBeDefined()
+    await waitFor(() => expect(screen.getByText('MCP Configuration')).toBeDefined())
+    expect(screen.getByText(/Backend ACP settings are now available/i)).toBeDefined()
   })
 
-  it('renders the unified settings route', async () => {
-    window.history.pushState({}, '', '/settings')
+  it('renders the backend settings route', async () => {
+    window.history.pushState({}, '', '/settings/backends')
 
     render(<App routerInstance={createAppRouter()} />)
 
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'Settings' })).toBeDefined())
-    expect(screen.getByText('ACP Backends')).toBeDefined()
+    await waitFor(() => expect(screen.getByText('ACP Backends')).toBeDefined())
     expect(screen.getByDisplayValue('GitHub Copilot')).toBeDefined()
     expect(screen.getByText('Reported By Connection')).toBeDefined()
     expect(screen.getByText('Add Backend')).toBeDefined()
-    expect(screen.getByText('MCP Configuration')).toBeDefined()
     expect(screen.getByRole('link', { name: 'Back To Chat' })).toBeDefined()
     expect(screen.getByRole('button', { name: 'Test' })).toBeDefined()
   })
 
-  it('keeps chat selection when returning from settings', async () => {
-    window.history.pushState({}, '', '/settings')
-    window.localStorage.setItem('acp.chat.agent', 'copilot')
-    window.localStorage.setItem('acp.chat.project', 'acp-frontend')
-
-    render(<App routerInstance={createAppRouter()} />)
-
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'Settings' })).toBeDefined())
-    fireEvent.click(screen.getByRole('link', { name: 'Back To Chat' }))
-
-    await waitFor(() => expect(window.location.pathname).toBe('/chat'))
-    await waitFor(() => expect(window.location.search).toContain('agent=copilot'))
-    await waitFor(() => expect(window.location.search).toContain('project=acp-frontend'))
-  })
-
   it('normalizes blank chat search params to undefined', async () => {
-    window.history.pushState({}, '', '/chat?session=%20%20%20&agent=&project=')
+    window.history.pushState({}, '', '/chat?session=%20%20%20&project=')
 
     render(<App routerInstance={createAppRouter()} />)
 
     await waitFor(() => expect(screen.getByPlaceholderText('Type a message…')).toBeDefined())
-    await waitFor(() => expect(window.location.search).toBe('?agent=copilot&project=acp-frontend'))
+    await waitFor(() => expect(window.location.search).toBe('?project=acp-frontend'))
   })
 })

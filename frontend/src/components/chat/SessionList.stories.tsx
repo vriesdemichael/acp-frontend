@@ -1,5 +1,4 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
-import { useState, type ComponentProps } from 'react'
 import { SessionList } from './SessionList.js'
 
 const denseSessions = Array.from({ length: 8 }, (_, index) => ({
@@ -12,7 +11,6 @@ const denseSessions = Array.from({ length: 8 }, (_, index) => ({
     name: 'ACP Frontend',
     path: '/home/vries/projects/acp-frontend',
   },
-  source: 'live' as const,
 }))
 
 const meta = {
@@ -25,7 +23,6 @@ const meta = {
       { id: 'claude-code', name: 'Claude Code', status: 'unavailable', command: null },
     ],
     sessions: denseSessions,
-    selectedAgentId: 'copilot',
     activeSessionId: 'session-1',
     creatingSession: false,
     onCreate: () => {},
@@ -35,16 +32,6 @@ const meta = {
 
 export default meta
 type Story = StoryObj<typeof meta>
-
-function MobileDrawerStory(args: ComponentProps<typeof SessionList>) {
-  const [mobileOpen, setMobileOpen] = useState(true)
-
-  return (
-    <div className="min-h-screen bg-[#05070b] p-4 text-slate-100">
-      <SessionList {...args} mobileOpen={mobileOpen} onMobileOpenChange={setMobileOpen} />
-    </div>
-  )
-}
 
 export const DenseList: Story = {}
 
@@ -61,7 +48,7 @@ export const Creating: Story = {
   },
 }
 
-export const GroupedByProject: Story = {
+export const MixedAgents: Story = {
   args: {
     sessions: [
       ...denseSessions,
@@ -75,21 +62,7 @@ export const GroupedByProject: Story = {
           name: 'Docs Site',
           path: '/home/vries/projects/docs-site',
         },
-        source: 'history' as const,
       },
     ],
-    selectedAgentId: 'gemini-cli',
-  },
-}
-
-export const MobileDrawer: Story = {
-  render: (args) => <MobileDrawerStory {...args} />,
-}
-
-export const DrawerClosed: Story = {
-  args: {
-    sessions: [],
-    activeSessionId: null,
-    mobileOpen: false,
   },
 }
