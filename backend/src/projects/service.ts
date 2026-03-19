@@ -1,7 +1,7 @@
 import { existsSync, statSync } from 'node:fs'
 import { opendir, readdir } from 'node:fs/promises'
 import { relative, resolve, sep } from 'node:path'
-import { readProjectConfig } from './config.js'
+import { readProjectConfig, slugifyProjectId, writeProjectConfig } from './config.js'
 import type { ProjectSummary, ProjectTreeEntry, SessionProjectContext } from './types.js'
 
 export function listProjects(): ProjectSummary[] {
@@ -110,6 +110,49 @@ function compareTreeEntries(left: ProjectTreeEntry, right: ProjectTreeEntry): nu
   }
 
   return left.name.localeCompare(right.name)
+}
+
+export function addProject(name: string, path: string): ProjectSummary {
+  const existing = readProjectConfig()
+  const id = buildUniqueId(
+    slugifyProjectId(name),
+    existing.map((p) => p.id)
+  )
+  const resolvedPath = resolve(path)
+
+  writeProjectConfig([...existing, { id, name: name.trim(), path: resolvedPath }])
+
+  return {
+    id,
+    name: name.trim(),
+    path: resolvedPath,
+    status: getProjectStatus(resolvedPath),
+  }
+}
+
+export function removeProject(projectId: string): boolean {
+  const existing = readProjectConfig()
+  const next = existing.filter((p) => p.id !== projectId)
+
+  if (next.length === existing.length) {
+    return false
+  }
+
+  writeProjectConfig(next)
+  return true
+}
+
+function buildUniqueId(base: string, existingIds: string[]): string {
+  if (!existingIds.includes(base)) {
+    return base
+  }
+
+  let counter = 2
+  while (existingIds.includes(`${base}-${counter}`)) {
+    counter++
+  }
+
+  return `${base}-${counter}`
 }
 
 export const __projectServiceTestUtils = {

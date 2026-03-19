@@ -1,10 +1,63 @@
 import { Hono } from 'hono'
-import { getProjectById, listProjects, readProjectTree } from '../projects/service.js'
+import {
+  addProject,
+  getProjectById,
+  listProjects,
+  readProjectTree,
+  removeProject,
+} from '../projects/service.js'
 
 export function projectsRoutes(): Hono {
   const app = new Hono()
 
   app.get('/projects', (c) => c.json(listProjects()))
+
+  app.post('/projects', async (c) => {
+    let body: unknown
+
+    try {
+      body = await c.req.json()
+    } catch {
+      return c.json({ error: 'Request body must be valid JSON' }, 400)
+    }
+
+    if (
+      typeof body !== 'object' ||
+      body === null ||
+      typeof (body as Record<string, unknown>)['name'] !== 'string' ||
+      typeof (body as Record<string, unknown>)['path'] !== 'string'
+    ) {
+      return c.json({ error: 'Request body must include string fields: name, path' }, 400)
+    }
+
+    const { name, path } = body as { name: string; path: string }
+
+    if (!name.trim()) {
+      return c.json({ error: 'name must not be blank' }, 422)
+    }
+
+    if (!path.trim()) {
+      return c.json({ error: 'path must not be blank' }, 422)
+    }
+
+    try {
+      const project = addProject(name, path)
+      return c.json(project, 201)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      return c.json({ error: message }, 500)
+    }
+  })
+
+  app.delete('/projects/:id', (c) => {
+    const removed = removeProject(c.req.param('id'))
+
+    if (!removed) {
+      return c.json({ error: 'Project not found' }, 404)
+    }
+
+    return c.body(null, 204)
+  })
 
   app.get('/projects/:id/tree', async (c) => {
     const project = getProjectById(c.req.param('id'))

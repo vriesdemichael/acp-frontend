@@ -66,7 +66,7 @@ function buildDefaultProject(): ProjectDefinitionRecord {
   }
 }
 
-function slugifyProjectId(value: string): string {
+export function slugifyProjectId(value: string): string {
   const slug = value
     .trim()
     .toLowerCase()
