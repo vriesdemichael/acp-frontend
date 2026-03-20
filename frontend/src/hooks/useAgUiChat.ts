@@ -652,10 +652,17 @@ export function useAgUiChat({
     [currentProjectId, fetchJson, onProjectSelected, onSessionSelected]
   )
 
-  const startNewSession = useCallback(async () => {
-    setErrorMessage(null)
-    await createSession()
-  }, [createSession])
+  const startNewSession = useCallback(
+    async (nextAgentId: string) => {
+      setErrorMessage(null)
+      setCurrentAgentId(nextAgentId)
+      if (nextAgentId !== agentId) {
+        onAgentSelected(nextAgentId)
+      }
+      await createSession(nextAgentId)
+    },
+    [agentId, createSession, onAgentSelected]
+  )
 
   const setProjectVisibility = useCallback(
     (projectId: string, visible: boolean) => {

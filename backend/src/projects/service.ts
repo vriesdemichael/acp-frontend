@@ -1,14 +1,19 @@
 import { existsSync, statSync } from 'node:fs'
+import { execFile } from 'node:child_process'
 import { opendir, readdir } from 'node:fs/promises'
 import { homedir } from 'node:os'
+import { promisify } from 'node:util'
 import { basename, dirname, relative, resolve, sep } from 'node:path'
 import { readProjectConfig, slugifyProjectId, writeProjectConfig } from './config.js'
 import type {
   ProjectPathSuggestion,
+  ProjectDiffResult,
   ProjectSummary,
   ProjectTreeEntry,
   SessionProjectContext,
 } from './types.js'
+
+const execFileAsync = promisify(execFile)
 
 export function listProjects(): ProjectSummary[] {
   return readProjectConfig().map((project) => ({
@@ -103,6 +108,41 @@ export async function listProjectPathSuggestions(
       ['EACCES', 'ENOENT', 'ENOTDIR'].includes(error.code)
     ) {
       return []
+    }
+
+    throw error
+  }
+}
+
+export async function readProjectDiff(project: ProjectSummary): Promise<ProjectDiffResult> {
+  try {
+    const { stdout } = await execFileAsync('git', ['diff', '--no-ext-diff', '--minimal'], {
+      cwd: project.path,
+      maxBuffer: 1024 * 1024 * 4,
+    })
+
+    return {
+      status: 'ok',
+      diff: stdout,
+    }
+  } catch (error) {
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
+      return {
+        status: 'git_not_found',
+        diff: '',
+        message: 'Git was not found on PATH for this backend process.',
+      }
+    }
+
+    if (error && typeof error === 'object' && 'stdout' in error) {
+      const stderr =
+        'stderr' in error && typeof error.stderr === 'string' ? error.stderr.trim() : undefined
+
+      return {
+        status: 'ok',
+        diff: typeof error.stdout === 'string' ? error.stdout : '',
+        message: stderr,
+      }
     }
 
     throw error

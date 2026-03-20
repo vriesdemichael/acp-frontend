@@ -110,6 +110,17 @@ function mockFetch(options?: {
       } as Response)
     }
 
+    if (url === '/api/projects/acp-frontend/diff') {
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            status: 'ok',
+            diff: 'diff --git a/src/app.tsx b/src/app.tsx\n+added line',
+          }),
+      } as Response)
+    }
+
     if (url === '/api/sessions') {
       if (opts?.method === 'POST') {
         if (options?.sessionFails) {
@@ -245,7 +256,7 @@ describe('ChatPage', () => {
     await waitFor(() => expect(MockEventSource.instance).not.toBeNull())
   })
 
-  it('renders the workspace shell with header and extension panels', async () => {
+  it('renders the workspace shell with in-place files and diff toggles', async () => {
     renderChatPage('/chat?session=test-session-id&agent=copilot&project=acp-frontend')
 
     await waitFor(() => expect(screen.getByText('Chat Workspace')).toBeDefined())
@@ -254,12 +265,59 @@ describe('ChatPage', () => {
 
     await waitFor(() => expect(MockEventSource.instance).not.toBeNull())
     expect(screen.getByTestId('chat-session-panel')).toBeDefined()
-    expect(screen.getByTestId('chat-context-panel')).toBeDefined()
     expect(screen.getByRole('button', { name: /Open/i })).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Files' })).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Diff' })).toBeDefined()
+  })
+
+  it('opens the file viewer in the conversation area while keeping the composer visible', async () => {
+    renderChatPage('/chat?session=test-session-id&agent=copilot&project=acp-frontend')
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Files' }))
+
+    await waitFor(() => expect(screen.getByTestId('chat-context-panel')).toBeDefined())
     expect(screen.getByText('Project Explorer')).toBeDefined()
-    expect(screen.getByRole('button', { name: /Workspace/i }).getAttribute('aria-expanded')).toBe(
-      'false'
+    expect(screen.getByTestId('chat-composer')).toBeDefined()
+    expect(screen.queryByTestId('chat-transcript')).toBeNull()
+  })
+
+  it('opens the diff view in the conversation area and keeps it mutually exclusive with files', async () => {
+    renderChatPage('/chat?session=test-session-id&agent=copilot&project=acp-frontend')
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Diff' }))
+
+    await waitFor(() => expect(screen.getByText('Working Tree Diff')).toBeDefined())
+    expect(screen.getByText(/diff --git a\/src\/app.tsx b\/src\/app.tsx/i)).toBeDefined()
+    expect(screen.queryByText('Project Explorer')).toBeNull()
+    expect(screen.getByTestId('chat-composer')).toBeDefined()
+  })
+
+  it('shows a friendly message when git is not available for diff mode', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
+        if (url === '/api/projects/acp-frontend/diff') {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                status: 'git_not_found',
+                diff: '',
+                message: 'Git was not found on PATH for this backend process.',
+              }),
+          } as Response)
+        }
+
+        return mockFetch()(url, opts)
+      })
     )
+
+    renderChatPage('/chat?session=test-session-id&agent=copilot&project=acp-frontend')
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Diff' }))
+
+    await waitFor(() => expect(screen.getByText('Git not available')).toBeDefined())
+    expect(screen.getByText('Git was not found on PATH for this backend process.')).toBeDefined()
   })
 
   it('shows the agent selector with unavailable agents disabled', async () => {
@@ -347,6 +405,7 @@ describe('ChatPage', () => {
 
     const createButton = await screen.findByRole('button', { name: 'New' })
     fireEvent.click(createButton)
+    fireEvent.click(await screen.findByRole('button', { name: /GitHub Copilot/i }))
 
     await waitFor(() =>
       expect(

@@ -54,6 +54,20 @@ const mocks = vi.hoisted(() => {
         hasChildren: !path,
       },
     ]),
+    readProjectDiff: vi.fn(async () => ({
+      status: 'ok',
+      diff: 'diff --git a/src/app.ts b/src/app.ts',
+    })),
+    listProjectPathSuggestions: vi.fn(async (path: string) => [
+      {
+        name: 'projects',
+        path: `${path.replace(/\/+$/, '')}/projects`,
+      },
+      {
+        name: 'workspace-projects',
+        path: `${path.replace(/\/+$/, '')}/workspace-projects`,
+      },
+    ]),
     addProject: vi.fn((name: string, path: string) => ({
       id: 'new-project',
       name,
@@ -68,7 +82,9 @@ const mocks = vi.hoisted(() => {
 vi.mock('../projects/service.js', () => ({
   listProjects: mocks.listProjects,
   getProjectById: mocks.getProjectById,
+  listProjectPathSuggestions: mocks.listProjectPathSuggestions,
   readProjectTree: mocks.readProjectTree,
+  readProjectDiff: mocks.readProjectDiff,
   addProject: mocks.addProject,
   removeProject: mocks.removeProject,
   DuplicateProjectIdError: mocks.DuplicateProjectIdError,
@@ -76,7 +92,9 @@ vi.mock('../projects/service.js', () => ({
 
 describe('projects routes', () => {
   beforeEach(() => {
+    mocks.listProjectPathSuggestions.mockClear()
     mocks.readProjectTree.mockClear()
+    mocks.readProjectDiff.mockClear()
     mocks.addProject.mockClear()
     mocks.removeProject.mockClear()
   })
@@ -92,6 +110,25 @@ describe('projects routes', () => {
     expect(body[0]).toMatchObject({ id: 'repo-1', status: 'available' })
   })
 
+  it('returns path suggestions for an absolute path prefix', async () => {
+    const app = new Hono().route('/api', projectsRoutes())
+
+    const res = await app.request('/api/projects/path-suggestions?path=/home/vries/pro')
+    expect(res.status).toBe(200)
+
+    const body = (await res.json()) as Array<{ name: string; path: string }>
+    expect(body[0]).toMatchObject({ name: 'projects' })
+    expect(body[1]).toMatchObject({ name: 'workspace-projects' })
+    expect(mocks.listProjectPathSuggestions).toHaveBeenCalledWith('/home/vries/pro')
+  })
+
+  it('returns 422 for relative path suggestions input', async () => {
+    const app = new Hono().route('/api', projectsRoutes())
+
+    const res = await app.request('/api/projects/path-suggestions?path=relative/path')
+    expect(res.status).toBe(422)
+  })
+
   it('returns tree entries for an available project', async () => {
     const app = new Hono().route('/api', projectsRoutes())
 
@@ -100,6 +137,17 @@ describe('projects routes', () => {
 
     const body = (await res.json()) as Array<{ path: string }>
     expect(body[0]).toMatchObject({ path: 'src/nested.ts' })
+  })
+
+  it('returns diff content for an available project', async () => {
+    const app = new Hono().route('/api', projectsRoutes())
+
+    const res = await app.request('/api/projects/repo-1/diff')
+    expect(res.status).toBe(200)
+
+    const body = (await res.json()) as { status: string; diff: string }
+    expect(body).toMatchObject({ status: 'ok' })
+    expect(body.diff).toContain('diff --git')
   })
 
   it('returns 409 for unavailable projects', async () => {

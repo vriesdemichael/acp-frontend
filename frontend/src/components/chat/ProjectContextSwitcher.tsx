@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom'
 import type { ProjectSummary } from '../../hooks/useAgUiChat.js'
 
 const RECENT_PATHS_STORAGE_KEY = 'acp.project-paths.recent'
-const FAVORITE_PATHS_STORAGE_KEY = 'acp.project-paths.favorites'
 const DRAFT_PATH_STORAGE_KEY = 'acp.project-paths.draft-path'
 const DRAFT_NAME_STORAGE_KEY = 'acp.project-paths.draft-name'
 const MAX_RECENT_PATHS = 6
@@ -49,9 +48,6 @@ export function ProjectContextSwitcher({
   const [recentPaths, setRecentPaths] = useState<string[]>(() =>
     readStoredPaths(RECENT_PATHS_STORAGE_KEY)
   )
-  const [favoritePaths, setFavoritePaths] = useState<string[]>(() =>
-    readStoredPaths(FAVORITE_PATHS_STORAGE_KEY)
-  )
   const suggestionListId = 'project-path-suggestions'
   const visibleProjectSet = useMemo(() => new Set(visibleProjectIds), [visibleProjectIds])
   const visibleProjectCount = visibleProjectIds.length
@@ -63,10 +59,9 @@ export function ProjectContextSwitcher({
     activeSuggestionIndex >= 0 ? (pathSuggestions[activeSuggestionIndex] ?? null) : null
   const breadcrumbSegments = useMemo(() => buildBreadcrumbSegments(addPath), [addPath])
   const pathQuickActions = useMemo(
-    () => buildPathQuickActions(addPath, recentPaths, favoritePaths),
-    [addPath, recentPaths, favoritePaths]
+    () => buildPathQuickActions(addPath, recentPaths),
+    [addPath, recentPaths]
   )
-  const normalizedCurrentPath = normalizeStoredPath(addPath)
   const pathInputValue = addPath.trim()
   const pathInputHasSearchablePrefix = looksLikeSuggestionPathInput(pathInputValue)
   const showSuggestionPanel = addFormOpen && pathInputValue.length > 0
@@ -87,21 +82,6 @@ export function ProjectContextSwitcher({
     setAddPath(toTraversableSuggestionPath(path))
     setPathSuggestionsOpen(true)
     setActiveSuggestionIndex(-1)
-  }
-
-  const toggleFavoritePath = (path: string) => {
-    const normalizedPath = normalizeStoredPath(path)
-    if (!normalizedPath) {
-      return
-    }
-
-    setFavoritePaths((current) => {
-      const next = current.includes(normalizedPath)
-        ? current.filter((item) => item !== normalizedPath)
-        : [normalizedPath, ...current].slice(0, MAX_RECENT_PATHS)
-      writeStoredPaths(FAVORITE_PATHS_STORAGE_KEY, next)
-      return next
-    })
   }
 
   useEffect(() => {
@@ -260,16 +240,35 @@ export function ProjectContextSwitcher({
                       new repositories.
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setManagerOpen(false)}
-                    className="rounded-lg border border-white/10 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-200 hover:bg-slate-800"
-                  >
-                    Close
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAddFormOpen((current) => !current)
+                        setAddError(null)
+                      }}
+                      className="rounded-lg border border-white/10 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-200 hover:bg-slate-800"
+                    >
+                      {addFormOpen ? 'Hide Add Project' : 'Add Project'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setManagerOpen(false)}
+                      className="rounded-lg border border-white/10 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-200 hover:bg-slate-800"
+                    >
+                      Close
+                    </button>
+                  </div>
                 </div>
 
-                <div className="grid min-h-0 flex-1 gap-0 overflow-hidden lg:grid-cols-[minmax(0,1.15fr)_minmax(22rem,0.85fr)]">
+                <div
+                  className={[
+                    'grid min-h-0 flex-1 gap-0 overflow-hidden',
+                    addFormOpen
+                      ? 'lg:grid-cols-[minmax(0,1.15fr)_minmax(22rem,0.85fr)]'
+                      : 'lg:grid-cols-[minmax(0,1fr)]',
+                  ].join(' ')}
+                >
                   <section className="min-h-0 overflow-y-auto border-b border-white/8 px-5 py-4 lg:border-b-0 lg:border-r">
                     <div className="mb-4 flex items-center justify-between">
                       <div>
@@ -367,8 +366,8 @@ export function ProjectContextSwitcher({
                     </div>
                   </section>
 
-                  <section className="min-h-0 overflow-y-auto px-5 py-4">
-                    <div className="flex items-center justify-between gap-3">
+                  {addFormOpen ? (
+                    <section className="min-h-0 overflow-y-auto px-5 py-4">
                       <div>
                         <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
                           Add Project
@@ -377,19 +376,7 @@ export function ProjectContextSwitcher({
                           Register another repository for chat and explorer context.
                         </p>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setAddFormOpen((current) => !current)
-                          setAddError(null)
-                        }}
-                        className="rounded-lg border border-white/10 bg-slate-900 px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-200 hover:bg-slate-800"
-                      >
-                        {addFormOpen ? 'Hide Form' : 'Add New'}
-                      </button>
-                    </div>
 
-                    {addFormOpen ? (
                       <form
                         aria-label="Add project form"
                         onSubmit={(e) => void handleAddSubmit(e)}
@@ -478,25 +465,6 @@ export function ProjectContextSwitcher({
                                 {segment.label}
                               </button>
                             ))}
-                          </div>
-                        ) : null}
-                        {normalizedCurrentPath ? (
-                          <div className="flex items-center justify-between rounded-xl border border-white/8 bg-slate-950/50 px-3 py-2">
-                            <div className="min-w-0">
-                              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-                                Current path
-                              </p>
-                              <p className="mt-1 truncate text-xs text-slate-300">
-                                {normalizedCurrentPath}
-                              </p>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => toggleFavoritePath(addPath)}
-                              className="ml-3 rounded-full border border-amber-400/20 bg-amber-500/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-amber-200 hover:bg-amber-500/15"
-                            >
-                              {favoritePaths.includes(normalizedCurrentPath) ? 'Saved' : 'Save'}
-                            </button>
                           </div>
                         ) : null}
                         {pathQuickActions.length > 0 ? (
@@ -604,12 +572,8 @@ export function ProjectContextSwitcher({
                           {addSubmitting ? 'Adding…' : 'Add project'}
                         </button>
                       </form>
-                    ) : (
-                      <div className="mt-4 rounded-xl border border-dashed border-white/10 bg-slate-950/40 px-4 py-4 text-sm text-slate-400">
-                        Open the add form to register another project path.
-                      </div>
-                    )}
-                  </section>
+                    </section>
+                  ) : null}
                 </div>
               </div>
             </div>,
@@ -669,14 +633,10 @@ function buildBreadcrumbSegments(path: string): Array<{ label: string; path: str
 
 function buildPathQuickActions(
   currentPath: string,
-  recentPaths: string[],
-  favoritePaths: string[]
+  recentPaths: string[]
 ): Array<{ label: string; paths: string[] }> {
   const current = normalizeStoredPath(currentPath)
-  const groups = [
-    { label: 'Favorites', paths: favoritePaths.filter((path) => path !== current) },
-    { label: 'Recent', paths: recentPaths.filter((path) => path !== current) },
-  ]
+  const groups = [{ label: 'Recent', paths: recentPaths.filter((path) => path !== current) }]
 
   return groups.filter((group) => group.paths.length > 0)
 }

@@ -24,6 +24,7 @@ interface ProjectWorkspacePanelProps {
   selectedEntryPath: string | null
   onSelectEntry: (path: string | null) => void
   layout?: 'full' | 'explorer'
+  variant?: 'sidebar' | 'embedded'
 }
 
 export function ProjectWorkspacePanel({
@@ -41,6 +42,7 @@ export function ProjectWorkspacePanel({
   selectedEntryPath,
   onSelectEntry,
   layout = 'full',
+  variant = 'sidebar',
 }: ProjectWorkspacePanelProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
   const panelId = 'project-workspace-panel'
@@ -52,6 +54,131 @@ export function ProjectWorkspacePanel({
     [projects, selectedProjectId]
   )
   const expanded = new Set(expandedPaths)
+
+  const panelContent = (
+    <div
+      id={panelId}
+      data-testid="chat-context-panel"
+      className={[
+        'min-h-0 overflow-hidden flex-col text-slate-100',
+        variant === 'sidebar'
+          ? 'border-l border-white/8 bg-slate-950/82 p-4 shadow-[inset_1px_0_0_rgba(148,163,184,0.08)] backdrop-blur'
+          : 'flex h-full rounded-2xl border border-white/10 bg-slate-950/70 p-4',
+      ].join(' ')}
+    >
+      <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">
+        Workspace
+      </p>
+      <h2 className="mt-2 font-[family:var(--font-display)] text-2xl leading-tight text-slate-50">
+        {layout === 'explorer' ? 'Project Explorer' : 'Project Context'}
+      </h2>
+      <p className="mt-3 text-sm leading-6 text-slate-400">
+        {layout === 'explorer'
+          ? 'Browse the selected repository with a read-only folder tree.'
+          : 'Pick the repository the agent should work in, then browse a read-only folder tree.'}
+      </p>
+
+      {layout === 'full' ? null : selectedProject ? (
+        <div className="mt-5 rounded-xl border border-white/10 bg-slate-900/80 p-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
+                Active Project
+              </p>
+              <p className="mt-2 truncate text-sm font-semibold text-slate-50">
+                {selectedProject.name}
+              </p>
+            </div>
+            <span className={buildProjectStatusClassName(selectedProject.status)}>
+              {selectedProject.status}
+            </span>
+          </div>
+          <p className="mt-2 break-all text-[11px] leading-5 text-slate-400">
+            {selectedProject.path}
+          </p>
+        </div>
+      ) : null}
+
+      <section className="mt-4 flex min-h-0 flex-1 flex-col rounded-xl border border-white/10 bg-slate-900/70 p-3">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
+              Explorer
+            </p>
+            <p className="mt-1 text-sm text-slate-300">
+              {treePath ? `Inside ${treePath}` : 'Root tree'}
+            </p>
+          </div>
+          <div className="text-[11px] text-slate-500">
+            {treeLoading ? 'Loading...' : `${tree.length} items`}
+          </div>
+        </div>
+
+        {projects.length === 0 ? (
+          <EmptyPanel
+            title="No projects configured"
+            description="The backend will create a starter config automatically, then use the current repo as the default workspace."
+          />
+        ) : !selectedProjectId ? (
+          <EmptyPanel
+            title="Choose a project"
+            description="The chat session and folder explorer stay scoped to the selected repository."
+          />
+        ) : selectedProject?.status !== 'available' ? (
+          <EmptyPanel
+            title="Project unavailable"
+            description="This entry is configured, but its path is missing or invalid on disk right now."
+          />
+        ) : treeError ? (
+          <EmptyPanel title="Explorer unavailable" description={treeError} tone="error" />
+        ) : tree.length === 0 && !treeLoading ? (
+          <EmptyPanel
+            title="Folder is empty"
+            description="This location has no visible files yet."
+          />
+        ) : (
+          <div className="mt-4 min-h-0 flex-1 overflow-y-auto">
+            <div className="space-y-1">
+              {tree.map((entry) => {
+                const isDirectory = entry.type === 'directory'
+                const isExpanded = expanded.has(entry.path)
+                const isSelected = selectedEntryPath === entry.path
+
+                return (
+                  <button
+                    key={entry.path}
+                    type="button"
+                    onClick={() => {
+                      onSelectEntry(entry.path)
+                      if (isDirectory) {
+                        void onToggleFolder(entry.path)
+                      }
+                    }}
+                    className={[
+                      'flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left transition',
+                      isSelected
+                        ? 'border-teal-500/40 bg-teal-500/10 text-slate-50'
+                        : 'border-transparent bg-transparent text-slate-300 hover:border-white/8 hover:bg-slate-950/70',
+                    ].join(' ')}
+                  >
+                    <span className="w-4 text-center text-xs text-slate-500">
+                      {isDirectory ? (isExpanded ? '-' : '+') : '·'}
+                    </span>
+                    <span className="text-sm">{isDirectory ? 'DIR' : 'FILE'}</span>
+                    <span className="min-w-0 flex-1 truncate text-sm">{entry.name}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+      </section>
+    </div>
+  )
+
+  if (variant === 'embedded') {
+    return panelContent
+  }
 
   return (
     <>
@@ -74,120 +201,12 @@ export function ProjectWorkspacePanel({
       </button>
 
       <aside
-        id={panelId}
-        data-testid="chat-context-panel"
         className={[
           mobileOpen ? 'flex' : 'hidden',
-          'min-h-0 overflow-hidden flex-col border-l border-white/8 bg-slate-950/82 p-4 text-slate-100 shadow-[inset_1px_0_0_rgba(148,163,184,0.08)] backdrop-blur xl:flex',
+          'min-h-0 overflow-hidden flex-col xl:flex',
         ].join(' ')}
       >
-        <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">
-          Workspace
-        </p>
-        <h2 className="mt-2 font-[family:var(--font-display)] text-2xl leading-tight text-slate-50">
-          {layout === 'explorer' ? 'Project Explorer' : 'Project Context'}
-        </h2>
-        <p className="mt-3 text-sm leading-6 text-slate-400">
-          {layout === 'explorer'
-            ? 'Browse the selected repository with a read-only folder tree.'
-            : 'Pick the repository the agent should work in, then browse a read-only folder tree.'}
-        </p>
-
-        {layout === 'full' ? null : selectedProject ? (
-          <div className="mt-5 rounded-xl border border-white/10 bg-slate-900/80 p-3">
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
-                  Active Project
-                </p>
-                <p className="mt-2 truncate text-sm font-semibold text-slate-50">
-                  {selectedProject.name}
-                </p>
-              </div>
-              <span className={buildProjectStatusClassName(selectedProject.status)}>
-                {selectedProject.status}
-              </span>
-            </div>
-            <p className="mt-2 break-all text-[11px] leading-5 text-slate-400">
-              {selectedProject.path}
-            </p>
-          </div>
-        ) : null}
-
-        <section className="mt-4 flex min-h-0 flex-1 flex-col rounded-xl border border-white/10 bg-slate-900/70 p-3">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
-                Explorer
-              </p>
-              <p className="mt-1 text-sm text-slate-300">
-                {treePath ? `Inside ${treePath}` : 'Root tree'}
-              </p>
-            </div>
-            <div className="text-[11px] text-slate-500">
-              {treeLoading ? 'Loading...' : `${tree.length} items`}
-            </div>
-          </div>
-
-          {projects.length === 0 ? (
-            <EmptyPanel
-              title="No projects configured"
-              description="The backend will create a starter config automatically, then use the current repo as the default workspace."
-            />
-          ) : !selectedProjectId ? (
-            <EmptyPanel
-              title="Choose a project"
-              description="The chat session and folder explorer stay scoped to the selected repository."
-            />
-          ) : selectedProject?.status !== 'available' ? (
-            <EmptyPanel
-              title="Project unavailable"
-              description="This entry is configured, but its path is missing or invalid on disk right now."
-            />
-          ) : treeError ? (
-            <EmptyPanel title="Explorer unavailable" description={treeError} tone="error" />
-          ) : tree.length === 0 && !treeLoading ? (
-            <EmptyPanel
-              title="Folder is empty"
-              description="This location has no visible files yet."
-            />
-          ) : (
-            <div className="mt-4 min-h-0 flex-1 overflow-y-auto">
-              <div className="space-y-1">
-                {tree.map((entry) => {
-                  const isDirectory = entry.type === 'directory'
-                  const isExpanded = expanded.has(entry.path)
-                  const isSelected = selectedEntryPath === entry.path
-
-                  return (
-                    <button
-                      key={entry.path}
-                      type="button"
-                      onClick={() => {
-                        onSelectEntry(entry.path)
-                        if (isDirectory) {
-                          void onToggleFolder(entry.path)
-                        }
-                      }}
-                      className={[
-                        'flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left transition',
-                        isSelected
-                          ? 'border-teal-500/40 bg-teal-500/10 text-slate-50'
-                          : 'border-transparent bg-transparent text-slate-300 hover:border-white/8 hover:bg-slate-950/70',
-                      ].join(' ')}
-                    >
-                      <span className="w-4 text-center text-xs text-slate-500">
-                        {isDirectory ? (isExpanded ? '-' : '+') : '·'}
-                      </span>
-                      <span className="text-sm">{isDirectory ? 'DIR' : 'FILE'}</span>
-                      <span className="min-w-0 flex-1 truncate text-sm">{entry.name}</span>
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-        </section>
+        {panelContent}
       </aside>
     </>
   )

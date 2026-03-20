@@ -10,7 +10,7 @@ interface SessionListProps {
   selectedProjectId?: string | null
   activeSessionId: string | null
   creatingSession: boolean
-  onCreate: () => void | Promise<void>
+  onCreate: (agentId: string) => void | Promise<void>
   onSelect: (sessionId: string) => void | Promise<void>
   projectSwitcher?: ReactNode
 }
@@ -37,7 +37,12 @@ export function SessionList({
       selectedProjectId ? projectGroups.some((group) => group.id === selectedProjectId) : false,
     [projectGroups, selectedProjectId]
   )
+  const availableAgents = useMemo(
+    () => agents.filter((agent) => agent.status !== 'unavailable'),
+    [agents]
+  )
   const [collapsedProjects, setCollapsedProjects] = useState<string[]>([])
+  const [createMenuOpen, setCreateMenuOpen] = useState(false)
 
   return (
     <aside
@@ -59,15 +64,61 @@ export function SessionList({
 
         <button
           type="button"
-          onClick={() => void onCreate()}
-          disabled={creatingSession}
+          onClick={() => setCreateMenuOpen((current) => !current)}
+          disabled={creatingSession || availableAgents.length === 0}
           className="inline-flex h-9 items-center justify-center rounded-lg border border-white/10 bg-slate-900 px-3 text-sm font-semibold text-slate-50 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-800 disabled:text-slate-500"
         >
-          {creatingSession ? 'Opening...' : 'New'}
+          {creatingSession ? 'Opening...' : createMenuOpen ? 'Close' : 'New'}
         </button>
       </div>
 
       <div className="mt-4 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
+        {createMenuOpen ? (
+          <section className="rounded-xl border border-white/10 bg-slate-900/80 p-3">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
+              New Session
+            </p>
+            <p className="mt-2 text-sm text-slate-300">
+              Choose an agent to start a chat in the current project.
+            </p>
+            <div className="mt-3 flex flex-col gap-2">
+              {availableAgents.map((agent) => {
+                const selected = agent.id === selectedAgentId
+
+                return (
+                  <button
+                    key={agent.id}
+                    type="button"
+                    disabled={creatingSession}
+                    onClick={() => {
+                      setCreateMenuOpen(false)
+                      void onCreate(agent.id)
+                    }}
+                    className={[
+                      'rounded-xl border px-3 py-3 text-left transition',
+                      selected
+                        ? 'border-teal-500/35 bg-teal-500/10 text-slate-50'
+                        : 'border-white/8 bg-slate-950/40 text-slate-100 hover:border-white/12 hover:bg-slate-900/70',
+                    ].join(' ')}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="truncate text-sm font-medium">{agent.name}</span>
+                      <span className="rounded-full border border-white/10 bg-slate-950 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                        {selected ? 'Selected' : agent.status}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-[11px] text-slate-500">
+                      {selected
+                        ? 'Current preferred agent for the next chat.'
+                        : 'Start a new session with this agent.'}
+                    </p>
+                  </button>
+                )
+              })}
+            </div>
+          </section>
+        ) : null}
+
         {projectSwitcher ? projectSwitcher : null}
 
         {selectedProjectId && !selectedProjectHasSessions ? (

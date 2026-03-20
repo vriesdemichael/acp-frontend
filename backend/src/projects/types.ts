@@ -19,3 +19,14 @@ export interface ProjectTreeEntry {
   type: 'file' | 'directory'
   hasChildren: boolean
 }
+
+export interface ProjectPathSuggestion {
+  name: string
+  path: string
+}
+
+export interface ProjectDiffResult {
+  status: 'ok' | 'git_not_found'
+  diff: string
+  message?: string
+}
