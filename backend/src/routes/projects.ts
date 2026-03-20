@@ -4,7 +4,9 @@ import {
   DuplicateProjectIdError,
   addProject,
   getProjectById,
+  listProjectPathSuggestions,
   listProjects,
+  readProjectDiff,
   readProjectTree,
   removeProject,
 } from '../projects/service.js'
@@ -13,6 +15,25 @@ export function projectsRoutes(): Hono {
   const app = new Hono()
 
   app.get('/projects', (c) => c.json(listProjects()))
+
+  app.get('/projects/path-suggestions', async (c) => {
+    const path = c.req.query('path')?.trim() ?? ''
+
+    if (!path) {
+      return c.json([])
+    }
+
+    if (!isAbsolute(path) && !path.startsWith('~')) {
+      return c.json({ error: 'path must be an absolute filesystem path' }, 422)
+    }
+
+    try {
+      return c.json(await listProjectPathSuggestions(path))
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      return c.json({ error: message }, 500)
+    }
+  })
 
   app.post('/projects', async (c) => {
     let body: unknown
@@ -87,6 +108,24 @@ export function projectsRoutes(): Hono {
       const message = error instanceof Error ? error.message : String(error)
       const status = message.includes('within the selected project') ? 400 : 500
       return c.json({ error: message }, status)
+    }
+  })
+
+  app.get('/projects/:id/diff', async (c) => {
+    const project = getProjectById(c.req.param('id'))
+    if (!project) {
+      return c.json({ error: 'Project not found' }, 404)
+    }
+
+    if (project.status !== 'available') {
+      return c.json({ error: 'Project is not currently available' }, 409)
+    }
+
+    try {
+      return c.json(await readProjectDiff(project))
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      return c.json({ error: message }, 500)
     }
   })
 

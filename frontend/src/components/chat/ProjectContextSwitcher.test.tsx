@@ -98,24 +98,26 @@ describe('ProjectContextSwitcher', () => {
     expect(DEFAULT_PROPS.onProjectSelect).toHaveBeenCalledWith('repo-1')
   })
 
-  it('shows "Add New" button and toggles to add form on click', async () => {
+  it('shows "Add Project" in the header and toggles the add form on click', async () => {
     renderSwitcher()
 
     fireEvent.click(screen.getByRole('button', { name: /Open/i }))
-    fireEvent.click(await screen.findByRole('button', { name: /Add New/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /Add Project/i }))
 
     await waitFor(() =>
       expect(screen.getByRole('form', { name: /Add project form/i })).toBeDefined()
     )
     expect(screen.getByRole('textbox', { name: /Project name/i })).toBeDefined()
     expect(screen.getByRole('combobox', { name: /Project path/i })).toBeDefined()
+    expect(screen.queryByText('Current path')).toBeNull()
+    expect(screen.queryByRole('button', { name: /^Save$/ })).toBeNull()
   })
 
   it('preserves draft values when toggling the add form', async () => {
     renderSwitcher()
 
     fireEvent.click(screen.getByRole('button', { name: /Open/i }))
-    fireEvent.click(await screen.findByRole('button', { name: /Add New/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /Add Project/i }))
     fireEvent.change(screen.getByRole('textbox', { name: /Project name/i }), {
       target: { value: 'Draft Name' },
     })
@@ -123,8 +125,8 @@ describe('ProjectContextSwitcher', () => {
       target: { value: '/tmp/project-draft' },
     })
 
-    fireEvent.click(screen.getByRole('button', { name: /Hide Form/i }))
-    fireEvent.click(screen.getByRole('button', { name: /Add New/i }))
+    fireEvent.click(screen.getByRole('button', { name: /Hide Add Project/i }))
+    fireEvent.click(screen.getByRole('button', { name: /Add Project/i }))
 
     expect((screen.getByRole('textbox', { name: /Project name/i }) as HTMLInputElement).value).toBe(
       'Draft Name'
