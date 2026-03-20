@@ -49,7 +49,7 @@ export const Creating: Story = {
   },
 }
 
-export const GroupedByBackend: Story = {
+export const GroupedByProject: Story = {
   args: {
     sessions: [
       ...denseSessions,
