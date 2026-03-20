@@ -235,6 +235,7 @@ describe('ChatPage', () => {
   afterEach(() => {
     cleanup()
     vi.unstubAllGlobals()
+    window.localStorage.clear()
     window.history.pushState({}, '', '/')
   })
 
@@ -271,6 +272,17 @@ describe('ChatPage', () => {
     expect(
       (screen.getByRole('option', { name: /Claude Code/i }) as HTMLOptionElement).disabled
     ).toBe(true)
+  })
+
+  it('persists selected agent and project across reload without search params', async () => {
+    window.localStorage.setItem('acp.chat.agent', 'copilot')
+    window.localStorage.setItem('acp.chat.project', 'acp-frontend')
+
+    renderChatPage('/chat')
+
+    await waitFor(() => expect(screen.getByPlaceholderText('Type a message…')).toBeDefined())
+    await waitFor(() => expect(window.location.search).toContain('agent=copilot'))
+    await waitFor(() => expect(window.location.search).toContain('project=acp-frontend'))
   })
 
   it('shows the empty transcript state once session is ready', async () => {
@@ -370,6 +382,16 @@ describe('ChatPage', () => {
     await waitFor(() => expect(screen.getByText('Previous answer')).toBeDefined())
   })
 
+  it('does not snap back to the previous session while route state catches up', async () => {
+    renderChatPage('/chat?session=test-session-id&agent=copilot&project=acp-frontend')
+
+    await waitFor(() => expect(screen.getByText('Start the conversation')).toBeDefined())
+    fireEvent.click(screen.getByRole('button', { name: /Review SSE handling/i }))
+
+    await waitFor(() => expect(screen.getByText('Previous answer')).toBeDefined())
+    expect(screen.queryByText('Start the conversation')).toBeNull()
+  })
+
   it('reloads transcript content when the route session changes externally', async () => {
     renderChatPage('/chat?session=test-session-id&agent=copilot')
     await waitFor(() => expect(screen.getByText('Start the conversation')).toBeDefined())
@@ -416,7 +438,11 @@ describe('ChatPage', () => {
 
     renderChatPage('/chat?agent=copilot&project=acp-frontend')
 
-    await waitFor(() => expect(screen.getByText('No chats yet for this backend.')).toBeDefined())
+    await waitFor(() =>
+      expect(
+        screen.getByText('No chats yet. Create a new session once an agent and project are ready.')
+      ).toBeDefined()
+    )
   })
 
   it('shows a helpful error when no available projects exist', async () => {
@@ -467,7 +493,7 @@ describe('ChatPage', () => {
     )
   })
 
-  it('groups chats by backend and keeps unavailable backends visible', async () => {
+  it('renders sessions grouped by project with per-session agent badges', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
@@ -600,12 +626,15 @@ describe('ChatPage', () => {
 
     const sessionPanel = await screen.findByTestId('chat-session-panel')
 
-    await waitFor(() => expect(within(sessionPanel).getByText('GitHub Copilot')).toBeDefined())
+    await waitFor(() => expect(within(sessionPanel).getByText('Inspect auth bug')).toBeDefined())
+    expect(within(sessionPanel).getByText('ACP Frontend')).toBeDefined()
+    expect(within(sessionPanel).getByText('Docs Site')).toBeDefined()
+    expect(within(sessionPanel).getByText('Gemini discovery notes')).toBeDefined()
+    expect(within(sessionPanel).getByText('Claude backlog')).toBeDefined()
+    expect(within(sessionPanel).getByText('GitHub Copilot')).toBeDefined()
     expect(within(sessionPanel).getByText('Gemini CLI')).toBeDefined()
     expect(within(sessionPanel).getByText('Claude Code')).toBeDefined()
-    expect(within(sessionPanel).getByText('Claude backlog')).toBeDefined()
-    expect(within(sessionPanel).getAllByText('Ready').length).toBeGreaterThan(0)
     expect(within(sessionPanel).getByText('Offline')).toBeDefined()
-    expect(within(sessionPanel).getByText('Selected')).toBeDefined()
+    expect(within(sessionPanel).getAllByText('Selected')).toHaveLength(1)
   })
 })
