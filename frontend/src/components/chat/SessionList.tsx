@@ -13,6 +13,7 @@ interface SessionListProps {
   onCreate: (agentId: string) => void | Promise<void>
   onSelect: (sessionId: string) => void | Promise<void>
   projectSwitcher?: ReactNode
+  settingsLink?: ReactNode
 }
 
 export function SessionList({
@@ -26,6 +27,7 @@ export function SessionList({
   onCreate,
   onSelect,
   projectSwitcher,
+  settingsLink,
 }: SessionListProps) {
   const projectGroups = useMemo(
     () =>
@@ -212,6 +214,10 @@ export function SessionList({
           })
         ) : null}
       </div>
+
+      {settingsLink ? (
+        <div className="mt-3 border-t border-white/8 pt-3">{settingsLink}</div>
+      ) : null}
     </aside>
   )
 }
