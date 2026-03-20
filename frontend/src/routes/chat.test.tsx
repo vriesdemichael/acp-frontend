@@ -259,7 +259,7 @@ describe('ChatPage', () => {
   it('renders the workspace shell with in-place files and diff toggles', async () => {
     renderChatPage('/chat?session=test-session-id&agent=copilot&project=acp-frontend')
 
-    await waitFor(() => expect(screen.getByText('Chat Workspace')).toBeDefined())
+    await waitFor(() => expect(screen.getByText('Connected')).toBeDefined())
     expect(screen.getByTestId('chat-composer')).toBeDefined()
     expect(screen.getByTestId('chat-transcript')).toBeDefined()
 
@@ -320,16 +320,13 @@ describe('ChatPage', () => {
     expect(screen.getByText('Git was not found on PATH for this backend process.')).toBeDefined()
   })
 
-  it('shows the agent selector with unavailable agents disabled', async () => {
+  it('shows agent and connection details in the informational header', async () => {
     renderChatPage('/chat?session=test-session-id&agent=copilot&project=acp-frontend')
 
-    await waitFor(() => expect(screen.getByTestId('agent-selector')).toBeDefined())
-    expect(screen.getByRole('combobox', { name: /Active agent/i })).toBeDefined()
-    expect(screen.getByRole('option', { name: /GitHub Copilot/i })).toBeDefined()
-    expect(screen.getByText('GitHub Copilot: copilot')).toBeDefined()
-    expect(
-      (screen.getByRole('option', { name: /Claude Code/i }) as HTMLOptionElement).disabled
-    ).toBe(true)
+    await waitFor(() => expect(screen.getAllByText('Inspect auth bug').length).toBeGreaterThan(0))
+    expect(screen.getAllByText('GitHub Copilot').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('ACP Frontend').length).toBeGreaterThan(0)
+    expect(screen.getByText('Connected')).toBeDefined()
   })
 
   it('persists selected agent and project across reload without search params', async () => {

@@ -15,14 +15,8 @@ function ChatLayoutStory() {
     <main className="min-h-screen bg-[#05070b] text-slate-100">
       <div className="mx-auto flex min-h-screen w-full max-w-[1800px] flex-col">
         <ChatHeader
-          agentId="copilot"
-          agents={[
-            { id: 'copilot', name: 'GitHub Copilot', status: 'active', command: 'copilot' },
-            { id: 'claude-code', name: 'Claude Code', status: 'unavailable', command: null },
-          ]}
+          agentName="GitHub Copilot"
           errorMessage={null}
-          onAgentSelect={() => {}}
-          renderLink={({ className, children }) => <span className={className}>{children}</span>}
           project={{
             id: 'acp-frontend',
             name: 'ACP Frontend',
@@ -132,23 +126,26 @@ function ChatLayoutStory() {
                 }
               />
             }
+            settingsLink={
+              <span className="inline-flex h-9 items-center px-3 text-sm">Settings</span>
+            }
           />
 
           <section className="flex min-h-[32rem] min-w-0 flex-col overflow-hidden bg-[#070b12]">
-            <div className="flex items-center gap-2 border-b border-white/8 px-4 py-3 sm:px-5">
-              {(['chat', 'files', 'diff'] as const).map((mode) => (
+            <div className="flex items-center gap-2 border-b border-white/8 px-4 py-2.5 sm:px-5">
+              {(['files', 'diff'] as const).map((mode) => (
                 <button
                   key={mode}
                   type="button"
-                  onClick={() => setWorkspaceMode(mode)}
+                  onClick={() => setWorkspaceMode((current) => (current === mode ? 'chat' : mode))}
                   className={[
-                    'inline-flex h-8 items-center justify-center rounded-lg border px-3 text-sm font-medium transition',
+                    'inline-flex h-7 items-center justify-center rounded-md border px-2.5 text-xs font-medium transition',
                     workspaceMode === mode
                       ? 'border-teal-500/35 bg-teal-500/10 text-teal-200'
                       : 'border-white/10 bg-slate-900/70 text-slate-300 hover:bg-slate-800',
                   ].join(' ')}
                 >
-                  {mode === 'chat' ? 'Chat' : mode === 'files' ? 'Files' : 'Diff'}
+                  {mode === 'files' ? 'Files' : 'Diff'}
                 </button>
               ))}
             </div>

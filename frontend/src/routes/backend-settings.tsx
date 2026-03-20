@@ -2,7 +2,7 @@ import { Link } from '@tanstack/react-router'
 import { useState } from 'react'
 import { useBackendSettings, type BackendSummary } from '../hooks/useBackendSettings.js'
 
-export function BackendSettingsPage() {
+export function SettingsPage() {
   const {
     backends,
     errorMessage,
@@ -43,7 +43,7 @@ export function BackendSettingsPage() {
                 Settings
               </p>
               <h1 className="mt-3 font-[family:var(--font-display)] text-4xl text-slate-50">
-                ACP Backends
+                Settings
               </h1>
             </div>
 
@@ -55,19 +55,12 @@ export function BackendSettingsPage() {
               >
                 Back To Chat
               </Link>
-              <Link
-                to="/settings/mcp"
-                className="inline-flex h-10 items-center justify-center rounded-lg border border-white/10 bg-slate-900/60 px-3 text-sm font-medium text-slate-300 transition hover:bg-slate-800"
-              >
-                MCP Settings
-              </Link>
             </div>
           </div>
 
           <p className="mt-4 max-w-3xl text-sm leading-6 text-slate-400">
-            Backend capability claims now come from the last established ACP connection. If no live
-            handshake has happened yet, the app shows capability support as unknown instead of
-            guessing.
+            Manage ACP backends and MCP servers from one place. Backend capability claims now come
+            from the last established ACP connection.
           </p>
 
           {errorMessage ? (
@@ -77,62 +70,85 @@ export function BackendSettingsPage() {
           ) : null}
 
           <section className="mt-8 rounded-2xl border border-white/10 bg-slate-900/60 p-5">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
-              Add Backend
+            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">
+              ACP Backends
             </p>
-            <div className="mt-4 grid gap-4 md:grid-cols-[1.2fr_1fr_1fr_auto]">
-              <input
-                value={newName}
-                onChange={(event) => setNewName(event.target.value)}
-                placeholder="My ACP Wrapper"
-                className="rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-teal-500"
-              />
-              <input
-                value={newCommand}
-                onChange={(event) => setNewCommand(event.target.value)}
-                placeholder="my-acp-wrapper"
-                className="rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-teal-500"
-              />
-              <input
-                value={newArgs}
-                onChange={(event) => setNewArgs(event.target.value)}
-                placeholder="--acp"
-                className="rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-teal-500"
-              />
-              <button
-                type="button"
-                onClick={() => void handleAddBackend()}
-                disabled={!newName.trim() || !newCommand.trim()}
-                className="rounded-lg border border-white/10 bg-slate-950 px-4 py-2 text-sm font-semibold text-slate-50 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:text-slate-500"
-              >
-                Add
-              </button>
-            </div>
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-400">
+              If no live handshake has happened yet, the app shows capability support as unknown
+              instead of guessing.
+            </p>
+
+            <section className="mt-6 rounded-2xl border border-white/10 bg-slate-950/40 p-5">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+                Add Backend
+              </p>
+              <div className="mt-4 grid gap-4 md:grid-cols-[1.2fr_1fr_1fr_auto]">
+                <input
+                  value={newName}
+                  onChange={(event) => setNewName(event.target.value)}
+                  placeholder="My ACP Wrapper"
+                  className="rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-teal-500"
+                />
+                <input
+                  value={newCommand}
+                  onChange={(event) => setNewCommand(event.target.value)}
+                  placeholder="my-acp-wrapper"
+                  className="rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-teal-500"
+                />
+                <input
+                  value={newArgs}
+                  onChange={(event) => setNewArgs(event.target.value)}
+                  placeholder="--acp"
+                  className="rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-teal-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => void handleAddBackend()}
+                  disabled={!newName.trim() || !newCommand.trim()}
+                  className="rounded-lg border border-white/10 bg-slate-950 px-4 py-2 text-sm font-semibold text-slate-50 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:text-slate-500"
+                >
+                  Add
+                </button>
+              </div>
+            </section>
+
+            {loading ? (
+              <div className="mt-8 rounded-xl border border-dashed border-white/10 bg-slate-900/70 p-6 text-sm text-slate-400">
+                Loading backend settings...
+              </div>
+            ) : (
+              <div className="mt-8 grid gap-5 xl:grid-cols-2">
+                {backends.map((backend) => (
+                  <BackendCard
+                    key={backend.id}
+                    backend={backend}
+                    busy={savingId === backend.id}
+                    testing={testingId === backend.id}
+                    onSave={saveBackend}
+                    onTest={testBackend}
+                  />
+                ))}
+              </div>
+            )}
           </section>
 
-          {loading ? (
-            <div className="mt-8 rounded-xl border border-dashed border-white/10 bg-slate-900/70 p-6 text-sm text-slate-400">
-              Loading backend settings...
-            </div>
-          ) : (
-            <div className="mt-8 grid gap-5 xl:grid-cols-2">
-              {backends.map((backend) => (
-                <BackendCard
-                  key={backend.id}
-                  backend={backend}
-                  busy={savingId === backend.id}
-                  testing={testingId === backend.id}
-                  onSave={saveBackend}
-                  onTest={testBackend}
-                />
-              ))}
-            </div>
-          )}
+          <section className="mt-8 rounded-2xl border border-white/10 bg-slate-900/60 p-5">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">
+              MCP Servers
+            </p>
+            <h2 className="mt-3 text-2xl font-semibold text-slate-50">MCP Configuration</h2>
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-400">
+              MCP server configuration will live in this section so backend and MCP settings share a
+              single entry point.
+            </p>
+          </section>
         </div>
       </div>
     </main>
   )
 }
+
+export const BackendSettingsPage = SettingsPage
 
 interface BackendCardProps {
   backend: BackendSummary

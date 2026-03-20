@@ -6,8 +6,7 @@ import {
   redirect,
 } from '@tanstack/react-router'
 import { ChatPage } from './routes/chat.js'
-import { BackendSettingsPage } from './routes/backend-settings.js'
-import { McpSettingsPage } from './routes/mcp-settings.js'
+import { SettingsPage } from './routes/backend-settings.js'
 
 const rootRoute = createRootRoute({
   component: Outlet,
@@ -35,21 +34,32 @@ const chatRoute = createRoute({
   component: ChatPage,
 })
 
+const settingsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/settings',
+  component: SettingsPage,
+})
+
 const mcpSettingsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/settings/mcp',
-  component: McpSettingsPage,
+  beforeLoad: () => {
+    throw redirect({ to: '/settings' })
+  },
 })
 
 const backendSettingsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/settings/backends',
-  component: BackendSettingsPage,
+  beforeLoad: () => {
+    throw redirect({ to: '/settings' })
+  },
 })
 
 const routeTree = rootRoute.addChildren([
   indexRoute,
   chatRoute,
+  settingsRoute,
   mcpSettingsRoute,
   backendSettingsRoute,
 ])

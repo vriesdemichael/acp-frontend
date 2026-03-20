@@ -1,132 +1,64 @@
-import type { ReactNode } from 'react'
-import { Link } from '@tanstack/react-router'
-import { AgentSelector } from '../AgentSelector.js'
-import type { AgentSummary, ProjectSummary } from '../../hooks/useAgUiChat.js'
-
-interface HeaderLinkProps {
-  to: '/settings/backends' | '/settings/mcp'
-  className: string
-  children: ReactNode
-}
+import type { ProjectSummary } from '../../hooks/useAgUiChat.js'
 
 interface ChatHeaderProps {
-  agentId: string | null
-  agents: AgentSummary[]
-  onAgentSelect: (agentId: string) => void
-  renderLink?: (props: HeaderLinkProps) => ReactNode
+  agentName: string | null
   project: ProjectSummary | null
-  sessionId: string | null
+  sessionTitle: string | null
   errorMessage: string | null
   ready: boolean
   thinking: boolean
 }
 
-function formatSessionLabel(sessionId: string | null, ready: boolean) {
-  if (!ready) return 'Starting'
-  if (!sessionId) return 'Unavailable'
-  return sessionId.slice(0, 8)
-}
-
 export function ChatHeader({
-  agentId,
-  agents,
-  onAgentSelect,
-  renderLink,
+  agentName,
   project,
-  sessionId,
+  sessionTitle,
   errorMessage,
   ready,
   thinking,
 }: ChatHeaderProps) {
-  const headerLink = renderLink ?? defaultHeaderLink
-  const statusLabel = errorMessage
+  const connectionLabel = errorMessage
     ? 'Needs attention'
     : thinking
-      ? 'Thinking'
+      ? 'Streaming'
       : ready
-        ? 'Ready'
+        ? 'Connected'
         : 'Connecting'
-  const statusDetail = errorMessage ?? (thinking ? 'Streaming response' : 'Realtime stream')
+  const connectionDetail =
+    errorMessage ?? (thinking ? 'Receiving agent output' : 'ACP transport healthy')
+  const sessionLabel = sessionTitle?.trim() || (ready ? 'New chat' : 'Starting session')
 
   return (
-    <header className="border-b border-white/10 bg-slate-950/92 px-4 py-3 text-slate-100 shadow-[0_10px_40px_rgba(2,6,23,0.45)] backdrop-blur sm:px-5 lg:px-6">
-      <div className="flex min-h-12 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+    <header className="border-b border-white/10 bg-slate-950/92 px-4 py-2.5 text-slate-100 shadow-[0_10px_40px_rgba(2,6,23,0.45)] backdrop-blur sm:px-5 lg:px-6">
+      <div className="flex min-h-11 items-center justify-between gap-4">
         <div className="flex min-w-0 items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-slate-900 text-sm font-semibold text-teal-300">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-slate-900 text-sm font-semibold text-teal-300">
             ACP
           </div>
           <div className="min-w-0">
-            <h1 className="truncate font-[family:var(--font-display)] text-xl text-slate-50 sm:text-2xl">
-              Chat Workspace
-            </h1>
-            <p className="text-xs text-slate-400">
-              {project
-                ? `${project.name} · ${project.path}`
-                : 'Focused conversation layout with live agent state'}
+            <p className="truncate text-base font-medium text-slate-50 sm:text-lg">
+              {sessionLabel}
             </p>
-          </div>
-
-          <div className="hidden items-center gap-2 lg:flex">
-            {headerLink({
-              to: '/settings/backends',
-              className:
-                'inline-flex h-9 items-center justify-center rounded-lg border border-white/10 bg-slate-900/90 px-3 text-sm font-medium text-slate-100 transition hover:bg-slate-800',
-              children: 'Backends',
-            })}
-            {headerLink({
-              to: '/settings/mcp',
-              className:
-                'inline-flex h-9 items-center justify-center rounded-lg border border-white/10 bg-slate-900/60 px-3 text-sm font-medium text-slate-300 transition hover:bg-slate-800',
-              children: 'MCP',
-            })}
+            <p className="truncate text-xs text-slate-500">
+              {[project?.name, agentName].filter(Boolean).join(' · ') ||
+                'No active session context'}
+            </p>
           </div>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-[minmax(0,18rem)_9rem_11rem] lg:min-w-[40rem]">
-          <AgentSelector agents={agents} selectedAgentId={agentId} onSelect={onAgentSelect} />
-
-          <div className="rounded-lg border border-white/10 bg-slate-900/90 px-3 py-2.5">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
-              Session
-            </p>
-            <p className="mt-2 text-sm font-medium text-slate-100">
-              {formatSessionLabel(sessionId, ready)}
-            </p>
-            <p className="mt-1 text-[11px] text-slate-500">Live thread</p>
+        <div className="flex shrink-0 items-center gap-2">
+          <div className="hidden rounded-full border border-white/10 bg-slate-900/80 px-3 py-1.5 text-xs text-slate-400 md:block">
+            {agentName ?? 'No agent selected'}
           </div>
-
-          <div className="rounded-lg border border-white/10 bg-slate-900/90 px-3 py-2.5">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
-              Status
-            </p>
-            <p className="mt-2 text-sm font-medium text-slate-100">{statusLabel}</p>
-            <p className="mt-1 text-[11px] text-slate-500">{statusDetail}</p>
+          <div className="hidden rounded-full border border-white/10 bg-slate-900/80 px-3 py-1.5 text-xs text-slate-400 lg:block">
+            {project ? project.name : 'No project selected'}
+          </div>
+          <div className="rounded-full border border-white/10 bg-slate-900/80 px-3 py-1.5 text-xs">
+            <span className="font-medium text-slate-100">{connectionLabel}</span>
+            <span className="ml-2 hidden text-slate-500 sm:inline">{connectionDetail}</span>
           </div>
         </div>
-      </div>
-
-      <div className="mt-3 flex gap-2 lg:hidden">
-        {headerLink({
-          to: '/settings/backends',
-          className:
-            'inline-flex h-9 items-center justify-center rounded-lg border border-white/10 bg-slate-900/90 px-3 text-sm font-medium text-slate-100 transition hover:bg-slate-800',
-          children: 'Backends',
-        })}
-        {headerLink({
-          to: '/settings/mcp',
-          className:
-            'inline-flex h-9 items-center justify-center rounded-lg border border-white/10 bg-slate-900/60 px-3 text-sm font-medium text-slate-300 transition hover:bg-slate-800',
-          children: 'MCP',
-        })}
       </div>
     </header>
-  )
-}
-
-function defaultHeaderLink({ to, className, children }: HeaderLinkProps) {
-  return (
-    <Link key={`${to}-${String(children)}`} to={to} className={className}>
-      {children}
-    </Link>
   )
 }

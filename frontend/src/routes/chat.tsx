@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
-import { useNavigate, useSearch } from '@tanstack/react-router'
+import { Link, useNavigate, useSearch } from '@tanstack/react-router'
 import { ChatComposer } from '../components/chat/ChatComposer.js'
 import { ChatHeader } from '../components/chat/ChatHeader.js'
 import {
@@ -81,7 +81,6 @@ export function ChatPage() {
     ready,
     selectedAgent,
     selectedProject,
-    selectAgent,
     selectProject,
     selectSession,
     sendMessage,
@@ -235,10 +234,8 @@ export function ChatPage() {
     <main className="h-[100dvh] overflow-hidden bg-[#05070b] text-slate-100">
       <div className="mx-auto flex h-full w-full max-w-[1800px] flex-col overflow-hidden">
         <ChatHeader
-          agentId={activeAgentId}
-          agents={agents}
+          agentName={selectedAgent?.name ?? null}
           errorMessage={errorMessage}
-          onAgentSelect={selectAgent}
           project={selectedProject}
           sessionTitle={activeSessionTitle}
           ready={ready}
@@ -268,15 +265,18 @@ export function ChatPage() {
                 onSuggestProjectPaths={suggestProjectPaths}
               />
             }
+            settingsLink={
+              <Link
+                to="/settings"
+                className="inline-flex h-9 w-full items-center justify-center rounded-lg border border-white/10 bg-slate-900/80 px-3 text-sm font-medium text-slate-200 transition hover:bg-slate-800"
+              >
+                Settings
+              </Link>
+            }
           />
 
           <section className="flex min-h-0 min-w-0 flex-col overflow-hidden bg-[#070b12]">
-            <div className="flex items-center gap-2 border-b border-white/8 px-4 py-3 sm:px-5">
-              <WorkspaceToggleButton
-                label="Chat"
-                active={workspaceMode === 'chat'}
-                onClick={() => setWorkspaceMode('chat')}
-              />
+            <div className="flex items-center gap-2 border-b border-white/8 px-4 py-2.5 sm:px-5">
               <WorkspaceToggleButton
                 label="Files"
                 active={workspaceMode === 'files'}
@@ -424,7 +424,7 @@ function WorkspaceToggleButton({
       type="button"
       onClick={onClick}
       className={[
-        'inline-flex h-8 items-center justify-center rounded-lg border px-3 text-sm font-medium transition',
+        'inline-flex h-7 items-center justify-center rounded-md border px-2.5 text-xs font-medium transition',
         active
           ? 'border-teal-500/35 bg-teal-500/10 text-teal-200'
           : 'border-white/10 bg-slate-900/70 text-slate-300 hover:bg-slate-800',
