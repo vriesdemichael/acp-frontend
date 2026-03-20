@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { EventType } from '@ag-ui/core'
 
+const CHAT_AGENT_STORAGE_KEY = 'acp.chat.agent'
+const CHAT_PROJECT_STORAGE_KEY = 'acp.chat.project'
+const CHAT_SESSION_STORAGE_KEY = 'acp.chat.session'
+
 export interface ChatMessage {
   id: string
   role: 'user' | 'assistant'
@@ -44,7 +48,7 @@ interface UseAgUiChatOptions {
   agentId: string | null
   projectId: string | null
   onSessionCreated: (sessionId: string) => void
-  onSessionSelected: (sessionId: string) => void
+  onSessionSelected: (sessionId: string | null) => void
   onAgentSelected: (agentId: string) => void
   onProjectSelected: (projectId: string | null) => void
 }
@@ -58,9 +62,15 @@ export function useAgUiChat({
   onAgentSelected,
   onProjectSelected,
 }: UseAgUiChatOptions) {
-  const [currentSessionId, setCurrentSessionId] = useState<string | null>(sessionId)
-  const [currentAgentId, setCurrentAgentId] = useState<string | null>(agentId)
-  const [currentProjectId, setCurrentProjectId] = useState<string | null>(projectId)
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(
+    () => sessionId ?? readStoredSelection(CHAT_SESSION_STORAGE_KEY)
+  )
+  const [currentAgentId, setCurrentAgentId] = useState<string | null>(
+    () => agentId ?? readStoredSelection(CHAT_AGENT_STORAGE_KEY)
+  )
+  const [currentProjectId, setCurrentProjectId] = useState<string | null>(
+    () => projectId ?? readStoredSelection(CHAT_PROJECT_STORAGE_KEY)
+  )
   const [agents, setAgents] = useState<AgentSummary[]>([])
   const [projects, setProjects] = useState<ProjectSummary[]>([])
   const [sessions, setSessions] = useState<SessionSummary[]>([])
@@ -70,6 +80,7 @@ export function useAgUiChat({
   const [loading, setLoading] = useState(true)
   const [creatingSession, setCreatingSession] = useState(false)
   const activeSessionRef = useRef<string | null>(sessionId)
+  const pendingRouteSessionRef = useRef<string | null>(null)
   const didBootstrapRef = useRef(false)
 
   useEffect(() => {
@@ -79,8 +90,22 @@ export function useAgUiChat({
   }, [agentId])
 
   useEffect(() => {
-    setCurrentProjectId(projectId)
+    if (projectId) {
+      setCurrentProjectId(projectId)
+    }
   }, [projectId])
+
+  useEffect(() => {
+    writeStoredSelection(CHAT_AGENT_STORAGE_KEY, currentAgentId)
+  }, [currentAgentId])
+
+  useEffect(() => {
+    writeStoredSelection(CHAT_PROJECT_STORAGE_KEY, currentProjectId)
+  }, [currentProjectId])
+
+  useEffect(() => {
+    writeStoredSelection(CHAT_SESSION_STORAGE_KEY, currentSessionId)
+  }, [currentSessionId])
 
   const selectedAgent = useMemo(
     () => agents.find((candidate) => candidate.id === currentAgentId) ?? null,
@@ -179,12 +204,17 @@ export function useAgUiChat({
 
   useEffect(() => {
     if (!sessionId) return
+    if (pendingRouteSessionRef.current && sessionId !== pendingRouteSessionRef.current) {
+      return
+    }
     if (sessionId === currentSessionId) {
       activeSessionRef.current = sessionId
+      pendingRouteSessionRef.current = null
       return
     }
 
     activeSessionRef.current = sessionId
+    pendingRouteSessionRef.current = null
     setCurrentSessionId(sessionId)
     setErrorMessage(null)
     setThinking(false)
@@ -258,6 +288,7 @@ export function useAgUiChat({
 
   useEffect(() => {
     let cancelled = false
+    let bootstrapCompleted = false
 
     void (async () => {
       if (didBootstrapRef.current) return
@@ -340,11 +371,16 @@ export function useAgUiChat({
           setErrorMessage(
             'No projects are currently available. Check the generated workspace config and try again.'
           )
+          bootstrapCompleted = true
           return
         }
 
-        if (cancelled) return
-        await createSession(preferredAgentId)
+        setMessages([])
+        setCurrentSessionId(null)
+        activeSessionRef.current = null
+        pendingRouteSessionRef.current = null
+        onSessionSelected(null)
+        bootstrapCompleted = true
       } catch (error) {
         console.error('[useAgUiChat] bootstrap failed:', error)
         setErrorMessage('Unable to load chat data right now. Reload or try again in a moment.')
@@ -357,16 +393,19 @@ export function useAgUiChat({
 
     return () => {
       cancelled = true
+      if (!bootstrapCompleted) {
+        didBootstrapRef.current = false
+      }
     }
   }, [
     agentId,
-    createSession,
     currentAgentId,
     currentProjectId,
     fetchJson,
     loadSession,
     onAgentSelected,
     onProjectSelected,
+    onSessionSelected,
     projectId,
     sessionId,
   ])
@@ -469,6 +508,7 @@ export function useAgUiChat({
   const selectSession = useCallback(
     async (nextSessionId: string) => {
       if (nextSessionId === currentSessionId) return
+      pendingRouteSessionRef.current = nextSessionId
       activeSessionRef.current = nextSessionId
       setCurrentSessionId(nextSessionId)
       setErrorMessage(null)
@@ -513,15 +553,32 @@ export function useAgUiChat({
       setCurrentProjectId(nextProjectId)
       onProjectSelected(nextProjectId)
 
-      if (!currentAgentId) {
+      const matchingSession = sessions.find(
+        (session) => session.project?.id === nextProjectId && session.agentId === currentAgentId
+      )
+
+      if (matchingSession) {
+        pendingRouteSessionRef.current = matchingSession.id
+        activeSessionRef.current = matchingSession.id
+        setCurrentSessionId(matchingSession.id)
+        await loadSession(matchingSession.id, true)
         return
       }
 
       activeSessionRef.current = null
+      pendingRouteSessionRef.current = null
       setCurrentSessionId(null)
-      await createSession(currentAgentId, nextProjectId)
+      onSessionSelected(null)
     },
-    [createSession, currentAgentId, currentProjectId, onProjectSelected, projects]
+    [
+      currentAgentId,
+      currentProjectId,
+      loadSession,
+      onProjectSelected,
+      onSessionSelected,
+      projects,
+      sessions,
+    ]
   )
 
   const addProject = useCallback(
@@ -575,4 +632,26 @@ export function buildSendMessagePayload(message: string, agentId: string | null)
     ...(agentId ? { agentId } : {}),
     message,
   }
+}
+
+function readStoredSelection(storageKey: string): string | null {
+  if (typeof window === 'undefined' || !window.localStorage) {
+    return null
+  }
+
+  const value = window.localStorage.getItem(storageKey)?.trim()
+  return value ? value : null
+}
+
+function writeStoredSelection(storageKey: string, value: string | null): void {
+  if (typeof window === 'undefined' || !window.localStorage) {
+    return
+  }
+
+  if (!value) {
+    window.localStorage.removeItem(storageKey)
+    return
+  }
+
+  window.localStorage.setItem(storageKey, value)
 }

@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { useState } from 'react'
 import { ChatHeader } from '../components/chat/ChatHeader.js'
+import { ProjectContextSwitcher } from '../components/chat/ProjectContextSwitcher.js'
 import { SessionList } from '../components/chat/SessionList.js'
 import { ChatTranscript } from '../components/chat/ChatTranscript.js'
 import { ChatComposer } from '../components/chat/ChatComposer.js'
@@ -27,7 +28,7 @@ function ChatLayoutStory() {
             path: '/home/vries/projects/acp-frontend',
             status: 'available',
           }}
-          sessionId="session-12345678"
+          sessionTitle="Agentic Coding Presentation Outline"
           ready
           thinking={false}
         />
@@ -86,10 +87,47 @@ function ChatLayoutStory() {
               },
             ]}
             selectedAgentId="copilot"
+            selectedProjectId="acp-frontend"
             activeSessionId="session-12345678"
             creatingSession={false}
             onCreate={() => {}}
             onSelect={() => {}}
+            projectSwitcher={
+              <ProjectContextSwitcher
+                projects={[
+                  {
+                    id: 'acp-frontend',
+                    name: 'ACP Frontend',
+                    path: '/home/vries/projects/acp-frontend',
+                    status: 'available',
+                  },
+                  {
+                    id: 'docs-site',
+                    name: 'Docs Site',
+                    path: '/home/vries/projects/docs-site',
+                    status: 'missing',
+                  },
+                ]}
+                selectedProjectId="acp-frontend"
+                onProjectSelect={() => {}}
+                onAddProject={() =>
+                  Promise.resolve({
+                    id: 'new-project',
+                    name: 'New Project',
+                    path: '/home/vries/projects/new-project',
+                    status: 'available' as const,
+                  })
+                }
+                onSuggestProjectPaths={(path) =>
+                  Promise.resolve([
+                    {
+                      name: 'acp-frontend',
+                      path: `${path.replace(/\/+$/, '')}/acp-frontend`,
+                    },
+                  ])
+                }
+              />
+            }
           />
 
           <section className="flex min-h-[32rem] min-w-0 flex-col overflow-hidden bg-[#070b12] xl:border-x xl:border-white/8">
@@ -114,6 +152,7 @@ function ChatLayoutStory() {
                     'A darker shell with a compact control bar and slimmer side panels will get much closer to the reference pattern without copying it directly.',
                 },
               ]}
+              hasSession
               loading={false}
               ready
               thinking
@@ -126,6 +165,7 @@ function ChatLayoutStory() {
               onSubmit={(event) => event.preventDefault()}
               disabled={false}
               canSubmit={value.trim().length > 0}
+              helperText="Streaming responses appear in the workspace as the agent thinks and replies."
             />
           </section>
 
@@ -154,6 +194,14 @@ function ChatLayoutStory() {
                 status: 'available' as const,
               })
             }
+            onSuggestProjectPaths={(path) =>
+              Promise.resolve([
+                {
+                  name: 'acp-frontend',
+                  path: `${path.replace(/\/+$/, '')}/acp-frontend`,
+                },
+              ])
+            }
             tree={[
               { name: 'src', path: 'src', type: 'directory', hasChildren: true },
               { name: 'package.json', path: 'package.json', type: 'file', hasChildren: false },
@@ -165,6 +213,7 @@ function ChatLayoutStory() {
             onToggleFolder={() => {}}
             selectedEntryPath="src"
             onSelectEntry={() => {}}
+            layout="explorer"
           />
         </div>
       </div>
