@@ -2,7 +2,12 @@ import type { Meta, StoryObj } from '@storybook/react-vite'
 import { useState } from 'react'
 import { ChatComposer } from './ChatComposer.js'
 
-function ComposerStory(props: { disabled: boolean; canSubmit: boolean; initialValue?: string }) {
+function ComposerStory(props: {
+  disabled: boolean
+  canSubmit: boolean
+  initialValue?: string
+  helperText?: string
+}) {
   const [value, setValue] = useState(props.initialValue ?? '')
 
   return (
@@ -13,6 +18,7 @@ function ComposerStory(props: { disabled: boolean; canSubmit: boolean; initialVa
         onSubmit={(event) => event.preventDefault()}
         disabled={props.disabled}
         canSubmit={props.canSubmit}
+        helperText={props.helperText}
       />
     </div>
   )
@@ -25,6 +31,7 @@ const meta = {
     disabled: false,
     canSubmit: true,
     initialValue: 'Say hello in one short sentence.',
+    helperText: 'Streaming responses appear in the workspace as the agent thinks and replies.',
   },
 } satisfies Meta<typeof ComposerStory>
 
@@ -38,5 +45,6 @@ export const Disabled: Story = {
     disabled: true,
     canSubmit: false,
     initialValue: '',
+    helperText: 'Choose a project context and start a new session before sending a message.',
   },
 }

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { useMemo, useState } from 'react'
 import type { AgentSummary, SessionSummary } from '../../hooks/useAgUiChat.js'
 
@@ -5,24 +6,33 @@ interface SessionListProps {
   agents: AgentSummary[]
   sessions: SessionSummary[]
   selectedAgentId: string | null
+  selectedProjectId?: string | null
   activeSessionId: string | null
   creatingSession: boolean
   onCreate: () => void | Promise<void>
   onSelect: (sessionId: string) => void | Promise<void>
+  projectSwitcher?: ReactNode
 }
 
 export function SessionList({
   agents,
   sessions,
   selectedAgentId,
+  selectedProjectId = null,
   activeSessionId,
   creatingSession,
   onCreate,
   onSelect,
+  projectSwitcher,
 }: SessionListProps) {
   const projectGroups = useMemo(
     () => buildProjectGroups({ agents, sessions, selectedAgentId, activeSessionId }),
     [activeSessionId, agents, selectedAgentId, sessions]
+  )
+  const selectedProjectHasSessions = useMemo(
+    () =>
+      selectedProjectId ? projectGroups.some((group) => group.id === selectedProjectId) : false,
+    [projectGroups, selectedProjectId]
   )
   const [collapsedProjects, setCollapsedProjects] = useState<string[]>([])
 
@@ -55,18 +65,32 @@ export function SessionList({
       </div>
 
       <div className="mt-4 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
-        {projectGroups.length === 0 ? (
+        {projectSwitcher ? projectSwitcher : null}
+
+        {selectedProjectId && !selectedProjectHasSessions ? (
+          <div className="rounded-xl border border-dashed border-teal-500/20 bg-teal-500/5 p-4 text-sm text-slate-300">
+            No chats in this project yet. Start a new session to open this workspace with the
+            selected agent.
+          </div>
+        ) : null}
+
+        {projectGroups.length === 0 && !selectedProjectId ? (
           <div className="rounded-xl border border-dashed border-white/10 bg-slate-900/70 p-4 text-sm text-slate-400">
             No chats yet. Create a new session once an agent and project are ready.
           </div>
-        ) : (
+        ) : projectGroups.length > 0 ? (
           projectGroups.map((group) => {
             const collapsed = collapsedProjects.includes(group.id)
 
             return (
               <section
                 key={group.id}
-                className="rounded-xl border border-white/8 bg-slate-950/40 p-3"
+                className={[
+                  'rounded-xl border bg-slate-950/40 p-3',
+                  group.id === selectedProjectId
+                    ? 'border-teal-500/25 shadow-[inset_0_0_0_1px_rgba(45,212,191,0.05)]'
+                    : 'border-white/8',
+                ].join(' ')}
               >
                 <button
                   type="button"
@@ -132,7 +156,7 @@ export function SessionList({
               </section>
             )
           })
-        )}
+        ) : null}
       </div>
     </aside>
   )

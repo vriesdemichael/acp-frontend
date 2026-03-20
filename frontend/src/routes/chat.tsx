@@ -2,6 +2,10 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import { ChatComposer } from '../components/chat/ChatComposer.js'
 import { ChatHeader } from '../components/chat/ChatHeader.js'
+import {
+  ProjectContextSwitcher,
+  type ProjectPathSuggestion,
+} from '../components/chat/ProjectContextSwitcher.js'
 import { SessionList } from '../components/chat/SessionList.js'
 import { ChatTranscript } from '../components/chat/ChatTranscript.js'
 import { useAgUiChat } from '../hooks/useAgUiChat.js'
@@ -16,6 +20,46 @@ export function ChatPage() {
   const sessionId = search.session ?? null
   const agentId = search.agent ?? null
   const projectId = search.project ?? null
+  const handleAgentSelected = useCallback(
+    (nextAgentId: string) => {
+      void navigate({
+        to: '/chat',
+        search: (current) => ({ ...current, agent: nextAgentId }),
+      })
+    },
+    [navigate]
+  )
+
+  const handleProjectSelected = useCallback(
+    (nextProjectId: string | null) => {
+      void navigate({
+        to: '/chat',
+        search: (current) => ({ ...current, project: nextProjectId ?? undefined }),
+      })
+    },
+    [navigate]
+  )
+
+  const handleSessionCreated = useCallback(
+    (nextSessionId: string) => {
+      void navigate({
+        to: '/chat',
+        search: (current) => ({ ...current, session: nextSessionId }),
+      })
+    },
+    [navigate]
+  )
+
+  const handleSessionSelected = useCallback(
+    (nextSessionId: string | null) => {
+      void navigate({
+        to: '/chat',
+        search: (current) => ({ ...current, session: nextSessionId ?? undefined }),
+      })
+    },
+    [navigate]
+  )
+
   const {
     addProject,
     agentId: activeAgentId,
@@ -40,30 +84,10 @@ export function ChatPage() {
     sessionId,
     agentId,
     projectId,
-    onAgentSelected: (nextAgentId) => {
-      void navigate({
-        to: '/chat',
-        search: (current) => ({ ...current, agent: nextAgentId }),
-      })
-    },
-    onProjectSelected: (nextProjectId) => {
-      void navigate({
-        to: '/chat',
-        search: (current) => ({ ...current, project: nextProjectId ?? undefined }),
-      })
-    },
-    onSessionCreated: (nextSessionId) => {
-      void navigate({
-        to: '/chat',
-        search: (current) => ({ ...current, session: nextSessionId }),
-      })
-    },
-    onSessionSelected: (nextSessionId) => {
-      void navigate({
-        to: '/chat',
-        search: (current) => ({ ...current, session: nextSessionId }),
-      })
-    },
+    onAgentSelected: handleAgentSelected,
+    onProjectSelected: handleProjectSelected,
+    onSessionCreated: handleSessionCreated,
+    onSessionSelected: handleSessionSelected,
   })
   const [input, setInput] = useState('')
   const [tree, setTree] = useState<ProjectTreeEntry[]>([])
@@ -75,6 +99,10 @@ export function ChatPage() {
   const activeAgentName = useMemo(
     () => selectedAgent?.name ?? 'the selected agent',
     [selectedAgent]
+  )
+  const activeSessionTitle = useMemo(
+    () => sessions.find((session) => session.id === activeSessionId)?.title ?? null,
+    [activeSessionId, sessions]
   )
 
   const getParentTreePath = useCallback((path: string): string | null => {
@@ -135,35 +163,61 @@ export function ChatPage() {
     }
   }
 
+  const suggestProjectPaths = useCallback(
+    async (path: string): Promise<ProjectPathSuggestion[]> => {
+      const response = await fetch(
+        `/api/projects/path-suggestions?path=${encodeURIComponent(path)}`
+      )
+
+      if (!response.ok) {
+        throw new Error(`Path suggestions request failed with status ${response.status}`)
+      }
+
+      return (await response.json()) as ProjectPathSuggestion[]
+    },
+    []
+  )
+
   return (
-    <main className="min-h-screen bg-[#05070b] text-slate-100">
-      <div className="mx-auto flex min-h-screen w-full max-w-[1800px] flex-col">
+    <main className="h-[100dvh] overflow-hidden bg-[#05070b] text-slate-100">
+      <div className="mx-auto flex h-full w-full max-w-[1800px] flex-col overflow-hidden">
         <ChatHeader
           agentId={activeAgentId}
           agents={agents}
           errorMessage={errorMessage}
           onAgentSelect={selectAgent}
           project={selectedProject}
-          sessionId={activeSessionId}
+          sessionTitle={activeSessionTitle}
           ready={ready}
           thinking={thinking}
         />
 
-        <div className="grid min-h-0 flex-1 lg:grid-cols-[19rem_minmax(0,1fr)] xl:grid-cols-[19rem_minmax(0,1fr)_18rem]">
+        <div className="grid min-h-0 flex-1 overflow-hidden lg:grid-cols-[19rem_minmax(0,1fr)] xl:grid-cols-[19rem_minmax(0,1fr)_18rem]">
           <SessionList
             agents={agents}
             sessions={sessions}
             selectedAgentId={activeAgentId}
+            selectedProjectId={selectedProject?.id ?? null}
             activeSessionId={activeSessionId}
             creatingSession={creatingSession}
             onCreate={startNewSession}
             onSelect={selectSession}
+            projectSwitcher={
+              <ProjectContextSwitcher
+                projects={projects}
+                selectedProjectId={selectedProject?.id ?? null}
+                onProjectSelect={selectProject}
+                onAddProject={addProject}
+                onSuggestProjectPaths={suggestProjectPaths}
+              />
+            }
           />
 
-          <section className="flex min-h-[32rem] min-w-0 flex-col overflow-hidden bg-[#070b12] xl:border-x xl:border-white/8">
+          <section className="flex min-h-0 min-w-0 flex-col overflow-hidden bg-[#070b12] xl:border-x xl:border-white/8">
             <ChatTranscript
               activeAgentName={activeAgentName}
               messages={messages}
+              hasSession={activeSessionId !== null}
               loading={loading}
               ready={ready}
               thinking={thinking}
@@ -176,6 +230,11 @@ export function ChatPage() {
               onSubmit={handleSubmit}
               disabled={!ready}
               canSubmit={ready && input.trim().length > 0}
+              helperText={
+                activeSessionId
+                  ? 'Streaming responses appear in the workspace as the agent thinks and replies.'
+                  : 'Choose a project context and start a new session before sending a message.'
+              }
             />
           </section>
 
@@ -184,6 +243,7 @@ export function ChatPage() {
             selectedProjectId={selectedProject?.id ?? null}
             onProjectSelect={selectProject}
             onAddProject={addProject}
+            onSuggestProjectPaths={suggestProjectPaths}
             tree={tree}
             treePath={treePath}
             treeLoading={treeLoading}
@@ -200,6 +260,7 @@ export function ChatPage() {
             }}
             selectedEntryPath={selectedEntryPath}
             onSelectEntry={setSelectedEntryPath}
+            layout="explorer"
           />
         </div>
       </div>

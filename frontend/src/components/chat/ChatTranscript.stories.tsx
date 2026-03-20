@@ -7,6 +7,7 @@ const meta = {
   args: {
     activeAgentName: 'GitHub Copilot',
     messages: [],
+    hasSession: true,
     loading: false,
     ready: true,
     thinking: false,
@@ -21,6 +22,7 @@ export const Empty: Story = {}
 
 export const Loading: Story = {
   args: {
+    hasSession: false,
     loading: true,
     ready: false,
   },
@@ -28,12 +30,14 @@ export const Loading: Story = {
 
 export const Error: Story = {
   args: {
+    hasSession: false,
     errorMessage: 'Message failed to send. Check the agent connection and try again.',
   },
 }
 
 export const LongTranscript: Story = {
   args: {
+    hasSession: true,
     messages: [
       { id: 'user-1', role: 'user', content: 'Please audit the chat layout for mobile spacing.' },
       {
@@ -55,6 +59,7 @@ export const LongTranscript: Story = {
 
 export const Thinking: Story = {
   args: {
+    hasSession: true,
     messages: [{ id: 'user-1', role: 'user', content: 'Say hello in one short sentence.' }],
     thinking: true,
   },

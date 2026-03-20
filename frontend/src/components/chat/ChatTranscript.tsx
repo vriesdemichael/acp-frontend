@@ -3,6 +3,7 @@ import type { ChatMessage } from '../../hooks/useAgUiChat.js'
 interface ChatTranscriptProps {
   activeAgentName: string
   messages: ChatMessage[]
+  hasSession: boolean
   loading: boolean
   ready: boolean
   thinking: boolean
@@ -12,6 +13,7 @@ interface ChatTranscriptProps {
 export function ChatTranscript({
   activeAgentName,
   messages,
+  hasSession,
   loading,
   ready,
   thinking,
@@ -60,6 +62,21 @@ export function ChatTranscript({
             <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-slate-400">
               Ask {activeAgentName} to inspect code, explain a failure, or sketch a next step for
               the current workspace.
+            </p>
+          </section>
+        )}
+
+        {!loading && !errorMessage && !ready && !hasSession && (
+          <section className="rounded-2xl border border-dashed border-white/10 bg-slate-900/55 px-5 py-8 text-center shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+              Session
+            </p>
+            <h2 className="mt-3 font-[family:var(--font-display)] text-4xl text-slate-50">
+              Start a new chat
+            </h2>
+            <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-slate-400">
+              This project does not have an active session yet. Create one to work with{' '}
+              {activeAgentName} in the selected workspace.
             </p>
           </section>
         )}

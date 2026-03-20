@@ -256,7 +256,8 @@ describe('ChatPage', () => {
     expect(screen.getByTestId('chat-session-panel')).toBeDefined()
     expect(screen.getByTestId('chat-context-panel')).toBeDefined()
     expect(screen.getByRole('combobox', { name: /Active project/i })).toBeDefined()
-    expect(screen.getByText('/home/vries/projects/acp-frontend')).toBeDefined()
+    expect(screen.getAllByText('/home/vries/projects/acp-frontend').length).toBeGreaterThan(0)
+    expect(screen.getByText('Project Explorer')).toBeDefined()
     expect(screen.getByRole('button', { name: /Workspace/i }).getAttribute('aria-expanded')).toBe(
       'false'
     )
@@ -343,7 +344,10 @@ describe('ChatPage', () => {
   it('shows a session error state when creating a session fails', async () => {
     vi.stubGlobal('fetch', mockFetch({ noSessions: true, sessionFails: true }))
 
-    renderChatPage('/chat?session=test-session-id&agent=copilot&project=acp-frontend')
+    renderChatPage('/chat?agent=copilot&project=acp-frontend')
+
+    const createButton = await screen.findByRole('button', { name: 'New' })
+    fireEvent.click(createButton)
 
     await waitFor(() =>
       expect(
@@ -443,6 +447,167 @@ describe('ChatPage', () => {
         screen.getByText('No chats yet. Create a new session once an agent and project are ready.')
       ).toBeDefined()
     )
+  })
+
+  it('switches projects without auto-creating a fresh session when that project has no chats yet', async () => {
+    const fetchSpy = mockFetch({ noSessions: true })
+    vi.stubGlobal('fetch', fetchSpy)
+
+    renderChatPage('/chat?agent=copilot&project=acp-frontend')
+
+    const projectSelect = await screen.findByRole('combobox', { name: /Active project/i })
+    fireEvent.change(projectSelect, { target: { value: 'acp-frontend' } })
+
+    await waitFor(() => expect(screen.getByText('Start a new chat')).toBeDefined())
+    expect(
+      screen.getByText(
+        'No chats in this project yet. Start a new session to open this workspace with the selected agent.'
+      )
+    ).toBeDefined()
+    expect(
+      screen.getByText('Choose a project context and start a new session before sending a message.')
+    ).toBeDefined()
+    expect(window.location.search).toContain('project=acp-frontend')
+    expect(window.location.search).not.toContain('session=')
+
+    const sessionCreateCalls = fetchSpy.mock.calls.filter(
+      (call: unknown[]) =>
+        call[0] === '/api/sessions' && (call[1] as RequestInit | undefined)?.method === 'POST'
+    )
+    expect(sessionCreateCalls).toHaveLength(0)
+  })
+
+  it('switches to an existing session when changing to a project that already has chats', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
+        if (url === '/api/agents') {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve([
+                { id: 'copilot', name: 'GitHub Copilot', status: 'active', command: 'copilot' },
+              ]),
+          } as Response)
+        }
+
+        if (url === '/api/projects') {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve([
+                {
+                  id: 'acp-frontend',
+                  name: 'ACP Frontend',
+                  path: '/home/vries/projects/acp-frontend',
+                  status: 'available',
+                },
+                {
+                  id: 'docs-site',
+                  name: 'Docs Site',
+                  path: '/home/vries/projects/docs-site',
+                  status: 'available',
+                },
+              ]),
+          } as Response)
+        }
+
+        if (url === '/api/projects/acp-frontend/tree' || url === '/api/projects/docs-site/tree') {
+          return Promise.resolve({ ok: true, json: () => Promise.resolve([]) } as Response)
+        }
+
+        if (url === '/api/sessions') {
+          if (opts?.method === 'POST') {
+            throw new Error('Unexpected session creation')
+          }
+
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve([
+                {
+                  id: SESSION_ID,
+                  title: 'Inspect auth bug',
+                  updatedAt: '2026-03-18T08:00:00.000Z',
+                  agentId: 'copilot',
+                  project: {
+                    id: 'acp-frontend',
+                    name: 'ACP Frontend',
+                    path: '/home/vries/projects/acp-frontend',
+                  },
+                },
+                {
+                  id: 'docs-session-id',
+                  title: 'Docs migration plan',
+                  updatedAt: '2026-03-18T10:00:00.000Z',
+                  agentId: 'copilot',
+                  project: {
+                    id: 'docs-site',
+                    name: 'Docs Site',
+                    path: '/home/vries/projects/docs-site',
+                  },
+                },
+              ]),
+          } as Response)
+        }
+
+        if (url === `/api/sessions/${SESSION_ID}`) {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                id: SESSION_ID,
+                title: 'Inspect auth bug',
+                updatedAt: '2026-03-18T08:00:00.000Z',
+                agentId: 'copilot',
+                project: {
+                  id: 'acp-frontend',
+                  name: 'ACP Frontend',
+                  path: '/home/vries/projects/acp-frontend',
+                },
+                messages: [],
+              }),
+          } as Response)
+        }
+
+        if (url === '/api/sessions/docs-session-id') {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                id: 'docs-session-id',
+                title: 'Docs migration plan',
+                updatedAt: '2026-03-18T10:00:00.000Z',
+                agentId: 'copilot',
+                project: {
+                  id: 'docs-site',
+                  name: 'Docs Site',
+                  path: '/home/vries/projects/docs-site',
+                },
+                messages: [{ id: 'assistant-2', role: 'assistant', content: 'Docs answer' }],
+              }),
+          } as Response)
+        }
+
+        if (
+          url === `/api/sessions/${SESSION_ID}/message` ||
+          url === '/api/sessions/docs-session-id/message'
+        ) {
+          return Promise.resolve({ ok: true, status: 202 } as Response)
+        }
+
+        throw new Error(`Unexpected fetch: ${url}`)
+      })
+    )
+
+    renderChatPage('/chat?session=test-session-id&agent=copilot&project=acp-frontend')
+
+    const projectSelect = await screen.findByRole('combobox', { name: /Active project/i })
+    fireEvent.change(projectSelect, { target: { value: 'docs-site' } })
+
+    await waitFor(() => expect(screen.getByText('Docs answer')).toBeDefined())
+    expect(window.location.search).toContain('project=docs-site')
+    expect(window.location.search).toContain('session=docs-session-id')
   })
 
   it('shows a helpful error when no available projects exist', async () => {
@@ -627,8 +792,8 @@ describe('ChatPage', () => {
     const sessionPanel = await screen.findByTestId('chat-session-panel')
 
     await waitFor(() => expect(within(sessionPanel).getByText('Inspect auth bug')).toBeDefined())
-    expect(within(sessionPanel).getByText('ACP Frontend')).toBeDefined()
-    expect(within(sessionPanel).getByText('Docs Site')).toBeDefined()
+    expect(within(sessionPanel).getAllByText('ACP Frontend').length).toBeGreaterThan(0)
+    expect(within(sessionPanel).getAllByText('Docs Site').length).toBeGreaterThan(0)
     expect(within(sessionPanel).getByText('Gemini discovery notes')).toBeDefined()
     expect(within(sessionPanel).getByText('Claude backlog')).toBeDefined()
     expect(within(sessionPanel).getByText('GitHub Copilot')).toBeDefined()

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { ProjectSummary } from '../../hooks/useAgUiChat.js'
+import { ProjectContextSwitcher, type ProjectPathSuggestion } from './ProjectContextSwitcher.js'
 
 export interface ProjectTreeEntry {
   name: string
@@ -13,6 +14,7 @@ interface ProjectWorkspacePanelProps {
   selectedProjectId: string | null
   onProjectSelect: (projectId: string) => void | Promise<void>
   onAddProject: (name: string, path: string) => Promise<ProjectSummary>
+  onSuggestProjectPaths: (path: string) => Promise<ProjectPathSuggestion[]>
   tree: ProjectTreeEntry[]
   treePath: string | null
   treeLoading: boolean
@@ -21,6 +23,7 @@ interface ProjectWorkspacePanelProps {
   onToggleFolder: (path: string) => void | Promise<void>
   selectedEntryPath: string | null
   onSelectEntry: (path: string | null) => void
+  layout?: 'full' | 'explorer'
 }
 
 export function ProjectWorkspacePanel({
@@ -28,6 +31,7 @@ export function ProjectWorkspacePanel({
   selectedProjectId,
   onProjectSelect,
   onAddProject,
+  onSuggestProjectPaths,
   tree,
   treePath,
   treeLoading,
@@ -36,48 +40,15 @@ export function ProjectWorkspacePanel({
   onToggleFolder,
   selectedEntryPath,
   onSelectEntry,
+  layout = 'full',
 }: ProjectWorkspacePanelProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [addFormOpen, setAddFormOpen] = useState(false)
-  const [addName, setAddName] = useState('')
-  const [addPath, setAddPath] = useState('')
-  const [addError, setAddError] = useState<string | null>(null)
-  const [addSubmitting, setAddSubmitting] = useState(false)
   const panelId = 'project-workspace-panel'
   const selectedProject = useMemo(
     () => projects.find((project) => project.id === selectedProjectId) ?? null,
     [projects, selectedProjectId]
   )
   const expanded = new Set(expandedPaths)
-
-  const handleAddSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    const trimmedPath = addPath.trim()
-
-    if (!trimmedPath) {
-      setAddError('Path is required.')
-      return
-    }
-
-    // Default name to the last path segment when left blank
-    const effectiveName =
-      addName.trim() || (trimmedPath.split('/').filter(Boolean).pop() ?? trimmedPath)
-
-    setAddError(null)
-    setAddSubmitting(true)
-
-    try {
-      const newProject = await onAddProject(effectiveName, trimmedPath)
-      setAddName('')
-      setAddPath('')
-      setAddFormOpen(false)
-      await onProjectSelect(newProject.id)
-    } catch {
-      setAddError('Failed to add project. Check the name and path and try again.')
-    } finally {
-      setAddSubmitting(false)
-    }
-  }
 
   return (
     <>
@@ -104,116 +75,51 @@ export function ProjectWorkspacePanel({
         data-testid="chat-context-panel"
         className={[
           mobileOpen ? 'flex' : 'hidden',
-          'min-h-0 flex-col border-l border-white/8 bg-slate-950/82 p-4 text-slate-100 shadow-[inset_1px_0_0_rgba(148,163,184,0.08)] backdrop-blur xl:flex',
+          'min-h-0 overflow-hidden flex-col border-l border-white/8 bg-slate-950/82 p-4 text-slate-100 shadow-[inset_1px_0_0_rgba(148,163,184,0.08)] backdrop-blur xl:flex',
         ].join(' ')}
       >
         <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">
           Workspace
         </p>
         <h2 className="mt-2 font-[family:var(--font-display)] text-2xl leading-tight text-slate-50">
-          Project Context
+          {layout === 'explorer' ? 'Project Explorer' : 'Project Context'}
         </h2>
         <p className="mt-3 text-sm leading-6 text-slate-400">
-          Pick the repository the agent should work in, then browse a read-only folder tree.
+          {layout === 'explorer'
+            ? 'Browse the selected repository with a read-only folder tree.'
+            : 'Pick the repository the agent should work in, then browse a read-only folder tree.'}
         </p>
 
-        <div className="mt-5 rounded-xl border border-white/10 bg-slate-900/80 p-3">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
-              Active Project
-            </span>
-            <button
-              type="button"
-              aria-label={addFormOpen ? 'Cancel adding project' : 'Add project'}
-              onClick={() => {
-                setAddFormOpen((current) => !current)
-                setAddError(null)
-                setAddName('')
-                setAddPath('')
-              }}
-              className="text-[10px] font-semibold uppercase tracking-[0.18em] text-teal-400 hover:text-teal-300"
-            >
-              {addFormOpen ? 'Cancel' : '+ Add'}
-            </button>
+        {layout === 'full' ? (
+          <div className="mt-5">
+            <ProjectContextSwitcher
+              projects={projects}
+              selectedProjectId={selectedProjectId}
+              onProjectSelect={onProjectSelect}
+              onAddProject={onAddProject}
+              onSuggestProjectPaths={onSuggestProjectPaths}
+            />
           </div>
-
-          {addFormOpen ? (
-            <form
-              aria-label="Add project form"
-              onSubmit={(e) => void handleAddSubmit(e)}
-              className="mt-3 space-y-2"
-            >
-              <input
-                type="text"
-                aria-label="Project name"
-                placeholder="Project name"
-                value={addName}
-                onChange={(e) => setAddName(e.target.value)}
-                disabled={addSubmitting}
-                className="w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 outline-none focus:border-teal-500"
-              />
-              <input
-                type="text"
-                aria-label="Project path"
-                placeholder="/absolute/path/to/project"
-                value={addPath}
-                onChange={(e) => setAddPath(e.target.value)}
-                disabled={addSubmitting}
-                className="w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 outline-none focus:border-teal-500"
-              />
-              {addError ? (
-                <p role="alert" className="text-[11px] text-rose-400">
-                  {addError}
+        ) : selectedProject ? (
+          <div className="mt-5 rounded-xl border border-white/10 bg-slate-900/80 p-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
+                  Active Project
                 </p>
-              ) : null}
-              <button
-                type="submit"
-                disabled={addSubmitting}
-                className="w-full rounded-lg border border-teal-500/30 bg-teal-500/10 px-3 py-2 text-sm font-medium text-teal-200 hover:bg-teal-500/20 disabled:opacity-50"
-              >
-                {addSubmitting ? 'Adding…' : 'Add project'}
-              </button>
-            </form>
-          ) : (
-            <label className="mt-2 block">
-              <select
-                value={selectedProjectId ?? ''}
-                onChange={(event) => void onProjectSelect(event.target.value)}
-                aria-label="Active project"
-                className="mt-2 w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-teal-500"
-              >
-                <option value="" disabled>
-                  {projects.length === 0 ? 'No projects configured' : 'Select a project'}
-                </option>
-                {projects.map((project) => (
-                  <option
-                    key={project.id}
-                    value={project.id}
-                    disabled={project.status !== 'available'}
-                  >
-                    {buildProjectOptionLabel(project)}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-
-          {!addFormOpen && selectedProject ? (
-            <div className="mt-3 rounded-lg border border-white/8 bg-slate-950/70 px-3 py-3">
-              <div className="flex items-center justify-between gap-3">
-                <p className="truncate text-sm font-semibold text-slate-50">
+                <p className="mt-2 truncate text-sm font-semibold text-slate-50">
                   {selectedProject.name}
                 </p>
-                <span className={buildProjectStatusClassName(selectedProject.status)}>
-                  {selectedProject.status}
-                </span>
               </div>
-              <p className="mt-2 break-all text-[11px] leading-5 text-slate-400">
-                {selectedProject.path}
-              </p>
+              <span className={buildProjectStatusClassName(selectedProject.status)}>
+                {selectedProject.status}
+              </span>
             </div>
-          ) : null}
-        </div>
+            <p className="mt-2 break-all text-[11px] leading-5 text-slate-400">
+              {selectedProject.path}
+            </p>
+          </div>
+        ) : null}
 
         <section className="mt-4 flex min-h-0 flex-1 flex-col rounded-xl border border-white/10 bg-slate-900/70 p-3">
           <div className="flex items-center justify-between gap-3">
@@ -292,14 +198,6 @@ export function ProjectWorkspacePanel({
       </aside>
     </>
   )
-}
-
-function buildProjectOptionLabel(project: ProjectSummary): string {
-  if (project.status === 'available') {
-    return `${project.name} - ${project.path}`
-  }
-
-  return `${project.name} - ${project.status}`
 }
 
 function buildProjectStatusClassName(status: ProjectSummary['status']): string {

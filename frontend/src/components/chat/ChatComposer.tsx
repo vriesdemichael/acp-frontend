@@ -6,6 +6,7 @@ interface ChatComposerProps {
   onSubmit: (e: FormEvent<HTMLFormElement>) => void | Promise<void>
   disabled: boolean
   canSubmit: boolean
+  helperText?: string
 }
 
 export function ChatComposer({
@@ -14,6 +15,7 @@ export function ChatComposer({
   onSubmit,
   disabled,
   canSubmit,
+  helperText,
 }: ChatComposerProps) {
   return (
     <form
@@ -43,7 +45,8 @@ export function ChatComposer({
       </div>
 
       <p className="mt-2 text-[11px] text-slate-500">
-        Streaming responses appear in the workspace as the agent thinks and replies.
+        {helperText ??
+          'Streaming responses appear in the workspace as the agent thinks and replies.'}
       </p>
     </form>
   )
