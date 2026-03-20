@@ -1,8 +1,14 @@
 import { existsSync, statSync } from 'node:fs'
 import { opendir, readdir } from 'node:fs/promises'
-import { relative, resolve, sep } from 'node:path'
+import { homedir } from 'node:os'
+import { basename, dirname, relative, resolve, sep } from 'node:path'
 import { readProjectConfig, slugifyProjectId, writeProjectConfig } from './config.js'
-import type { ProjectSummary, ProjectTreeEntry, SessionProjectContext } from './types.js'
+import type {
+  ProjectPathSuggestion,
+  ProjectSummary,
+  ProjectTreeEntry,
+  SessionProjectContext,
+} from './types.js'
 
 export function listProjects(): ProjectSummary[] {
   return readProjectConfig().map((project) => ({
@@ -55,6 +61,54 @@ export async function readProjectTree(
   return treeEntries.sort(compareTreeEntries)
 }
 
+export async function listProjectPathSuggestions(
+  requestedPath: string
+): Promise<ProjectPathSuggestion[]> {
+  const trimmedPath = requestedPath.trim()
+  if (!trimmedPath) {
+    return []
+  }
+
+  const normalizedPath = resolveSuggestionInputPath(trimmedPath)
+  const browsingDirectory =
+    endsWithPathSeparator(trimmedPath) ||
+    normalizedPath === '/' ||
+    isExistingDirectory(normalizedPath)
+  const suggestionContext = resolveSuggestionContext(normalizedPath, browsingDirectory)
+
+  if (!suggestionContext) {
+    return []
+  }
+
+  const { directoryToRead, nameQuery } = suggestionContext
+
+  try {
+    const entries = await readdir(directoryToRead, { withFileTypes: true })
+
+    return entries
+      .filter((entry) => entry.isDirectory())
+      .filter((entry) => matchesPathQuery(entry.name, nameQuery))
+      .sort((left, right) => compareSuggestedDirectoryNames(left.name, right.name, nameQuery))
+      .slice(0, 12)
+      .map((entry) => ({
+        name: entry.name,
+        path: resolve(directoryToRead, entry.name),
+      }))
+  } catch (error) {
+    if (
+      error &&
+      typeof error === 'object' &&
+      'code' in error &&
+      typeof error.code === 'string' &&
+      ['EACCES', 'ENOENT', 'ENOTDIR'].includes(error.code)
+    ) {
+      return []
+    }
+
+    throw error
+  }
+}
+
 function getProjectStatus(projectPath: string): ProjectSummary['status'] {
   if (!existsSync(projectPath)) {
     return 'missing'
@@ -78,6 +132,132 @@ function normalizeRequestedPath(requestedPath: string): string {
 
 function normalizeRelativePath(value: string): string {
   return value.split(sep).join('/')
+}
+
+function endsWithPathSeparator(value: string): boolean {
+  return /[\\/]$/.test(value)
+}
+
+function resolveSuggestionInputPath(value: string): string {
+  if (value === '~') {
+    return homedir()
+  }
+
+  if (value.startsWith('~/')) {
+    return resolve(homedir(), value.slice(2))
+  }
+
+  return resolve(value)
+}
+
+function isExistingDirectory(path: string): boolean {
+  try {
+    return statSync(path).isDirectory()
+  } catch {
+    return false
+  }
+}
+
+function findNearestExistingDirectory(path: string): string | null {
+  let currentPath = path
+
+  while (true) {
+    if (isExistingDirectory(currentPath)) {
+      return currentPath
+    }
+
+    const parentPath = dirname(currentPath)
+    if (parentPath === currentPath) {
+      return null
+    }
+
+    currentPath = parentPath
+  }
+}
+
+function resolveSuggestionContext(
+  normalizedPath: string,
+  browsingDirectory: boolean
+): { directoryToRead: string; nameQuery: string } | null {
+  if (browsingDirectory && isExistingDirectory(normalizedPath)) {
+    return { directoryToRead: normalizedPath, nameQuery: '' }
+  }
+
+  const preferredDirectory = browsingDirectory ? normalizedPath : dirname(normalizedPath)
+  if (isExistingDirectory(preferredDirectory)) {
+    return {
+      directoryToRead: preferredDirectory,
+      nameQuery: browsingDirectory ? '' : basename(normalizedPath).toLowerCase(),
+    }
+  }
+
+  const existingAncestor = findNearestExistingDirectory(preferredDirectory)
+  if (!existingAncestor) {
+    return null
+  }
+
+  const missingPath = relative(existingAncestor, normalizedPath)
+    .split(sep)
+    .filter((segment) => segment && segment !== '.')
+  const fallbackQuery = missingPath[0]?.toLowerCase() ?? ''
+
+  return {
+    directoryToRead: existingAncestor,
+    nameQuery: fallbackQuery,
+  }
+}
+
+function matchesPathQuery(name: string, query: string): boolean {
+  if (!query) {
+    return true
+  }
+
+  const lowerName = name.toLowerCase()
+  return lowerName.startsWith(query) || lowerName.includes(query) || fuzzyMatch(lowerName, query)
+}
+
+function compareSuggestedDirectoryNames(left: string, right: string, query: string): number {
+  const leftRank = rankSuggestedDirectoryName(left, query)
+  const rightRank = rankSuggestedDirectoryName(right, query)
+
+  if (leftRank !== rightRank) {
+    return leftRank - rightRank
+  }
+
+  return left.localeCompare(right)
+}
+
+function rankSuggestedDirectoryName(name: string, query: string): number {
+  if (!query) {
+    return 0
+  }
+
+  const lowerName = name.toLowerCase()
+  if (lowerName.startsWith(query)) {
+    return 0
+  }
+
+  if (lowerName.includes(query)) {
+    return 1
+  }
+
+  return fuzzyMatch(lowerName, query) ? 2 : 3
+}
+
+function fuzzyMatch(name: string, query: string): boolean {
+  let queryIndex = 0
+
+  for (const char of name) {
+    if (char === query[queryIndex]) {
+      queryIndex += 1
+    }
+
+    if (queryIndex >= query.length) {
+      return true
+    }
+  }
+
+  return false
 }
 
 function ensureWithinProject(projectRoot: string, absolutePath: string): void {
@@ -150,6 +330,13 @@ export function removeProject(projectId: string): boolean {
 }
 
 export const __projectServiceTestUtils = {
+  compareSuggestedDirectoryNames,
   ensureWithinProject,
+  fuzzyMatch,
   directoryHasChildren,
+  findNearestExistingDirectory,
+  isExistingDirectory,
+  matchesPathQuery,
+  resolveSuggestionContext,
+  resolveSuggestionInputPath,
 }

@@ -21,7 +21,10 @@ const MISSING_PROJECT: ProjectSummary = {
 const DEFAULT_PROPS = {
   projects: [AVAILABLE_PROJECT, MISSING_PROJECT] as ProjectSummary[],
   selectedProjectId: AVAILABLE_PROJECT.id as string | null,
+  visibleProjectIds: [AVAILABLE_PROJECT.id] as string[],
   onProjectSelect: vi.fn<(id: string) => void>(),
+  onProjectVisibilityChange: vi.fn<(id: string, visible: boolean) => void>(),
+  onRemoveProject: vi.fn<(id: string) => Promise<void>>().mockResolvedValue(),
   onAddProject: vi
     .fn<(name: string, path: string) => Promise<ProjectSummary>>()
     .mockResolvedValue(AVAILABLE_PROJECT),
@@ -45,45 +48,61 @@ describe('ProjectContextSwitcher', () => {
     vi.useRealTimers()
   })
 
-  it('renders the project selector with all projects', () => {
+  it('renders a button with current project summary', () => {
     renderSwitcher()
 
-    const select = screen.getByRole('combobox', { name: /Active project/i }) as HTMLSelectElement
-    const options = Array.from(select.options).filter((o) => o.value !== '')
-    expect(options).toHaveLength(2)
-    expect(options[0]!.value).toBe('repo-1')
-    expect(options[1]!.value).toBe('repo-2')
+    expect(screen.getByRole('button', { name: /Open/i })).toBeDefined()
+    expect(screen.getByText('ACP Frontend')).toBeDefined()
+    expect(screen.getByText('1 visible in chats')).toBeDefined()
   })
 
-  it('disables options for unavailable projects', () => {
+  it('opens a project manager view with visibility controls', async () => {
     renderSwitcher()
 
-    const select = screen.getByRole('combobox', { name: /Active project/i }) as HTMLSelectElement
-    const missingOption = Array.from(select.options).find((o) => o.value === 'repo-2')
-    expect(missingOption?.disabled).toBe(true)
-  })
+    fireEvent.click(screen.getByRole('button', { name: /Open/i }))
 
-  it('renders unavailable projects with a human-readable status label', () => {
-    renderSwitcher()
-
-    const select = screen.getByRole('combobox', { name: /Active project/i }) as HTMLSelectElement
-    const missingOption = Array.from(select.options).find((o) => o.value === 'repo-2')
-
-    expect(missingOption?.textContent).toContain('path not found')
-    expect(missingOption?.textContent).not.toContain('missing')
-  })
-
-  it('shows selected project name and path', () => {
-    renderSwitcher()
-
+    expect(await screen.findByText('Manage Project Views')).toBeDefined()
     expect(screen.getAllByText('ACP Frontend').length).toBeGreaterThan(0)
-    expect(screen.getByText('/work/acp-frontend')).toBeDefined()
+    expect(screen.getByText('Missing Project')).toBeDefined()
+    expect(screen.getAllByRole('button', { name: 'Shown' }).length).toBeGreaterThan(0)
+    expect(screen.getByRole('button', { name: 'Hidden' })).toBeDefined()
   })
 
-  it('shows "Add" button and toggles to add form on click', async () => {
+  it('toggles project visibility from the manager view', async () => {
     renderSwitcher()
 
-    fireEvent.click(screen.getByRole('button', { name: /Add project/i }))
+    fireEvent.click(screen.getByRole('button', { name: /Open/i }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Hidden' }))
+
+    expect(DEFAULT_PROPS.onProjectVisibilityChange).toHaveBeenCalledWith('repo-2', true)
+  })
+
+  it('selects a project from the manager view', async () => {
+    renderSwitcher({
+      selectedProjectId: null,
+      projects: [
+        AVAILABLE_PROJECT,
+        {
+          id: 'repo-3',
+          name: 'Docs Site',
+          path: '/work/docs',
+          status: 'available',
+        },
+      ],
+      visibleProjectIds: [AVAILABLE_PROJECT.id, 'repo-3'],
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /Open/i }))
+    fireEvent.click((await screen.findAllByRole('button', { name: /^Use$/ }))[0]!)
+
+    expect(DEFAULT_PROPS.onProjectSelect).toHaveBeenCalledWith('repo-1')
+  })
+
+  it('shows "Add New" button and toggles to add form on click', async () => {
+    renderSwitcher()
+
+    fireEvent.click(screen.getByRole('button', { name: /Open/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /Add New/i }))
 
     await waitFor(() =>
       expect(screen.getByRole('form', { name: /Add project form/i })).toBeDefined()
@@ -95,7 +114,8 @@ describe('ProjectContextSwitcher', () => {
   it('preserves draft values when toggling the add form', async () => {
     renderSwitcher()
 
-    fireEvent.click(screen.getByRole('button', { name: /Add project/i }))
+    fireEvent.click(screen.getByRole('button', { name: /Open/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /Add New/i }))
     fireEvent.change(screen.getByRole('textbox', { name: /Project name/i }), {
       target: { value: 'Draft Name' },
     })
@@ -103,8 +123,8 @@ describe('ProjectContextSwitcher', () => {
       target: { value: '/tmp/project-draft' },
     })
 
-    fireEvent.click(screen.getByRole('button', { name: /Cancel adding project/i }))
-    fireEvent.click(screen.getByRole('button', { name: /Add project/i }))
+    fireEvent.click(screen.getByRole('button', { name: /Hide Form/i }))
+    fireEvent.click(screen.getByRole('button', { name: /Add New/i }))
 
     expect((screen.getByRole('textbox', { name: /Project name/i }) as HTMLInputElement).value).toBe(
       'Draft Name'
@@ -114,13 +134,21 @@ describe('ProjectContextSwitcher', () => {
     ).toBe('/tmp/project-draft')
   })
 
-  it('calls onProjectSelect when the active project changes', () => {
+  it('closes the manager view', async () => {
     renderSwitcher()
 
-    fireEvent.change(screen.getByRole('combobox', { name: /Active project/i }), {
-      target: { value: 'repo-1' },
-    })
+    fireEvent.click(screen.getByRole('button', { name: /Open/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /Close/i }))
 
-    expect(DEFAULT_PROPS.onProjectSelect).toHaveBeenCalledWith('repo-1')
+    await waitFor(() => expect(screen.queryByText('Manage Project Views')).toBeNull())
+  })
+
+  it('removes a project from the manager view', async () => {
+    renderSwitcher()
+
+    fireEvent.click(screen.getByRole('button', { name: /Open/i }))
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Remove' }))[0]!)
+
+    expect(DEFAULT_PROPS.onRemoveProject).toHaveBeenCalledWith('repo-1')
   })
 })

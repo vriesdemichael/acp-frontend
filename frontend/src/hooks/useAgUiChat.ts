@@ -4,6 +4,7 @@ import { EventType } from '@ag-ui/core'
 const CHAT_AGENT_STORAGE_KEY = 'acp.chat.agent'
 const CHAT_PROJECT_STORAGE_KEY = 'acp.chat.project'
 const CHAT_SESSION_STORAGE_KEY = 'acp.chat.session'
+const CHAT_VISIBLE_PROJECTS_STORAGE_KEY = 'acp.chat.visible-projects'
 
 export interface ChatMessage {
   id: string
@@ -73,6 +74,9 @@ export function useAgUiChat({
   )
   const [agents, setAgents] = useState<AgentSummary[]>([])
   const [projects, setProjects] = useState<ProjectSummary[]>([])
+  const [visibleProjectIds, setVisibleProjectIds] = useState<string[]>(() =>
+    readStoredSelections(CHAT_VISIBLE_PROJECTS_STORAGE_KEY)
+  )
   const [sessions, setSessions] = useState<SessionSummary[]>([])
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [thinking, setThinking] = useState(false)
@@ -106,6 +110,10 @@ export function useAgUiChat({
   useEffect(() => {
     writeStoredSelection(CHAT_SESSION_STORAGE_KEY, currentSessionId)
   }, [currentSessionId])
+
+  useEffect(() => {
+    writeStoredSelections(CHAT_VISIBLE_PROJECTS_STORAGE_KEY, visibleProjectIds)
+  }, [visibleProjectIds])
 
   const selectedAgent = useMemo(
     () => agents.find((candidate) => candidate.id === currentAgentId) ?? null,
@@ -308,6 +316,15 @@ export function useAgUiChat({
         setAgents(nextAgents)
         setProjects(nextProjects)
         setSessions(nextSessions)
+        setVisibleProjectIds((current) => {
+          const availableIds = new Set(nextProjects.map((project) => project.id))
+          const filtered = current.filter((projectId) => availableIds.has(projectId))
+          if (filtered.length > 0) {
+            return filtered
+          }
+
+          return nextProjects.map((project) => project.id)
+        })
 
         const activeAgents = nextAgents.filter((candidate) => candidate.status === 'active')
         if (activeAgents.length === 0) {
@@ -592,16 +609,69 @@ export function useAgUiChat({
       // Re-fetch the canonical list to pick up backend normalisations and correct ordering
       const refreshed = await fetchJson<ProjectSummary[]>('/api/projects')
       setProjects(refreshed)
+      setVisibleProjectIds((current) => {
+        const currentSet = new Set(current)
+        return refreshed
+          .map((project) => project.id)
+          .filter((projectId) => currentSet.has(projectId) || projectId === project.id)
+      })
 
       return project
     },
     [fetchJson]
   )
 
+  const removeProject = useCallback(
+    async (projectId: string): Promise<void> => {
+      const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}`, {
+        method: 'DELETE',
+      })
+      if (!response.ok) {
+        throw new Error(`project delete failed with status ${response.status}`)
+      }
+
+      const refreshed = await fetchJson<ProjectSummary[]>('/api/projects')
+      setProjects(refreshed)
+      setVisibleProjectIds((current) => {
+        const refreshedIds = new Set(refreshed.map((project) => project.id))
+        return current.filter((id) => refreshedIds.has(id))
+      })
+
+      if (currentProjectId === projectId) {
+        const nextProjectId =
+          refreshed.find((project) => project.status === 'available')?.id ?? null
+        setCurrentProjectId(nextProjectId)
+        onProjectSelected(nextProjectId)
+        setMessages([])
+        setCurrentSessionId(null)
+        activeSessionRef.current = null
+        pendingRouteSessionRef.current = null
+        onSessionSelected(null)
+      }
+    },
+    [currentProjectId, fetchJson, onProjectSelected, onSessionSelected]
+  )
+
   const startNewSession = useCallback(async () => {
     setErrorMessage(null)
     await createSession()
   }, [createSession])
+
+  const setProjectVisibility = useCallback(
+    (projectId: string, visible: boolean) => {
+      setVisibleProjectIds((current) => {
+        const currentSet = new Set(current)
+        if (visible) {
+          currentSet.add(projectId)
+        } else {
+          currentSet.delete(projectId)
+        }
+
+        return projects.map((project) => project.id).filter((id) => currentSet.has(id))
+      })
+    },
+    [projects]
+  )
 
   return {
     addProject,
@@ -612,6 +682,8 @@ export function useAgUiChat({
     loading,
     messages,
     projects,
+    removeProject,
+    visibleProjectIds,
     ready,
     selectedAgent,
     selectedProject,
@@ -619,6 +691,7 @@ export function useAgUiChat({
     selectProject,
     selectSession,
     sendMessage,
+    setProjectVisibility,
     sessionId: currentSessionId,
     sessions,
     startNewSession,
@@ -654,4 +727,37 @@ function writeStoredSelection(storageKey: string, value: string | null): void {
   }
 
   window.localStorage.setItem(storageKey, value)
+}
+
+function readStoredSelections(storageKey: string): string[] {
+  if (typeof window === 'undefined' || !window.localStorage) {
+    return []
+  }
+
+  try {
+    const value = window.localStorage.getItem(storageKey)
+    if (!value) {
+      return []
+    }
+
+    const parsed = JSON.parse(value) as unknown
+    return Array.isArray(parsed)
+      ? parsed.filter((item): item is string => typeof item === 'string')
+      : []
+  } catch {
+    return []
+  }
+}
+
+function writeStoredSelections(storageKey: string, values: string[]): void {
+  if (typeof window === 'undefined' || !window.localStorage) {
+    return
+  }
+
+  if (values.length === 0) {
+    window.localStorage.removeItem(storageKey)
+    return
+  }
+
+  window.localStorage.setItem(storageKey, JSON.stringify(values))
 }

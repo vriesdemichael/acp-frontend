@@ -69,6 +69,8 @@ export function ChatPage() {
     loading,
     messages,
     projects,
+    removeProject,
+    visibleProjectIds,
     ready,
     selectedAgent,
     selectedProject,
@@ -76,6 +78,7 @@ export function ChatPage() {
     selectProject,
     selectSession,
     sendMessage,
+    setProjectVisibility,
     sessionId: activeSessionId,
     sessions,
     startNewSession,
@@ -196,6 +199,7 @@ export function ChatPage() {
           <SessionList
             agents={agents}
             sessions={sessions}
+            visibleProjectIds={visibleProjectIds}
             selectedAgentId={activeAgentId}
             selectedProjectId={selectedProject?.id ?? null}
             activeSessionId={activeSessionId}
@@ -206,8 +210,11 @@ export function ChatPage() {
               <ProjectContextSwitcher
                 projects={projects}
                 selectedProjectId={selectedProject?.id ?? null}
+                visibleProjectIds={visibleProjectIds}
                 onProjectSelect={selectProject}
+                onProjectVisibilityChange={setProjectVisibility}
                 onAddProject={addProject}
+                onRemoveProject={removeProject}
                 onSuggestProjectPaths={suggestProjectPaths}
               />
             }
