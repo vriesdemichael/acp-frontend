@@ -5,6 +5,7 @@ import type { AgentSummary, SessionSummary } from '../../hooks/useAgUiChat.js'
 interface SessionListProps {
   agents: AgentSummary[]
   sessions: SessionSummary[]
+  visibleProjectIds?: string[]
   selectedAgentId: string | null
   selectedProjectId?: string | null
   activeSessionId: string | null
@@ -17,6 +18,7 @@ interface SessionListProps {
 export function SessionList({
   agents,
   sessions,
+  visibleProjectIds,
   selectedAgentId,
   selectedProjectId = null,
   activeSessionId,
@@ -26,8 +28,9 @@ export function SessionList({
   projectSwitcher,
 }: SessionListProps) {
   const projectGroups = useMemo(
-    () => buildProjectGroups({ agents, sessions, selectedAgentId, activeSessionId }),
-    [activeSessionId, agents, selectedAgentId, sessions]
+    () =>
+      buildProjectGroups({ agents, sessions, selectedAgentId, activeSessionId, visibleProjectIds }),
+    [activeSessionId, agents, selectedAgentId, sessions, visibleProjectIds]
   )
   const selectedProjectHasSessions = useMemo(
     () =>
@@ -165,6 +168,7 @@ export function SessionList({
 interface ProjectGroupInput {
   agents: AgentSummary[]
   sessions: SessionSummary[]
+  visibleProjectIds?: string[]
   selectedAgentId: string | null
   activeSessionId: string | null
 }
@@ -186,10 +190,12 @@ interface ProjectGroup {
 function buildProjectGroups({
   agents,
   sessions,
+  visibleProjectIds,
   selectedAgentId,
   activeSessionId,
 }: ProjectGroupInput): ProjectGroup[] {
   const grouped = new Map<string, ProjectGroup>()
+  const visibleProjectSet = visibleProjectIds ? new Set(visibleProjectIds) : null
 
   const sortedSessions = [...sessions].sort((left, right) => {
     const leftActive = left.id === activeSessionId ? 1 : 0
@@ -203,6 +209,9 @@ function buildProjectGroups({
 
   for (const session of sortedSessions) {
     const projectId = session.project?.id ?? '__no_project__'
+    if (visibleProjectSet && !visibleProjectSet.has(projectId)) {
+      continue
+    }
     const projectName = session.project?.name ?? 'Unknown project'
     const projectPath = session.project?.path ?? 'No project path'
     const agent = agents.find((candidate) => candidate.id === session.agentId)

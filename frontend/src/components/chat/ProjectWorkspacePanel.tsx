@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { ProjectSummary } from '../../hooks/useAgUiChat.js'
-import { ProjectContextSwitcher, type ProjectPathSuggestion } from './ProjectContextSwitcher.js'
+import type { ProjectPathSuggestion } from './ProjectContextSwitcher.js'
 
 export interface ProjectTreeEntry {
   name: string
@@ -44,6 +44,9 @@ export function ProjectWorkspacePanel({
 }: ProjectWorkspacePanelProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
   const panelId = 'project-workspace-panel'
+  void onProjectSelect
+  void onAddProject
+  void onSuggestProjectPaths
   const selectedProject = useMemo(
     () => projects.find((project) => project.id === selectedProjectId) ?? null,
     [projects, selectedProjectId]
@@ -90,17 +93,7 @@ export function ProjectWorkspacePanel({
             : 'Pick the repository the agent should work in, then browse a read-only folder tree.'}
         </p>
 
-        {layout === 'full' ? (
-          <div className="mt-5">
-            <ProjectContextSwitcher
-              projects={projects}
-              selectedProjectId={selectedProjectId}
-              onProjectSelect={onProjectSelect}
-              onAddProject={onAddProject}
-              onSuggestProjectPaths={onSuggestProjectPaths}
-            />
-          </div>
-        ) : selectedProject ? (
+        {layout === 'full' ? null : selectedProject ? (
           <div className="mt-5 rounded-xl border border-white/10 bg-slate-900/80 p-3">
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">

@@ -109,7 +109,9 @@ function ChatLayoutStory() {
                   },
                 ]}
                 selectedProjectId="acp-frontend"
+                visibleProjectIds={['acp-frontend', 'docs-site']}
                 onProjectSelect={() => {}}
+                onProjectVisibilityChange={() => {}}
                 onAddProject={() =>
                   Promise.resolve({
                     id: 'new-project',
@@ -118,6 +120,7 @@ function ChatLayoutStory() {
                     status: 'available' as const,
                   })
                 }
+                onRemoveProject={() => Promise.resolve()}
                 onSuggestProjectPaths={(path) =>
                   Promise.resolve([
                     {

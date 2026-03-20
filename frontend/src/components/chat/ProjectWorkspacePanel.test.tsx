@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor, cleanup, within } from '@testing-library/react'
+import type React from 'react'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { render, screen, fireEvent, cleanup, within } from '@testing-library/react'
 import { ProjectWorkspacePanel } from './ProjectWorkspacePanel.js'
 import type { ProjectSummary } from '../../hooks/useAgUiChat.js'
 
@@ -25,6 +26,9 @@ const DEFAULT_PROPS = {
   onAddProject: vi
     .fn<(name: string, path: string) => Promise<ProjectSummary>>()
     .mockResolvedValue(AVAILABLE_PROJECT),
+  onSuggestProjectPaths: vi
+    .fn<(path: string) => Promise<Array<{ name: string; path: string }>>>()
+    .mockResolvedValue([]),
   tree: [] as [],
   treePath: null as string | null,
   treeLoading: false,
@@ -35,7 +39,7 @@ const DEFAULT_PROPS = {
   onSelectEntry: vi.fn<(path: string | null) => void>(),
 }
 
-function renderPanel(overrides: Partial<typeof DEFAULT_PROPS> = {}) {
+function renderPanel(overrides: Partial<React.ComponentProps<typeof ProjectWorkspacePanel>> = {}) {
   return render(<ProjectWorkspacePanel {...DEFAULT_PROPS} {...overrides} />)
 }
 
@@ -43,180 +47,60 @@ describe('ProjectWorkspacePanel', () => {
   beforeEach(() => {
     cleanup()
     vi.clearAllMocks()
+    window.localStorage.clear()
   })
 
-  it('renders the project selector with all projects', () => {
-    renderPanel()
-
-    const panel = screen.getByTestId('chat-context-panel')
-    const select = panel.querySelector('select[aria-label="Active project"]') as HTMLSelectElement
-    expect(select).toBeDefined()
-
-    const options = Array.from(select.options).filter((o) => o.value !== '')
-    expect(options).toHaveLength(2)
-    expect(options[0]!.value).toBe('repo-1')
-    expect(options[1]!.value).toBe('repo-2')
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
-  it('disables options for unavailable projects', () => {
-    renderPanel()
+  it('renders explorer-only layout without project management controls', () => {
+    renderPanel({ layout: 'explorer' })
 
     const panel = screen.getByTestId('chat-context-panel')
-    const select = panel.querySelector('select[aria-label="Active project"]') as HTMLSelectElement
-    const missingOption = Array.from(select.options).find((o) => o.value === 'repo-2')
-    expect(missingOption?.disabled).toBe(true)
-  })
-
-  it('shows selected project name and path', () => {
-    renderPanel()
-
-    const panel = screen.getByTestId('chat-context-panel')
-    expect(within(panel).getAllByText('ACP Frontend').length).toBeGreaterThan(0)
+    expect(within(panel).queryByText('Manage Project Views')).toBeNull()
+    expect(within(panel).queryByRole('button', { name: /Open/i })).toBeNull()
+    expect(within(panel).getByText('Project Explorer')).toBeDefined()
     expect(within(panel).getByText('/work/acp-frontend')).toBeDefined()
   })
 
-  it('shows "Add" button and toggles to add form on click', async () => {
+  it('renders selected project summary in full layout', () => {
     renderPanel()
 
-    const addButton = screen.getByRole('button', { name: /Add project/i })
-    expect(addButton).toBeDefined()
-
-    fireEvent.click(addButton)
-
-    await waitFor(() =>
-      expect(screen.getByRole('form', { name: /Add project form/i })).toBeDefined()
-    )
-    expect(screen.getByRole('textbox', { name: /Project name/i })).toBeDefined()
-    expect(screen.getByRole('textbox', { name: /Project path/i })).toBeDefined()
+    const panel = screen.getByTestId('chat-context-panel')
+    expect(within(panel).getByText('Project Context')).toBeDefined()
+    expect(within(panel).getByText('Folder is empty')).toBeDefined()
   })
 
-  it('shows "Cancel" button when the form is open', async () => {
-    renderPanel()
-    fireEvent.click(screen.getByRole('button', { name: /Add project/i }))
+  it('shows choose-a-project panel when nothing is selected', () => {
+    renderPanel({ selectedProjectId: null })
 
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: /Cancel adding project/i })).toBeDefined()
-    )
+    const panel = screen.getByTestId('chat-context-panel')
+    expect(within(panel).getByText('Choose a project')).toBeDefined()
   })
 
-  it('calls onAddProject with trimmed name and path on valid submit', async () => {
-    const onAddProject = vi
-      .fn<(name: string, path: string) => Promise<ProjectSummary>>()
-      .mockResolvedValue({
-        id: 'new-project',
-        name: 'New Project',
-        path: '/work/new',
-        status: 'available',
-      })
+  it('shows project-unavailable panel when selected project is not available', () => {
+    renderPanel({ selectedProjectId: MISSING_PROJECT.id })
 
-    renderPanel({ onAddProject })
-    fireEvent.click(screen.getByRole('button', { name: /Add project/i }))
-
-    await waitFor(() => screen.getByRole('textbox', { name: /Project name/i }))
-
-    fireEvent.change(screen.getByRole('textbox', { name: /Project name/i }), {
-      target: { value: '  New Project  ' },
-    })
-    fireEvent.change(screen.getByRole('textbox', { name: /Project path/i }), {
-      target: { value: '/work/new' },
-    })
-    fireEvent.submit(screen.getByRole('form', { name: /Add project form/i }))
-
-    await waitFor(() => expect(onAddProject).toHaveBeenCalledWith('New Project', '/work/new'))
+    expect(screen.getByText('Project unavailable')).toBeDefined()
   })
 
-  it('defaults name to the last path segment when name is left blank', async () => {
-    const onAddProject = vi
-      .fn<(name: string, path: string) => Promise<ProjectSummary>>()
-      .mockResolvedValue({
-        id: 'new-project',
-        name: 'new-project',
-        path: '/work/new-project',
-        status: 'available',
-      })
-
-    renderPanel({ onAddProject })
-    fireEvent.click(screen.getByRole('button', { name: /Add project/i }))
-
-    await waitFor(() => screen.getByRole('textbox', { name: /Project path/i }))
-
-    fireEvent.change(screen.getByRole('textbox', { name: /Project path/i }), {
-      target: { value: '/work/new-project' },
+  it('renders tree entries and toggles folders', () => {
+    renderPanel({
+      tree: [{ name: 'src', path: 'src', type: 'directory', hasChildren: true }],
     })
-    fireEvent.submit(screen.getByRole('form', { name: /Add project form/i }))
 
-    await waitFor(() =>
-      expect(onAddProject).toHaveBeenCalledWith('new-project', '/work/new-project')
-    )
+    fireEvent.click(screen.getByRole('button', { name: /src/i }))
+
+    expect(DEFAULT_PROPS.onSelectEntry).toHaveBeenCalledWith('src')
+    expect(DEFAULT_PROPS.onToggleFolder).toHaveBeenCalledWith('src')
   })
 
-  it('closes the form, resets fields, and auto-selects the new project after a successful add', async () => {
-    const onAddProject = vi
-      .fn<(name: string, path: string) => Promise<ProjectSummary>>()
-      .mockResolvedValue({
-        id: 'new-project',
-        name: 'New Project',
-        path: '/work/new',
-        status: 'available',
-      })
+  it('renders tree error state', () => {
+    renderPanel({ treeError: 'Explorer unavailable for now.' })
 
-    renderPanel({ onAddProject })
-    fireEvent.click(screen.getByRole('button', { name: /Add project/i }))
-
-    await waitFor(() => screen.getByRole('textbox', { name: /Project name/i }))
-
-    fireEvent.change(screen.getByRole('textbox', { name: /Project name/i }), {
-      target: { value: 'New Project' },
-    })
-    fireEvent.change(screen.getByRole('textbox', { name: /Project path/i }), {
-      target: { value: '/work/new' },
-    })
-    fireEvent.submit(screen.getByRole('form', { name: /Add project form/i }))
-
-    await waitFor(() =>
-      expect(screen.queryByRole('form', { name: /Add project form/i })).toBeNull()
-    )
-    expect(screen.getByRole('combobox', { name: /Active project/i })).toBeDefined()
-    expect(DEFAULT_PROPS.onProjectSelect).toHaveBeenCalledWith('new-project')
-  })
-
-  it('shows validation error when path is empty', async () => {
-    renderPanel()
-    fireEvent.click(screen.getByRole('button', { name: /Add project/i }))
-
-    await waitFor(() => screen.getByRole('form', { name: /Add project form/i }))
-
-    fireEvent.change(screen.getByRole('textbox', { name: /Project name/i }), {
-      target: { value: 'New Project' },
-    })
-    fireEvent.submit(screen.getByRole('form', { name: /Add project form/i }))
-
-    await waitFor(() => expect(screen.getByRole('alert')).toBeDefined())
-    expect(screen.getByText('Path is required.')).toBeDefined()
-  })
-
-  it('shows error when onAddProject rejects', async () => {
-    const onAddProject = vi
-      .fn<(name: string, path: string) => Promise<ProjectSummary>>()
-      .mockRejectedValue(new Error('Server error'))
-
-    renderPanel({ onAddProject })
-    fireEvent.click(screen.getByRole('button', { name: /Add project/i }))
-
-    await waitFor(() => screen.getByRole('form', { name: /Add project form/i }))
-
-    fireEvent.change(screen.getByRole('textbox', { name: /Project name/i }), {
-      target: { value: 'Bad Project' },
-    })
-    fireEvent.change(screen.getByRole('textbox', { name: /Project path/i }), {
-      target: { value: '/bad/path' },
-    })
-    fireEvent.submit(screen.getByRole('form', { name: /Add project form/i }))
-
-    await waitFor(() => expect(screen.getByRole('alert')).toBeDefined())
-    expect(
-      screen.getByText('Failed to add project. Check the name and path and try again.')
-    ).toBeDefined()
+    expect(screen.getByText('Explorer unavailable')).toBeDefined()
+    expect(screen.getByText('Explorer unavailable for now.')).toBeDefined()
   })
 
   it('shows empty panel when no projects are configured', () => {
@@ -224,18 +108,5 @@ describe('ProjectWorkspacePanel', () => {
 
     const panel = screen.getByTestId('chat-context-panel')
     expect(within(panel).getAllByText('No projects configured').length).toBeGreaterThan(0)
-  })
-
-  it('shows choose-a-project panel when nothing is selected', () => {
-    renderPanel({ selectedProjectId: null })
-
-    const panel = screen.getByTestId('chat-context-panel')
-    expect(within(panel).getAllByText('Choose a project').length).toBeGreaterThan(0)
-  })
-
-  it('shows project-unavailable panel when selected project is not available', () => {
-    renderPanel({ selectedProjectId: MISSING_PROJECT.id })
-
-    expect(screen.getByText('Project unavailable')).toBeDefined()
   })
 })

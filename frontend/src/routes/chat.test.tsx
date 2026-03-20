@@ -255,8 +255,7 @@ describe('ChatPage', () => {
     await waitFor(() => expect(MockEventSource.instance).not.toBeNull())
     expect(screen.getByTestId('chat-session-panel')).toBeDefined()
     expect(screen.getByTestId('chat-context-panel')).toBeDefined()
-    expect(screen.getByRole('combobox', { name: /Active project/i })).toBeDefined()
-    expect(screen.getAllByText('/home/vries/projects/acp-frontend').length).toBeGreaterThan(0)
+    expect(screen.getByRole('button', { name: /Open/i })).toBeDefined()
     expect(screen.getByText('Project Explorer')).toBeDefined()
     expect(screen.getByRole('button', { name: /Workspace/i }).getAttribute('aria-expanded')).toBe(
       'false'
@@ -453,10 +452,10 @@ describe('ChatPage', () => {
     const fetchSpy = mockFetch({ noSessions: true })
     vi.stubGlobal('fetch', fetchSpy)
 
-    renderChatPage('/chat?agent=copilot&project=acp-frontend')
+    renderChatPage('/chat?agent=copilot')
 
-    const projectSelect = await screen.findByRole('combobox', { name: /Active project/i })
-    fireEvent.change(projectSelect, { target: { value: 'acp-frontend' } })
+    fireEvent.click(await screen.findByRole('button', { name: /Open/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /^Use$/ }))
 
     await waitFor(() => expect(screen.getByText('Start a new chat')).toBeDefined())
     expect(
@@ -602,12 +601,27 @@ describe('ChatPage', () => {
 
     renderChatPage('/chat?session=test-session-id&agent=copilot&project=acp-frontend')
 
-    const projectSelect = await screen.findByRole('combobox', { name: /Active project/i })
-    fireEvent.change(projectSelect, { target: { value: 'docs-site' } })
+    fireEvent.click(await screen.findByRole('button', { name: /Open/i }))
+    const useButtons = await screen.findAllByRole('button', { name: /^Use$/ })
+    fireEvent.click(useButtons[0]!)
 
     await waitFor(() => expect(screen.getByText('Docs answer')).toBeDefined())
     expect(window.location.search).toContain('project=docs-site')
     expect(window.location.search).toContain('session=docs-session-id')
+  })
+
+  it('can hide a project from the session rail through the project manager', async () => {
+    vi.stubGlobal('fetch', mockFetch())
+
+    renderChatPage('/chat?session=test-session-id&agent=copilot&project=acp-frontend')
+
+    const sessionPanel = await screen.findByTestId('chat-session-panel')
+    expect(within(sessionPanel).getByText('Inspect auth bug')).toBeDefined()
+
+    fireEvent.click(await screen.findByRole('button', { name: /Open/i }))
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Shown' }))[0]!)
+
+    await waitFor(() => expect(within(sessionPanel).queryByText('Inspect auth bug')).toBeNull())
   })
 
   it('shows a helpful error when no available projects exist', async () => {
