@@ -10,7 +10,9 @@ interface SessionListProps {
   selectedProjectId?: string | null
   activeSessionId: string | null
   creatingSession: boolean
+  mobileOpen?: boolean
   onCreate: (agentId: string) => void | Promise<void>
+  onMobileOpenChange?: (open: boolean) => void
   onSelect: (sessionId: string) => void | Promise<void>
   projectSwitcher?: ReactNode
   settingsLink?: ReactNode
@@ -24,7 +26,9 @@ export function SessionList({
   selectedProjectId = null,
   activeSessionId,
   creatingSession,
+  mobileOpen = false,
   onCreate,
+  onMobileOpenChange,
   onSelect,
   projectSwitcher,
   settingsLink,
@@ -45,11 +49,22 @@ export function SessionList({
   )
   const [collapsedProjects, setCollapsedProjects] = useState<string[]>([])
   const [createMenuOpen, setCreateMenuOpen] = useState(false)
+  const handleCreate = (agentId: string) => {
+    setCreateMenuOpen(false)
+    onMobileOpenChange?.(false)
+    void onCreate(agentId)
+  }
 
-  return (
+  const handleSelect = (sessionId: string) => {
+    onMobileOpenChange?.(false)
+    void onSelect(sessionId)
+  }
+
+  const renderPanel = ({ mobile }: { mobile: boolean }) => (
     <aside
-      data-testid="chat-session-panel"
-      className="flex min-h-[18rem] flex-col border-r border-white/8 bg-slate-950/88 p-3 text-slate-100 shadow-[inset_-1px_0_0_rgba(148,163,184,0.08)] backdrop-blur"
+      id={mobile ? 'chat-session-drawer' : undefined}
+      data-testid={mobile ? 'chat-session-drawer' : 'chat-session-panel'}
+      className="flex min-h-[18rem] flex-col border-r border-white/8 bg-slate-950/95 p-3 text-slate-100 shadow-[inset_-1px_0_0_rgba(148,163,184,0.08)] backdrop-blur"
     >
       <div className="flex items-start justify-between gap-3">
         <div>
@@ -64,14 +79,26 @@ export function SessionList({
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setCreateMenuOpen((current) => !current)}
-          disabled={creatingSession || availableAgents.length === 0}
-          className="inline-flex h-9 items-center justify-center rounded-lg border border-white/10 bg-slate-900 px-3 text-sm font-semibold text-slate-50 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-800 disabled:text-slate-500"
-        >
-          {creatingSession ? 'Opening...' : createMenuOpen ? 'Close' : 'New'}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setCreateMenuOpen((current) => !current)}
+            disabled={creatingSession || availableAgents.length === 0}
+            className="inline-flex h-9 items-center justify-center rounded-lg border border-white/10 bg-slate-900 px-3 text-sm font-semibold text-slate-50 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-800 disabled:text-slate-500"
+          >
+            {creatingSession ? 'Opening...' : createMenuOpen ? 'Close' : 'New'}
+          </button>
+          {mobile && onMobileOpenChange ? (
+            <button
+              type="button"
+              aria-label="Close navigation"
+              onClick={() => onMobileOpenChange(false)}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-slate-900 text-slate-300 transition hover:bg-slate-800 lg:hidden"
+            >
+              ×
+            </button>
+          ) : null}
+        </div>
       </div>
 
       <div className="mt-4 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
@@ -92,10 +119,7 @@ export function SessionList({
                     key={agent.id}
                     type="button"
                     disabled={creatingSession}
-                    onClick={() => {
-                      setCreateMenuOpen(false)
-                      void onCreate(agent.id)
-                    }}
+                    onClick={() => handleCreate(agent.id)}
                     className={[
                       'rounded-xl border px-3 py-3 text-left transition',
                       selected
@@ -180,7 +204,7 @@ export function SessionList({
                         <button
                           key={item.session.id}
                           type="button"
-                          onClick={() => void onSelect(item.session.id)}
+                          onClick={() => handleSelect(item.session.id)}
                           className={`rounded-xl border px-3 py-3 text-left transition ${
                             active
                               ? 'border-teal-500/50 bg-teal-500/10 shadow-[inset_0_0_0_1px_rgba(45,212,191,0.08)]'
@@ -219,6 +243,25 @@ export function SessionList({
         <div className="mt-3 border-t border-white/8 pt-3">{settingsLink}</div>
       ) : null}
     </aside>
+  )
+
+  return (
+    <>
+      <div className="hidden lg:flex">{renderPanel({ mobile: false })}</div>
+      {mobileOpen ? (
+        <div className="fixed inset-0 z-40 lg:hidden">
+          <button
+            type="button"
+            aria-label="Close navigation backdrop"
+            onClick={() => onMobileOpenChange?.(false)}
+            className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm"
+          />
+          <div className="relative z-10 h-full w-[min(22rem,88vw)]">
+            {renderPanel({ mobile: true })}
+          </div>
+        </div>
+      ) : null}
+    </>
   )
 }
 
