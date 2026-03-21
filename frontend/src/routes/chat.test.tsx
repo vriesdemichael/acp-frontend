@@ -116,7 +116,13 @@ function mockFetch(options?: {
         json: () =>
           Promise.resolve({
             status: 'ok',
-            diff: 'diff --git a/src/app.tsx b/src/app.tsx\n+added line',
+            diff: `diff --git a/src/app.tsx b/src/app.tsx
+index 1234567..89abcde 100644
+--- a/src/app.tsx
++++ b/src/app.tsx
+@@ -1,1 +1,2 @@
+ export function App() {}
++added line`,
           }),
       } as Response)
     }
@@ -299,7 +305,9 @@ describe('ChatPage', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Diff' }))
 
     await waitFor(() => expect(screen.getByText('Working Tree Diff')).toBeDefined())
-    expect(screen.getByText(/diff --git a\/src\/app.tsx b\/src\/app.tsx/i)).toBeDefined()
+    const diffView = screen.getByTestId('chat-diff-view')
+    expect(within(diffView).getByText('src/app.tsx')).toBeDefined()
+    expect(within(diffView).getByText('added line')).toBeDefined()
     expect(screen.queryByText('Project Explorer')).toBeNull()
     expect(screen.getByTestId('chat-composer')).toBeDefined()
   })

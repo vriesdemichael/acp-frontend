@@ -5,10 +5,12 @@ import { ProjectContextSwitcher } from '../components/chat/ProjectContextSwitche
 import { SessionList } from '../components/chat/SessionList.js'
 import { ChatTranscript } from '../components/chat/ChatTranscript.js'
 import { ChatComposer } from '../components/chat/ChatComposer.js'
+import { ChatDiffView } from '../components/chat/ChatDiffView.js'
 import { ProjectWorkspacePanel } from '../components/chat/ProjectWorkspacePanel.js'
 
 function ChatLayoutStory() {
   const [value, setValue] = useState('')
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const [workspaceMode, setWorkspaceMode] = useState<'chat' | 'files' | 'diff'>('chat')
 
   return (
@@ -17,6 +19,7 @@ function ChatLayoutStory() {
         <ChatHeader
           agentName="GitHub Copilot"
           errorMessage={null}
+          onToggleSidebar={() => setMobileSidebarOpen(true)}
           project={{
             id: 'acp-frontend',
             name: 'ACP Frontend',
@@ -85,7 +88,9 @@ function ChatLayoutStory() {
             selectedProjectId="acp-frontend"
             activeSessionId="session-12345678"
             creatingSession={false}
+            mobileOpen={mobileSidebarOpen}
             onCreate={() => {}}
+            onMobileOpenChange={setMobileSidebarOpen}
             onSelect={() => {}}
             projectSwitcher={
               <ProjectContextSwitcher
@@ -235,13 +240,35 @@ function ChatLayoutStory() {
               </div>
             ) : (
               <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6 sm:py-6">
-                <div className="mx-auto max-w-4xl rounded-2xl border border-dashed border-white/10 bg-slate-900/55 px-5 py-8 shadow-sm">
-                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                    Diff
-                  </p>
-                  <h2 className="mt-3 font-[family:var(--font-display)] text-3xl text-slate-50">
-                    Diff view is coming next
-                  </h2>
+                <div className="mx-auto w-full max-w-4xl">
+                  <ChatDiffView
+                    state="ready"
+                    diff={`diff --git a/frontend/src/routes/chat.tsx b/frontend/src/routes/chat.tsx
+index 7f13ef2..c9ab221 100644
+--- a/frontend/src/routes/chat.tsx
++++ b/frontend/src/routes/chat.tsx
+@@ -24,6 +24,7 @@ export function ChatPage() {
+  export function ChatPage() {
+ +  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
+    const [workspaceMode, setWorkspaceMode] = useState<'chat' | 'files' | 'diff'>('chat')
+@@ -238,6 +239,7 @@ export function ChatPage() {
+    <ChatHeader
+ +    onToggleSidebar={() => setMobileSidebarOpen(true)}
+      agentName={selectedAgent?.name ?? null}
+      project={selectedProject}
+diff --git a/frontend/src/components/chat/SessionList.tsx b/frontend/src/components/chat/SessionList.tsx
+index 1111111..2222222 100644
+--- a/frontend/src/components/chat/SessionList.tsx
++++ b/frontend/src/components/chat/SessionList.tsx
+@@ -91,0 +92,6 @@
+ +          {mobile && onMobileOpenChange ? (
+ +            <button aria-label="Close navigation">×</button>
+ +          ) : null}
+ +
+ +          <div className="relative z-10 h-full w-[min(22rem,88vw)]">
+ +            {renderPanel({ mobile: true })}
+                     `}
+                  />
                 </div>
               </div>
             )}

@@ -1,0 +1,20 @@
+{
+  "backends": [
+    {
+      "id": "copilot",
+      "name": "GitHub Copilot",
+      "enabled": false,
+      "commandCandidates": ["copilot"],
+      "command": null,
+      "args": ["--acp"]
+    },
+    {
+      "id": "gemini-cli",
+      "name": "Gemini CLI",
+      "enabled": false,
+      "commandCandidates": ["gemini"],
+      "command": null,
+      "args": ["--acp"]
+    }
+  ]
+}
