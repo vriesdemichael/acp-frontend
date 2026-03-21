@@ -6,12 +6,14 @@ interface SessionListProps {
   agents: AgentSummary[]
   sessions: SessionSummary[]
   visibleProjectIds?: string[]
+  createMenuOpen?: boolean
   selectedAgentId: string | null
   selectedProjectId?: string | null
   activeSessionId: string | null
   creatingSession: boolean
   mobileOpen?: boolean
   onCreate: (agentId: string) => void | Promise<void>
+  onCreateMenuOpenChange?: (open: boolean) => void
   onMobileOpenChange?: (open: boolean) => void
   onSelect: (sessionId: string) => void | Promise<void>
   projectSwitcher?: ReactNode
@@ -22,12 +24,14 @@ export function SessionList({
   agents,
   sessions,
   visibleProjectIds,
+  createMenuOpen,
   selectedAgentId,
   selectedProjectId = null,
   activeSessionId,
   creatingSession,
   mobileOpen = false,
   onCreate,
+  onCreateMenuOpenChange,
   onMobileOpenChange,
   onSelect,
   projectSwitcher,
@@ -48,7 +52,17 @@ export function SessionList({
     [agents]
   )
   const [collapsedProjects, setCollapsedProjects] = useState<string[]>([])
-  const [createMenuOpen, setCreateMenuOpen] = useState(false)
+  const [uncontrolledCreateMenuOpen, setUncontrolledCreateMenuOpen] = useState(false)
+  const resolvedCreateMenuOpen = createMenuOpen ?? uncontrolledCreateMenuOpen
+
+  const setCreateMenuOpen = (nextOpen: boolean) => {
+    if (createMenuOpen === undefined) {
+      setUncontrolledCreateMenuOpen(nextOpen)
+    }
+
+    onCreateMenuOpenChange?.(nextOpen)
+  }
+
   const handleCreate = (agentId: string) => {
     setCreateMenuOpen(false)
     onMobileOpenChange?.(false)
@@ -82,11 +96,11 @@ export function SessionList({
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => setCreateMenuOpen((current) => !current)}
+            onClick={() => setCreateMenuOpen(!resolvedCreateMenuOpen)}
             disabled={creatingSession || availableAgents.length === 0}
             className="inline-flex h-9 items-center justify-center rounded-lg border border-white/10 bg-slate-900 px-3 text-sm font-semibold text-slate-50 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-800 disabled:text-slate-500"
           >
-            {creatingSession ? 'Opening...' : createMenuOpen ? 'Close' : 'New'}
+            {creatingSession ? 'Opening...' : resolvedCreateMenuOpen ? 'Close' : 'New'}
           </button>
           {mobile && onMobileOpenChange ? (
             <button
@@ -102,7 +116,7 @@ export function SessionList({
       </div>
 
       <div className="mt-4 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
-        {createMenuOpen ? (
+        {resolvedCreateMenuOpen ? (
           <section className="rounded-xl border border-white/10 bg-slate-900/80 p-3">
             <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
               New Session
@@ -247,7 +261,7 @@ export function SessionList({
 
   return (
     <>
-      <div className="hidden lg:flex">{renderPanel({ mobile: false })}</div>
+      {!mobileOpen ? <div className="hidden lg:flex">{renderPanel({ mobile: false })}</div> : null}
       {mobileOpen ? (
         <div className="fixed inset-0 z-40 lg:hidden">
           <button

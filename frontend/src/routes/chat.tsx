@@ -23,6 +23,8 @@ interface ProjectDiffResult {
 
 export function ChatPage() {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
+  const [createMenuOpen, setCreateMenuOpen] = useState(false)
+  const [projectManagerOpen, setProjectManagerOpen] = useState(false)
   const [workspaceMode, setWorkspaceMode] = useState<'chat' | 'files' | 'diff'>('chat')
   const navigate = useNavigate({ from: '/chat' })
   const search = useSearch({ from: '/chat' })
@@ -118,6 +120,37 @@ export function ChatPage() {
     () => sessions.find((session) => session.id === activeSessionId)?.title ?? null,
     [activeSessionId, sessions]
   )
+  const hasAnyProject = projects.length > 0
+  const hasAvailableProject = projects.some((project) => project.status === 'available')
+  const hasAvailableAgent = agents.some((agent) => agent.status === 'active')
+  const canStartSession = Boolean(
+    selectedProject && selectedProject.status === 'available' && hasAvailableAgent
+  )
+  const shouldOpenCreateMenuInDrawer = typeof window !== 'undefined' && window.innerWidth < 1024
+  const openProjectManager = useCallback(() => {
+    if (mobileSidebarOpen) {
+      setMobileSidebarOpen(false)
+    }
+    setProjectManagerOpen(true)
+  }, [mobileSidebarOpen])
+  const openCreateMenu = useCallback(() => {
+    if (!canStartSession) {
+      if (!hasAnyProject || !hasAvailableProject) {
+        openProjectManager()
+      }
+      return
+    }
+
+    setProjectManagerOpen(false)
+    setCreateMenuOpen(true)
+    setMobileSidebarOpen(shouldOpenCreateMenuInDrawer)
+  }, [
+    canStartSession,
+    hasAnyProject,
+    hasAvailableProject,
+    openProjectManager,
+    shouldOpenCreateMenuInDrawer,
+  ])
 
   const getParentTreePath = useCallback((path: string): string | null => {
     const lastSlash = path.lastIndexOf('/')
@@ -250,12 +283,14 @@ export function ChatPage() {
             agents={agents}
             sessions={sessions}
             visibleProjectIds={visibleProjectIds}
+            createMenuOpen={createMenuOpen}
             selectedAgentId={activeAgentId}
             selectedProjectId={selectedProject?.id ?? null}
             activeSessionId={activeSessionId}
             creatingSession={creatingSession}
             mobileOpen={mobileSidebarOpen}
             onCreate={startNewSession}
+            onCreateMenuOpenChange={setCreateMenuOpen}
             onMobileOpenChange={setMobileSidebarOpen}
             onSelect={selectSession}
             projectSwitcher={
@@ -263,7 +298,9 @@ export function ChatPage() {
                 projects={projects}
                 selectedProjectId={selectedProject?.id ?? null}
                 visibleProjectIds={visibleProjectIds}
+                open={projectManagerOpen}
                 onProjectSelect={selectProject}
+                onOpenChange={setProjectManagerOpen}
                 onProjectVisibilityChange={setProjectVisibility}
                 onAddProject={addProject}
                 onRemoveProject={removeProject}
@@ -301,9 +338,16 @@ export function ChatPage() {
             {workspaceMode === 'chat' ? (
               <ChatTranscript
                 activeAgentName={activeAgentName}
+                canManageProjects
+                canStartSession={canStartSession}
+                hasAnyProject={hasAnyProject}
+                hasAvailableAgent={hasAvailableAgent}
+                hasAvailableProject={hasAvailableProject}
                 messages={messages}
                 hasSession={activeSessionId !== null}
                 loading={loading}
+                onOpenProjectManager={openProjectManager}
+                onStartSession={openCreateMenu}
                 ready={ready}
                 thinking={thinking}
                 errorMessage={errorMessage}
@@ -367,7 +411,13 @@ export function ChatPage() {
               helperText={
                 activeSessionId
                   ? 'Streaming responses appear in the workspace as the agent thinks and replies.'
-                  : 'Choose a project context and start a new session before sending a message.'
+                  : !hasAnyProject
+                    ? 'Add a project before opening your first chat session.'
+                    : !hasAvailableProject
+                      ? 'Select a project with a valid path before opening a chat session.'
+                      : !hasAvailableAgent
+                        ? 'Enable an agent backend in Settings before sending a message.'
+                        : 'Open a session from the chat rail to start sending messages.'
               }
             />
           </section>

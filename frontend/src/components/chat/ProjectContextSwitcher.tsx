@@ -16,7 +16,9 @@ interface ProjectContextSwitcherProps {
   projects: ProjectSummary[]
   selectedProjectId: string | null
   visibleProjectIds: string[]
+  open?: boolean
   onProjectSelect: (projectId: string) => void | Promise<void>
+  onOpenChange?: (open: boolean) => void
   onProjectVisibilityChange: (projectId: string, visible: boolean) => void
   onAddProject: (name: string, path: string) => Promise<ProjectSummary>
   onRemoveProject: (projectId: string) => Promise<void>
@@ -27,13 +29,15 @@ export function ProjectContextSwitcher({
   projects,
   selectedProjectId,
   visibleProjectIds,
+  open,
   onProjectSelect,
+  onOpenChange,
   onProjectVisibilityChange,
   onAddProject,
   onRemoveProject,
   onSuggestProjectPaths,
 }: ProjectContextSwitcherProps) {
-  const [managerOpen, setManagerOpen] = useState(false)
+  const [uncontrolledManagerOpen, setUncontrolledManagerOpen] = useState(false)
   const [addFormOpen, setAddFormOpen] = useState(false)
   const [addName, setAddName] = useState(() => readStoredValue(DRAFT_NAME_STORAGE_KEY))
   const [addPath, setAddPath] = useState(() => readStoredValue(DRAFT_PATH_STORAGE_KEY))
@@ -71,6 +75,15 @@ export function ProjectContextSwitcher({
     !pathSuggestionError &&
     pathSuggestions.length === 0 &&
     pathInputHasSearchablePrefix
+  const managerOpen = open ?? uncontrolledManagerOpen
+
+  const setManagerOpen = (nextOpen: boolean) => {
+    if (open === undefined) {
+      setUncontrolledManagerOpen(nextOpen)
+    }
+
+    onOpenChange?.(nextOpen)
+  }
 
   const applySuggestion = (suggestion: ProjectPathSuggestion) => {
     setAddPath(toTraversableSuggestionPath(suggestion.path))

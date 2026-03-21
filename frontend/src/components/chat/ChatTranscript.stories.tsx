@@ -64,3 +64,39 @@ export const Thinking: Story = {
     thinking: true,
   },
 }
+
+export const Welcome: Story = {
+  args: {
+    hasSession: false,
+    ready: false,
+    canManageProjects: true,
+    canStartSession: true,
+    hasAnyProject: true,
+    hasAvailableAgent: true,
+    hasAvailableProject: true,
+  },
+}
+
+export const NeedsProject: Story = {
+  args: {
+    hasSession: false,
+    ready: false,
+    canManageProjects: true,
+    canStartSession: false,
+    hasAnyProject: false,
+    hasAvailableAgent: true,
+    hasAvailableProject: false,
+  },
+}
+
+export const NeedsAgent: Story = {
+  args: {
+    hasSession: false,
+    ready: false,
+    canManageProjects: true,
+    canStartSession: false,
+    hasAnyProject: true,
+    hasAvailableAgent: false,
+    hasAvailableProject: true,
+  },
+}

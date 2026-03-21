@@ -11,6 +11,8 @@ import { ProjectWorkspacePanel } from '../components/chat/ProjectWorkspacePanel.
 function ChatLayoutStory() {
   const [value, setValue] = useState('')
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
+  const [createMenuOpen, setCreateMenuOpen] = useState(false)
+  const [projectManagerOpen, setProjectManagerOpen] = useState(false)
   const [workspaceMode, setWorkspaceMode] = useState<'chat' | 'files' | 'diff'>('chat')
 
   return (
@@ -27,7 +29,7 @@ function ChatLayoutStory() {
             status: 'available',
           }}
           sessionTitle="Agentic Coding Presentation Outline"
-          ready
+          ready={false}
           thinking={false}
         />
 
@@ -38,58 +40,15 @@ function ChatLayoutStory() {
               { id: 'gemini-cli', name: 'Gemini CLI', status: 'active', command: 'gemini' },
               { id: 'claude-code', name: 'Claude Code', status: 'unavailable', command: null },
             ]}
-            sessions={[
-              {
-                id: 'session-12345678',
-                title: 'Agentic Coding Presentation Outline',
-                updatedAt: '2026-03-18T09:00:00.000Z',
-                agentId: 'copilot',
-                project: {
-                  id: 'acp-frontend',
-                  name: 'ACP Frontend',
-                  path: '/home/vries/projects/acp-frontend',
-                },
-              },
-              {
-                id: 'session-2',
-                title: 'CLI-Integrated Code Assistant Alternatives',
-                updatedAt: '2026-03-18T08:10:00.000Z',
-                agentId: 'copilot',
-                project: {
-                  id: 'acp-frontend',
-                  name: 'ACP Frontend',
-                  path: '/home/vries/projects/acp-frontend',
-                },
-              },
-              {
-                id: 'session-3',
-                title: 'VS Code YAML Frontmatter Validation Tooling',
-                updatedAt: '2026-03-17T16:42:00.000Z',
-                agentId: 'copilot',
-                project: {
-                  id: 'acp-frontend',
-                  name: 'ACP Frontend',
-                  path: '/home/vries/projects/acp-frontend',
-                },
-              },
-              {
-                id: 'session-4',
-                title: 'Gemini follow-up on grouped session discovery',
-                updatedAt: '2026-03-16T11:18:00.000Z',
-                agentId: 'gemini-cli',
-                project: {
-                  id: 'docs-site',
-                  name: 'Docs Site',
-                  path: '/home/vries/projects/docs-site',
-                },
-              },
-            ]}
+            sessions={[]}
+            createMenuOpen={createMenuOpen}
             selectedAgentId="copilot"
             selectedProjectId="acp-frontend"
-            activeSessionId="session-12345678"
+            activeSessionId={null}
             creatingSession={false}
             mobileOpen={mobileSidebarOpen}
-            onCreate={() => {}}
+            onCreate={() => setCreateMenuOpen(false)}
+            onCreateMenuOpenChange={setCreateMenuOpen}
             onMobileOpenChange={setMobileSidebarOpen}
             onSelect={() => {}}
             projectSwitcher={
@@ -110,7 +69,9 @@ function ChatLayoutStory() {
                 ]}
                 selectedProjectId="acp-frontend"
                 visibleProjectIds={['acp-frontend', 'docs-site']}
+                open={projectManagerOpen}
                 onProjectSelect={() => {}}
+                onOpenChange={setProjectManagerOpen}
                 onProjectVisibilityChange={() => {}}
                 onAddProject={() =>
                   Promise.resolve({
@@ -158,29 +119,22 @@ function ChatLayoutStory() {
             {workspaceMode === 'chat' ? (
               <ChatTranscript
                 activeAgentName="GitHub Copilot"
-                messages={[
-                  {
-                    id: 'assistant-1',
-                    role: 'assistant',
-                    content:
-                      'The header should collapse into a sleek top bar while the side rails hug the edges and leave more room for the actual conversation.',
-                  },
-                  {
-                    id: 'user-1',
-                    role: 'user',
-                    content: 'Keep the layout tighter and less dashboard-like.',
-                  },
-                  {
-                    id: 'assistant-2',
-                    role: 'assistant',
-                    content:
-                      'A darker shell with a compact control bar and slimmer side panels will get much closer to the reference pattern without copying it directly.',
-                  },
-                ]}
-                hasSession
+                canManageProjects
+                canStartSession
+                hasAnyProject
+                hasAvailableAgent
+                hasAvailableProject
+                messages={[]}
+                hasSession={false}
                 loading={false}
-                ready
-                thinking
+                onOpenProjectManager={() => setProjectManagerOpen(true)}
+                onStartSession={() => {
+                  setProjectManagerOpen(false)
+                  setCreateMenuOpen(true)
+                  setMobileSidebarOpen(true)
+                }}
+                ready={false}
+                thinking={false}
                 errorMessage={null}
               />
             ) : workspaceMode === 'files' ? (

@@ -1,10 +1,18 @@
 import type { ChatMessage } from '../../hooks/useAgUiChat.js'
+import { ChatWelcomeState } from './ChatWelcomeState.js'
 
 interface ChatTranscriptProps {
   activeAgentName: string
+  canManageProjects?: boolean
+  canStartSession?: boolean
+  hasAnyProject?: boolean
+  hasAvailableAgent?: boolean
+  hasAvailableProject?: boolean
   messages: ChatMessage[]
   hasSession: boolean
   loading: boolean
+  onOpenProjectManager?: () => void
+  onStartSession?: () => void
   ready: boolean
   thinking: boolean
   errorMessage: string | null
@@ -12,9 +20,16 @@ interface ChatTranscriptProps {
 
 export function ChatTranscript({
   activeAgentName,
+  canManageProjects = false,
+  canStartSession = false,
+  hasAnyProject = true,
+  hasAvailableAgent = true,
+  hasAvailableProject = true,
   messages,
   hasSession,
   loading,
+  onOpenProjectManager,
+  onStartSession,
   ready,
   thinking,
   errorMessage,
@@ -66,19 +81,16 @@ export function ChatTranscript({
           </section>
         )}
 
-        {!loading && !errorMessage && !ready && !hasSession && (
-          <section className="rounded-2xl border border-dashed border-white/10 bg-slate-900/55 px-5 py-8 text-center shadow-sm">
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-              Session
-            </p>
-            <h2 className="mt-3 font-[family:var(--font-display)] text-4xl text-slate-50">
-              Start a new chat
-            </h2>
-            <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-slate-400">
-              This project does not have an active session yet. Create one to work with{' '}
-              {activeAgentName} in the selected workspace.
-            </p>
-          </section>
+        {!loading && messages.length === 0 && !hasSession && (
+          <ChatWelcomeState
+            activeAgentName={activeAgentName}
+            canStartSession={canStartSession}
+            hasAnyProject={hasAnyProject}
+            hasAvailableProject={hasAvailableProject}
+            hasAvailableAgent={hasAvailableAgent}
+            onStartSession={onStartSession}
+            onOpenProjectManager={canManageProjects ? onOpenProjectManager : undefined}
+          />
         )}
 
         {messages.map((message) => {
