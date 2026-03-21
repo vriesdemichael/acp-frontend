@@ -86,13 +86,15 @@ async function waitForProjectPickerReady(page: Page) {
     return
   }
 
-  await expect(page.getByRole('button', { name: 'Open project manager' })).toBeVisible({
-    timeout: 20_000,
-  })
+  await expect(
+    page.getByTestId('chat-session-panel').getByRole('button', { name: 'Open project manager' })
+  ).toBeVisible({ timeout: 20_000 })
 }
 
 async function openProjectManager(page: Page) {
-  const directTrigger = page.getByRole('button', { name: 'Open project manager' })
+  const directTrigger = page
+    .getByTestId('chat-session-panel')
+    .getByRole('button', { name: 'Open project manager' })
   if (await directTrigger.isVisible().catch(() => false)) {
     await directTrigger.click()
     return

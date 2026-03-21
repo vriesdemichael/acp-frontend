@@ -256,6 +256,10 @@ describe('ChatPage', () => {
     window.history.pushState({}, '', '/')
   })
 
+  function getTranscriptRegion() {
+    return within(screen.getByTestId('chat-transcript'))
+  }
+
   it('renders the input field', async () => {
     renderChatPage('/chat?session=test-session-id&agent=copilot&project=acp-frontend')
     await waitFor(() => expect(screen.getByPlaceholderText('Type a message…')).toBeDefined())
@@ -364,6 +368,37 @@ describe('ChatPage', () => {
     renderChatPage('/chat?session=test-session-id&agent=copilot&project=acp-frontend')
 
     await waitFor(() => expect(screen.getByText('Start the conversation')).toBeDefined())
+  })
+
+  it('shows a guided welcome state when the current project has no active session yet', async () => {
+    vi.stubGlobal('fetch', mockFetch({ noSessions: true }))
+
+    renderChatPage('/chat?agent=copilot&project=acp-frontend')
+
+    await waitFor(() =>
+      expect(getTranscriptRegion().getByText('Open a fresh chat in this project')).toBeDefined()
+    )
+    expect(getTranscriptRegion().getByRole('button', { name: 'Start a session' })).toBeDefined()
+    expect(
+      getTranscriptRegion().getByRole('button', { name: 'Open project manager' })
+    ).toBeDefined()
+    expect(getTranscriptRegion().getByRole('link', { name: 'Open settings' })).toBeDefined()
+    expect(
+      screen.getByText('Open a session from the chat rail to start sending messages.')
+    ).toBeDefined()
+  })
+
+  it('opens the new-session chooser from the welcome state CTA', async () => {
+    vi.stubGlobal('fetch', mockFetch({ noSessions: true }))
+
+    renderChatPage('/chat?agent=copilot&project=acp-frontend')
+
+    const transcript = await screen.findByTestId('chat-transcript')
+    fireEvent.click(within(transcript).getByRole('button', { name: 'Start a session' }))
+
+    const sessionPanel = screen.getByTestId('chat-session-panel')
+    await waitFor(() => expect(within(sessionPanel).getByText('New Session')).toBeDefined())
+    expect(within(sessionPanel).getByRole('button', { name: /GitHub Copilot/i })).toBeDefined()
   })
 
   it('sends a POST when the form is submitted', async () => {
@@ -533,14 +568,16 @@ describe('ChatPage', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Open project manager' }))
     fireEvent.click(await screen.findByRole('button', { name: /^Use$/ }))
 
-    await waitFor(() => expect(screen.getByText('Start a new chat')).toBeDefined())
+    await waitFor(() =>
+      expect(getTranscriptRegion().getByText('Open a fresh chat in this project')).toBeDefined()
+    )
     expect(
       screen.getByText(
         'No chats in this project yet. Start a new session to open this workspace with the selected agent.'
       )
     ).toBeDefined()
     expect(
-      screen.getByText('Choose a project context and start a new session before sending a message.')
+      screen.getByText('Open a session from the chat rail to start sending messages.')
     ).toBeDefined()
     expect(window.location.search).toContain('project=acp-frontend')
     expect(window.location.search).not.toContain('session=')
@@ -746,6 +783,59 @@ describe('ChatPage', () => {
         ).length
       ).toBeGreaterThan(0)
     )
+    expect(screen.getByText('Choose a project that is available')).toBeDefined()
+    expect(
+      screen.getByText('Select a project with a valid path before opening a chat session.')
+    ).toBeDefined()
+  })
+
+  it('shows an agent setup welcome state when no backends are active', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation((url: string) => {
+        if (url === '/api/agents') {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve([
+                { id: 'copilot', name: 'GitHub Copilot', status: 'unavailable', command: null },
+              ]),
+          } as Response)
+        }
+
+        if (url === '/api/projects') {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve([
+                {
+                  id: 'acp-frontend',
+                  name: 'ACP Frontend',
+                  path: '/home/vries/projects/acp-frontend',
+                  status: 'available',
+                },
+              ]),
+          } as Response)
+        }
+
+        if (url === '/api/sessions') {
+          return Promise.resolve({ ok: true, json: () => Promise.resolve([]) } as Response)
+        }
+
+        if (url === '/api/projects/acp-frontend/tree') {
+          return Promise.resolve({ ok: true, json: () => Promise.resolve([]) } as Response)
+        }
+
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+      })
+    )
+
+    renderChatPage('/chat?project=acp-frontend')
+
+    await waitFor(() => expect(screen.getByText('Connect an agent to begin')).toBeDefined())
+    expect(
+      screen.getByText('Enable an agent backend in Settings before sending a message.')
+    ).toBeDefined()
   })
 
   it('renders sessions grouped by project with per-session agent badges', async () => {
