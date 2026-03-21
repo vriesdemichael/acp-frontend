@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useSearch } from '@tanstack/react-router'
 import { ChatComposer } from '../components/chat/ChatComposer.js'
+import { ChatDiffView } from '../components/chat/ChatDiffView.js'
 import { ChatHeader } from '../components/chat/ChatHeader.js'
 import {
   ProjectContextSwitcher,
@@ -338,57 +339,21 @@ export function ChatPage() {
             ) : (
               <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6 sm:py-6">
                 <div className="mx-auto flex min-h-full w-full max-w-4xl flex-col">
-                  {diffLoading ? (
-                    <section className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-5 py-6 text-sm text-amber-100 shadow-sm">
-                      <p className="text-xs font-semibold uppercase tracking-[0.24em] text-amber-700">
-                        Diff
-                      </p>
-                      <p className="mt-3 text-base font-medium text-slate-50">
-                        Loading project diff...
-                      </p>
-                    </section>
-                  ) : diffError ? (
-                    <section className="rounded-2xl border border-rose-500/20 bg-rose-500/10 px-5 py-5 text-sm text-rose-100 shadow-sm">
-                      <p className="text-xs font-semibold uppercase tracking-[0.24em] text-rose-700">
-                        Diff
-                      </p>
-                      <p className="mt-3 text-base font-medium text-slate-50">{diffError}</p>
-                    </section>
-                  ) : diffResult?.status === 'git_not_found' ? (
-                    <section className="rounded-2xl border border-dashed border-white/10 bg-slate-900/55 px-5 py-8 shadow-sm">
-                      <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                        Diff
-                      </p>
-                      <h2 className="mt-3 font-[family:var(--font-display)] text-3xl text-slate-50">
-                        Git not available
-                      </h2>
-                      <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-400">
-                        {diffResult.message ??
-                          'Git was not found on PATH for this backend process.'}
-                      </p>
-                    </section>
-                  ) : diffResult?.diff ? (
-                    <section className="overflow-hidden rounded-2xl border border-white/10 bg-slate-950/70 shadow-sm">
-                      <div className="border-b border-white/8 px-5 py-3 text-[11px] uppercase tracking-[0.22em] text-slate-500">
-                        Working Tree Diff
-                      </div>
-                      <pre className="overflow-x-auto px-5 py-5 text-xs leading-6 text-slate-200">
-                        <code>{diffResult.diff}</code>
-                      </pre>
-                    </section>
-                  ) : (
-                    <section className="rounded-2xl border border-dashed border-white/10 bg-slate-900/55 px-5 py-8 shadow-sm">
-                      <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                        Diff
-                      </p>
-                      <h2 className="mt-3 font-[family:var(--font-display)] text-3xl text-slate-50">
-                        Working tree is clean
-                      </h2>
-                      <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-400">
-                        No unstaged or staged changes are currently shown for this project.
-                      </p>
-                    </section>
-                  )}
+                  <ChatDiffView
+                    state={
+                      diffLoading
+                        ? 'loading'
+                        : diffError
+                          ? 'error'
+                          : diffResult?.status === 'git_not_found'
+                            ? 'git_not_found'
+                            : diffResult?.diff
+                              ? 'ready'
+                              : 'empty'
+                    }
+                    diff={diffResult?.diff}
+                    message={diffError ?? diffResult?.message ?? null}
+                  />
                 </div>
               </div>
             )}

@@ -1,0 +1,14 @@
+{
+  "projects": [
+    {
+      "id": "acp-frontend",
+      "name": "ACP Frontend",
+      "path": "/home/vries/projects/acp-frontend"
+    },
+    {
+      "id": "missing-project",
+      "name": "Missing Project",
+      "path": "/tmp/acp-playwright-missing-project"
+    }
+  ]
+}

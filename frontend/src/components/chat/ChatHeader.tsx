@@ -65,7 +65,7 @@ export function ChatHeader({
           <div className="hidden rounded-full border border-white/10 bg-slate-900/80 px-3 py-1.5 text-xs text-slate-400 lg:block">
             {project ? project.name : 'No project selected'}
           </div>
-          <div className="rounded-full border border-white/10 bg-slate-900/80 px-3 py-1.5 text-xs">
+          <div className="rounded-full border border-white/10 bg-slate-900/80 px-2.5 py-1.5 text-[11px] sm:px-3 sm:text-xs">
             <span className="font-medium text-slate-100">{connectionLabel}</span>
             <span className="ml-2 hidden text-slate-500 sm:inline">{connectionDetail}</span>
           </div>
