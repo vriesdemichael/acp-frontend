@@ -1,4 +1,5 @@
 import type { ProjectSummary } from '../../hooks/useAgUiChat.js'
+import { AgentIcon } from './icons/AgentIcon.js'
 
 interface ChatHeaderProps {
   agentName: string | null
@@ -39,7 +40,7 @@ export function ChatHeader({
               type="button"
               aria-label="Open navigation"
               onClick={onToggleSidebar}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-slate-900 text-slate-300 transition hover:bg-slate-800 lg:hidden"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-slate-900 text-slate-300 transition hover:bg-slate-800"
             >
               <span className="text-base leading-none">≡</span>
             </button>
@@ -59,8 +60,15 @@ export function ChatHeader({
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
-          <div className="hidden rounded-full border border-white/10 bg-slate-900/80 px-3 py-1.5 text-xs text-slate-400 md:block">
-            {agentName ?? 'No agent selected'}
+          <div className="hidden items-center gap-1.5 rounded-full border border-white/10 bg-slate-900/80 px-3 py-1 text-xs text-slate-400 md:flex">
+            {agentName ? (
+              <>
+                <AgentIcon agentId={agentName} className="h-4 w-4" />
+                <span>{agentName}</span>
+              </>
+            ) : (
+              'No agent selected'
+            )}
           </div>
           <div className="hidden rounded-full border border-white/10 bg-slate-900/80 px-3 py-1.5 text-xs text-slate-400 lg:block">
             {project ? project.name : 'No project selected'}

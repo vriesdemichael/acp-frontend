@@ -1,4 +1,5 @@
 import type { AgentSummary } from '../hooks/useAgUiChat.js'
+import { AgentIcon } from './chat/icons/AgentIcon.js'
 
 interface AgentSelectorProps {
   agents: AgentSummary[]
@@ -37,10 +38,15 @@ export function AgentSelector({ agents, selectedAgentId, onSelect }: AgentSelect
           </select>
         </label>
       </div>
-      <p className="mt-2 text-[11px] text-slate-500">
-        {selectedAgent
-          ? `${selectedAgent.name} is selected for the next prompt.`
-          : 'Choose which adapter receives the next message.'}
+      <p className="mt-2 flex items-center gap-1.5 text-[11px] text-slate-500">
+        {selectedAgent ? (
+          <>
+            <AgentIcon agentId={selectedAgent.id} className="h-3 w-3 text-slate-400" />
+            <span>{selectedAgent.name} is selected for the next prompt.</span>
+          </>
+        ) : (
+          'Choose which adapter receives the next message.'
+        )}
       </p>
       <div className="mt-2 flex flex-wrap gap-1.5">
         {agents

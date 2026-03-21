@@ -216,6 +216,11 @@ describe('app router', () => {
 
     render(<App routerInstance={createAppRouter()} />)
 
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Open navigation' })).toBeDefined()
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Open navigation' }))
+
     await waitFor(() => expect(screen.getByRole('link', { name: 'Settings' })).toBeDefined())
     fireEvent.click(screen.getByRole('link', { name: 'Settings' }))
 
