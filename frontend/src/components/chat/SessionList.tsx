@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { useMemo, useState } from 'react'
 import type { AgentSummary, SessionSummary } from '../../hooks/useAgUiChat.js'
+import { AgentIcon } from './icons/AgentIcon.js'
 
 interface SessionListProps {
   agents: AgentSummary[]
@@ -78,7 +79,7 @@ export function SessionList({
     <aside
       id={mobile ? 'chat-session-drawer' : undefined}
       data-testid={mobile ? 'chat-session-drawer' : 'chat-session-panel'}
-      className="flex min-h-[18rem] flex-col border-r border-white/8 bg-slate-950/95 p-3 text-slate-100 shadow-[inset_-1px_0_0_rgba(148,163,184,0.08)] backdrop-blur"
+      className="flex h-full min-h-[18rem] flex-col border-r border-white/8 bg-slate-950/95 p-3 text-slate-100 shadow-[inset_-1px_0_0_rgba(148,163,184,0.08)] backdrop-blur"
     >
       <div className="flex items-start justify-between gap-3">
         <div>
@@ -102,12 +103,12 @@ export function SessionList({
           >
             {creatingSession ? 'Opening...' : resolvedCreateMenuOpen ? 'Close' : 'New'}
           </button>
-          {mobile && onMobileOpenChange ? (
+          {onMobileOpenChange ? (
             <button
               type="button"
               aria-label="Close navigation"
               onClick={() => onMobileOpenChange(false)}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-slate-900 text-slate-300 transition hover:bg-slate-800 lg:hidden"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-slate-900 text-slate-300 transition hover:bg-slate-800"
             >
               ×
             </button>
@@ -142,7 +143,10 @@ export function SessionList({
                     ].join(' ')}
                   >
                     <div className="flex items-center justify-between gap-3">
-                      <span className="truncate text-sm font-medium">{agent.name}</span>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <AgentIcon agentId={agent.id} className="h-4 w-4 shrink-0" />
+                        <span className="truncate text-sm font-medium">{agent.name}</span>
+                      </div>
                       <span className="rounded-full border border-white/10 bg-slate-950 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
                         {selected ? 'Selected' : agent.status}
                       </span>
@@ -235,7 +239,11 @@ export function SessionList({
                               {item.badgeLabel}
                             </span>
                           </div>
-                          <div className="mt-2 flex min-w-0 items-center gap-2 text-[11px] text-slate-500">
+                          <div className="mt-2 flex min-w-0 items-center gap-1.5 text-[11px] text-slate-500">
+                            <AgentIcon
+                              agentId={item.session.agentId}
+                              className="h-3 w-3 shrink-0"
+                            />
                             <span className="truncate">{item.agentName}</span>
                             <span aria-hidden="true">·</span>
                             <span className="truncate">
@@ -261,16 +269,15 @@ export function SessionList({
 
   return (
     <>
-      {!mobileOpen ? <div className="hidden lg:flex">{renderPanel({ mobile: false })}</div> : null}
       {mobileOpen ? (
-        <div className="fixed inset-0 z-40 lg:hidden">
+        <div className="fixed inset-0 z-40">
           <button
             type="button"
             aria-label="Close navigation backdrop"
             onClick={() => onMobileOpenChange?.(false)}
             className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm"
           />
-          <div className="relative z-10 h-full w-[min(22rem,88vw)]">
+          <div className="relative z-10 h-full w-[min(24rem,88vw)] max-w-full">
             {renderPanel({ mobile: true })}
           </div>
         </div>
