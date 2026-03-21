@@ -21,6 +21,7 @@ interface ProjectDiffResult {
 }
 
 export function ChatPage() {
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const [workspaceMode, setWorkspaceMode] = useState<'chat' | 'files' | 'diff'>('chat')
   const navigate = useNavigate({ from: '/chat' })
   const search = useSearch({ from: '/chat' })
@@ -236,6 +237,7 @@ export function ChatPage() {
         <ChatHeader
           agentName={selectedAgent?.name ?? null}
           errorMessage={errorMessage}
+          onToggleSidebar={() => setMobileSidebarOpen(true)}
           project={selectedProject}
           sessionTitle={activeSessionTitle}
           ready={ready}
@@ -251,7 +253,9 @@ export function ChatPage() {
             selectedProjectId={selectedProject?.id ?? null}
             activeSessionId={activeSessionId}
             creatingSession={creatingSession}
+            mobileOpen={mobileSidebarOpen}
             onCreate={startNewSession}
+            onMobileOpenChange={setMobileSidebarOpen}
             onSelect={selectSession}
             projectSwitcher={
               <ProjectContextSwitcher

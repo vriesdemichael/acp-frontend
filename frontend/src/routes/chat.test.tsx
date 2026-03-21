@@ -260,14 +260,26 @@ describe('ChatPage', () => {
     renderChatPage('/chat?session=test-session-id&agent=copilot&project=acp-frontend')
 
     await waitFor(() => expect(screen.getByText('Connected')).toBeDefined())
+    expect(screen.getByRole('button', { name: 'Open navigation' })).toBeDefined()
     expect(screen.getByTestId('chat-composer')).toBeDefined()
     expect(screen.getByTestId('chat-transcript')).toBeDefined()
 
     await waitFor(() => expect(MockEventSource.instance).not.toBeNull())
     expect(screen.getByTestId('chat-session-panel')).toBeDefined()
-    expect(screen.getByRole('button', { name: /Open/i })).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Open project manager' })).toBeDefined()
     expect(screen.getByRole('button', { name: 'Files' })).toBeDefined()
     expect(screen.getByRole('button', { name: 'Diff' })).toBeDefined()
+  })
+
+  it('opens the session rail as a mobile drawer from the top bar', async () => {
+    renderChatPage('/chat?session=test-session-id&agent=copilot&project=acp-frontend')
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Open navigation' }))
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Close navigation' })).toBeDefined()
+    )
+    expect(screen.getByTestId('chat-session-drawer')).toBeDefined()
   })
 
   it('opens the file viewer in the conversation area while keeping the composer visible', async () => {
@@ -510,7 +522,7 @@ describe('ChatPage', () => {
 
     renderChatPage('/chat?agent=copilot')
 
-    fireEvent.click(await screen.findByRole('button', { name: /Open/i }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Open project manager' }))
     fireEvent.click(await screen.findByRole('button', { name: /^Use$/ }))
 
     await waitFor(() => expect(screen.getByText('Start a new chat')).toBeDefined())
@@ -657,7 +669,7 @@ describe('ChatPage', () => {
 
     renderChatPage('/chat?session=test-session-id&agent=copilot&project=acp-frontend')
 
-    fireEvent.click(await screen.findByRole('button', { name: /Open/i }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Open project manager' }))
     const useButtons = await screen.findAllByRole('button', { name: /^Use$/ })
     fireEvent.click(useButtons[0]!)
 
@@ -674,7 +686,7 @@ describe('ChatPage', () => {
     const sessionPanel = await screen.findByTestId('chat-session-panel')
     expect(within(sessionPanel).getByText('Inspect auth bug')).toBeDefined()
 
-    fireEvent.click(await screen.findByRole('button', { name: /Open/i }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Open project manager' }))
     fireEvent.click((await screen.findAllByRole('button', { name: 'Shown' }))[0]!)
 
     await waitFor(() => expect(within(sessionPanel).queryByText('Inspect auth bug')).toBeNull())

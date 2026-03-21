@@ -2,6 +2,7 @@ import type { ProjectSummary } from '../../hooks/useAgUiChat.js'
 
 interface ChatHeaderProps {
   agentName: string | null
+  onToggleSidebar?: () => void
   project: ProjectSummary | null
   sessionTitle: string | null
   errorMessage: string | null
@@ -11,6 +12,7 @@ interface ChatHeaderProps {
 
 export function ChatHeader({
   agentName,
+  onToggleSidebar,
   project,
   sessionTitle,
   errorMessage,
@@ -32,6 +34,16 @@ export function ChatHeader({
     <header className="border-b border-white/10 bg-slate-950/92 px-4 py-2.5 text-slate-100 shadow-[0_10px_40px_rgba(2,6,23,0.45)] backdrop-blur sm:px-5 lg:px-6">
       <div className="flex min-h-11 items-center justify-between gap-4">
         <div className="flex min-w-0 items-center gap-3">
+          {onToggleSidebar ? (
+            <button
+              type="button"
+              aria-label="Open navigation"
+              onClick={onToggleSidebar}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-slate-900 text-slate-300 transition hover:bg-slate-800 lg:hidden"
+            >
+              <span className="text-base leading-none">≡</span>
+            </button>
+          ) : null}
           <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-slate-900 text-sm font-semibold text-teal-300">
             ACP
           </div>

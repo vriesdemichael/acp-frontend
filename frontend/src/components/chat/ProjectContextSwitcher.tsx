@@ -204,6 +204,7 @@ export function ProjectContextSwitcher({
     <>
       <button
         type="button"
+        aria-label="Open project manager"
         onClick={() => setManagerOpen(true)}
         className="flex items-center justify-between rounded-xl border border-white/10 bg-slate-900/80 px-3 py-3 text-left transition hover:border-white/15 hover:bg-slate-900"
       >
