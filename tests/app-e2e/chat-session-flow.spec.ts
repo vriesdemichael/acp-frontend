@@ -1,6 +1,19 @@
 import { expect, test } from '@playwright/test'
 
 test.describe('chat session flow', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      class MockEventSource {
+        constructor() {}
+        close() {}
+        addEventListener() {}
+        removeEventListener() {}
+      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      window.EventSource = MockEventSource as any
+    })
+  })
+
   test('creates a new session and switches between sessions', async ({ page }) => {
     let sessionCount = 1
 
