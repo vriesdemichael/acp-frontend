@@ -89,7 +89,7 @@ describe('StreamTranslator', () => {
     expect(events[1]).toMatchObject({
       type: EventType.CUSTOM,
       name: 'a2ui:tool_call',
-      value: { result: 'done', done: true },
+      value: { callId: 'tool-1', result: 'done', done: true },
     })
   })
 
@@ -107,7 +107,7 @@ describe('StreamTranslator', () => {
     expect(events[1]).toMatchObject({
       type: EventType.CUSTOM,
       name: 'a2ui:tool_call',
-      value: { result: JSON.stringify({ ok: true }), done: true },
+      value: { callId: 'tool-1', result: JSON.stringify({ ok: true }), done: true },
     })
   })
 

@@ -481,7 +481,7 @@ export function useAgUiChat({
           if (parsed.name !== 'a2ui:tool_call') return
 
           const payload = parsed.value as A2UIToolCallPayload
-          if (!payload?.callId || !payload?.toolName) return
+          if (!payload?.callId) return
 
           const block: StructuredBlock = { kind: 'tool_call', payload }
 
@@ -840,6 +840,6 @@ function upsertBlock(
   )
   if (idx === -1) return [...existing, block]
   const next = [...existing]
-  next[idx] = block
+  next[idx] = { ...block, payload: { ...existing[idx]!.payload, ...block.payload } }
   return next
 }

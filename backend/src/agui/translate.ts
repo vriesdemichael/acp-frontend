@@ -16,6 +16,7 @@ import type { Content, SessionUpdate, ToolCallUpdate } from '@agentclientprotoco
 
 export class StreamTranslator {
   private currentMessageId: string | null = null
+  private toolCallNames = new Map<string, string>()
 
   constructor(
     readonly threadId: string,
@@ -59,7 +60,9 @@ export class StreamTranslator {
         return events
       }
 
-      case 'tool_call':
+      case 'tool_call': {
+        const toolName = update.title ?? ''
+        this.toolCallNames.set(update.toolCallId, toolName)
         return [
           {
             type: EventType.TOOL_CALL_START,
@@ -72,15 +75,18 @@ export class StreamTranslator {
             name: 'a2ui:tool_call',
             value: {
               callId: update.toolCallId,
-              toolName: update.title ?? '',
+              toolName,
               done: false,
             },
           } satisfies CustomEvent,
         ]
+      }
 
       case 'tool_call_update': {
         const resultText = extractToolResultText(update)
         if (resultText === null) return []
+
+        const resolvedName = this.toolCallNames.get(update.toolCallId) ?? ''
 
         return [
           {
@@ -95,7 +101,7 @@ export class StreamTranslator {
             name: 'a2ui:tool_call',
             value: {
               callId: update.toolCallId,
-              toolName: '',
+              toolName: resolvedName,
               result: resultText,
               done: true,
             },

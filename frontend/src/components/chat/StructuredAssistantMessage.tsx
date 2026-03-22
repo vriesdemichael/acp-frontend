@@ -89,8 +89,13 @@ export function StructuredAssistantMessage({ blocks }: StructuredAssistantMessag
         const Renderer = REGISTRY[block.kind] as BlockRenderer<typeof block.kind> | undefined
         if (!Renderer) return null
 
+        const stableKey =
+          block.kind === 'tool_call'
+            ? `${block.kind}-${block.payload.callId}`
+            : `${block.kind}-${idx}`
+
         return (
-          <BlockErrorBoundary key={`${block.kind}-${idx}`}>
+          <BlockErrorBoundary key={stableKey}>
             <Renderer payload={block.payload as never} />
           </BlockErrorBoundary>
         )
