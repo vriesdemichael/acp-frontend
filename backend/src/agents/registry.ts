@@ -23,6 +23,7 @@ import { StdioAcpProcess } from '../adapters/shared/process.js'
 import { deriveEndpointSupport } from '../adapters/shared/capabilities.js'
 import type { SessionProjectContext } from './types.js'
 import { listProjects, toSessionProjectContext } from '../projects/service.js'
+import { readCopilotSessions } from '../history/copilot.js'
 import { readGeminiSessions } from '../history/gemini.js'
 
 interface RegisteredAgent {
@@ -203,7 +204,10 @@ export class AgentRegistry {
     const liveSessions = this.agents.flatMap((agent) => agent.adapter?.listSessions() ?? [])
 
     const knownProjects = listProjects().map(toSessionProjectContext)
-    const historySessions = readGeminiSessions(knownProjects)
+    const historySessions = [
+      ...readGeminiSessions(knownProjects),
+      ...readCopilotSessions(knownProjects),
+    ]
 
     // Merge: live sessions take precedence; dedupe by session ID
     const liveIds = new Set(liveSessions.map((s) => s.id))
