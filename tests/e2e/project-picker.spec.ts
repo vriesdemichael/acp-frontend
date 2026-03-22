@@ -6,25 +6,23 @@ test.describe('project picker stabilization', () => {
     const preview = await waitForPreviewFrame(page)
     await dismissStorybookOverlay(page)
 
-    await openWorkspacePanel(preview)
-    await expect(preview.getByText('Project Context')).toBeVisible({ timeout: 15_000 })
+    await openProjectManager(preview)
+    const manager = getProjectManager(preview)
+    await expect(manager.getByText('Manage Project Views')).toBeVisible({ timeout: 15_000 })
+    await expect(manager.getByText('Docs Site')).toBeVisible()
+    await expect(manager.getByText('path not found')).toBeVisible()
 
-    const projectSelect = preview.getByRole('combobox', { name: 'Active project' })
-    await expect(projectSelect).toBeVisible()
-    await projectSelect.selectOption('docs-site')
-    await expect(projectSelect.locator('option[value="docs-site"]')).toContainText('path not found')
+    await manager.getByRole('button', { name: 'Add Project' }).click()
+    await expect(manager.getByRole('form', { name: 'Add project form' })).toBeVisible()
+    await expect(manager.getByText(/Type an absolute path like/i)).toBeVisible()
 
-    await preview.getByRole('button', { name: 'Add project' }).click()
-    await expect(preview.getByRole('form', { name: 'Add project form' })).toBeVisible()
-    await expect(preview.getByText(/Type an absolute path like/i)).toBeVisible()
-
-    const pathInput = preview.getByRole('combobox', { name: 'Project path' })
+    const pathInput = manager.getByRole('combobox', { name: 'Project path' })
     await pathInput.fill('relative/path')
-    await expect(preview.getByText(/Start with \/ or ~\//i)).toBeVisible()
+    await expect(manager.getByText('Start with / or ~/ to browse folders.')).toBeVisible()
 
     await pathInput.fill('/home/vries/projects')
-    await expect(preview.getByText('Current path')).toBeVisible()
-    await expect(preview.getByRole('button', { name: 'Save' })).toBeVisible()
+    await expect(manager.getByRole('button', { name: 'projects' })).toBeVisible()
+    await expect(manager.getByRole('button', { name: 'Add project', exact: true })).toBeVisible()
   })
 
   test('keeps the workspace panel usable on mobile', async ({ page }) => {
@@ -32,14 +30,15 @@ test.describe('project picker stabilization', () => {
     const preview = await waitForPreviewFrame(page)
     await dismissStorybookOverlay(page)
 
-    await openWorkspacePanel(preview)
-    await expect(preview.getByText('Project Context')).toBeVisible({ timeout: 15_000 })
+    await openProjectManager(preview)
+    const manager = getProjectManager(preview)
+    await expect(manager.getByText('Manage Project Views')).toBeVisible({ timeout: 15_000 })
 
-    await preview.getByRole('button', { name: 'Add project' }).click()
-    const pathInput = preview.getByRole('combobox', { name: 'Project path' })
+    await manager.getByRole('button', { name: 'Add Project' }).click()
+    const pathInput = manager.getByRole('combobox', { name: 'Project path' })
     await pathInput.fill('/home/vries/projects')
 
-    await expect(preview.getByText('Current path')).toBeVisible()
+    await expect(manager.getByRole('button', { name: 'projects' })).toBeVisible()
   })
 })
 
@@ -66,11 +65,12 @@ async function dismissStorybookOverlay(page: Page) {
   }
 }
 
-async function openWorkspacePanel(preview: ReturnType<Page['frameLocator']>) {
-  const toggle = preview.getByRole('button', { name: /Workspace/i })
-  await expect(toggle).toBeVisible({ timeout: 15_000 })
-  const expanded = await toggle.getAttribute('aria-expanded')
-  if (expanded !== 'true') {
-    await toggle.click({ force: true })
-  }
+async function openProjectManager(preview: ReturnType<Page['frameLocator']>) {
+  const trigger = preview.getByRole('button', { name: 'Open project manager' })
+  await expect(trigger).toBeVisible({ timeout: 15_000 })
+  await trigger.click({ force: true })
+}
+
+function getProjectManager(preview: ReturnType<Page['frameLocator']>) {
+  return preview.locator('div.fixed.inset-0.z-50').last()
 }
