@@ -221,8 +221,8 @@ describe('app router', () => {
     )
     fireEvent.click(screen.getByRole('button', { name: 'Open navigation' }))
 
-    await waitFor(() => expect(screen.getByRole('link', { name: 'Settings' })).toBeDefined())
-    fireEvent.click(screen.getByRole('link', { name: 'Settings' }))
+    await waitFor(() => expect(screen.getAllByRole('link', { name: 'Settings' }).length).toBe(2))
+    fireEvent.click(screen.getAllByRole('link', { name: 'Settings' })[0]!)
 
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Settings' })).toBeDefined())
     expect(screen.getByText('ACP Backends')).toBeDefined()

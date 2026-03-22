@@ -1,7 +1,5 @@
 import { useMemo, useState } from 'react'
 import type { ProjectSummary } from '../../hooks/useAgUiChat.js'
-import type { ProjectPathSuggestion } from './ProjectContextSwitcher.js'
-
 export interface ProjectTreeEntry {
   name: string
   path: string
@@ -13,8 +11,6 @@ interface ProjectWorkspacePanelProps {
   projects: ProjectSummary[]
   selectedProjectId: string | null
   onProjectSelect: (projectId: string) => void | Promise<void>
-  onAddProject: (name: string, path: string) => Promise<ProjectSummary>
-  onSuggestProjectPaths: (path: string) => Promise<ProjectPathSuggestion[]>
   tree: ProjectTreeEntry[]
   treePath: string | null
   treeLoading: boolean
@@ -31,8 +27,6 @@ export function ProjectWorkspacePanel({
   projects,
   selectedProjectId,
   onProjectSelect,
-  onAddProject,
-  onSuggestProjectPaths,
   tree,
   treePath,
   treeLoading,
@@ -47,8 +41,6 @@ export function ProjectWorkspacePanel({
   const [mobileOpen, setMobileOpen] = useState(false)
   const panelId = 'project-workspace-panel'
   void onProjectSelect
-  void onAddProject
-  void onSuggestProjectPaths
   const selectedProject = useMemo(
     () => projects.find((project) => project.id === selectedProjectId) ?? null,
     [projects, selectedProjectId]

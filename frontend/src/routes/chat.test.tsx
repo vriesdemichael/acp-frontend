@@ -275,8 +275,10 @@ describe('ChatPage', () => {
     expect(screen.getByTestId('chat-transcript')).toBeDefined()
 
     await waitFor(() => expect(MockEventSource.instance).not.toBeNull())
-    expect(screen.queryByTestId('chat-session-panel')).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Open project manager' })).toBeNull()
+    expect(screen.getByTestId('chat-session-panel')).toBeDefined()
+    expect(screen.getAllByRole('button', { name: 'Open project manager' }).length).toBeGreaterThan(
+      0
+    )
     expect(screen.getByRole('button', { name: 'Files' })).toBeDefined()
     expect(screen.getByRole('button', { name: 'Diff' })).toBeDefined()
   })
@@ -576,16 +578,18 @@ describe('ChatPage', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Open navigation' }))
     const sessionDrawer = await screen.findByTestId('chat-session-drawer')
     fireEvent.click(within(sessionDrawer).getByRole('button', { name: 'Open project manager' }))
-    fireEvent.click(await screen.findByRole('button', { name: /^Use$/ }))
+    const projectManager =
+      (document.querySelector('div.fixed.inset-0.z-50') as HTMLElement | null) ?? document.body
+    fireEvent.click(within(projectManager).getAllByRole('button', { name: /^Use$/ })[0]!)
 
     await waitFor(() =>
       expect(getTranscriptRegion().getByText('Open a fresh chat in this project')).toBeDefined()
     )
     expect(
-      screen.getByText(
+      screen.getAllByText(
         'No chats in this project yet. Start a new session to open this workspace with the selected agent.'
-      )
-    ).toBeDefined()
+      ).length
+    ).toBeGreaterThan(0)
     expect(
       screen.getByText('Open a session from the chat rail to start sending messages.')
     ).toBeDefined()

@@ -103,7 +103,7 @@ export function SessionList({
           >
             {creatingSession ? 'Opening...' : resolvedCreateMenuOpen ? 'Close' : 'New'}
           </button>
-          {onMobileOpenChange ? (
+          {mobile && onMobileOpenChange ? (
             <button
               type="button"
               aria-label="Close navigation"
@@ -286,6 +286,10 @@ export function SessionList({
 
   return (
     <>
+      <div className="hidden h-full min-h-0 lg:block lg:w-[19rem] lg:shrink-0">
+        {renderPanel({ mobile: false })}
+      </div>
+
       {mobileOpen ? (
         <div className="fixed inset-0 z-40">
           <button

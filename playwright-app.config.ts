@@ -1,7 +1,8 @@
 import { defineConfig, devices } from '@playwright/test'
+import { resolve } from 'node:path'
 
-const FIXTURE_PROJECTS = '/home/vries/projects/acp-frontend/tests/fixtures/app-e2e/projects.json'
-const FIXTURE_BACKENDS = '/home/vries/projects/acp-frontend/tests/fixtures/app-e2e/backends.json'
+const FIXTURE_PROJECTS = resolve(process.cwd(), 'tests/fixtures/app-e2e/projects.json')
+const FIXTURE_BACKENDS = resolve(process.cwd(), 'tests/fixtures/app-e2e/backends.json')
 
 export default defineConfig({
   testDir: './tests/app-e2e',

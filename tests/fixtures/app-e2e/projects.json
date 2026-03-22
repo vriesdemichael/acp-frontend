@@ -3,7 +3,7 @@
     {
       "id": "acp-frontend",
       "name": "ACP Frontend",
-      "path": "/home/vries/projects/acp-frontend"
+      "path": "."
     },
     {
       "id": "missing-project",

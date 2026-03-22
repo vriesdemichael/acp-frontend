@@ -26,7 +26,7 @@ export interface ProjectPathSuggestion {
 }
 
 export interface ProjectDiffResult {
-  status: 'ok' | 'git_not_found'
+  status: 'ok' | 'git_not_found' | 'error'
   diff: string
   message?: string
 }
