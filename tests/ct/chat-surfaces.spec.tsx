@@ -5,29 +5,19 @@ import { SessionList } from '../../frontend/src/components/chat/SessionList.js'
 import { ChatComposer } from '../../frontend/src/components/chat/ChatComposer.js'
 
 test.describe('chat surfaces', () => {
-  test('renders header status and compact selector', async ({ mount }) => {
+  test('renders header status and active session context', async ({ mount }) => {
     const component = await mount(
       <div className="p-6">
         <ChatHeader
           agentId="copilot"
-          agents={[
-            { id: 'copilot', name: 'GitHub Copilot', status: 'active', command: 'copilot' },
-            {
-              id: 'claude-code',
-              name: 'Claude Code',
-              status: 'unavailable',
-              command: null,
-            },
-          ]}
-          onAgentSelect={() => {}}
-          renderLink={({ className, children }) => <span className={className}>{children}</span>}
+          agentName="GitHub Copilot"
           project={{
             id: 'acp-frontend',
             name: 'ACP Frontend',
             path: '/home/runner/work/acp-frontend/acp-frontend',
             status: 'available',
           }}
-          sessionId="session-1"
+          sessionTitle="Investigate session history"
           errorMessage={null}
           ready
           thinking={false}
@@ -35,9 +25,10 @@ test.describe('chat surfaces', () => {
       </div>
     )
 
-    await expect(component.getByRole('combobox', { name: 'Active agent' })).toBeVisible()
-    await expect(component.getByText('Ready')).toBeVisible()
-    await expect(component.getByText('ACP Frontend')).toBeVisible()
+    await expect(component.getByText('Investigate session history')).toBeVisible()
+    await expect(component.getByText('Connected')).toBeVisible()
+    await expect(component.getByText('GitHub Copilot', { exact: true })).toBeVisible()
+    await expect(component.getByText('ACP Frontend', { exact: true })).toBeVisible()
   })
 
   test('renders transcript on mobile viewport', async ({ mount }) => {
@@ -49,6 +40,7 @@ test.describe('chat surfaces', () => {
             { id: 'user-1', role: 'user', content: 'Please inspect the layout.' },
             { id: 'assistant-1', role: 'assistant', content: 'The spacing looks balanced now.' },
           ]}
+          hasSession
           loading={false}
           ready
           thinking
