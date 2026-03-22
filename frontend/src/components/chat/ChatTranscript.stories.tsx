@@ -74,6 +74,8 @@ export const Welcome: Story = {
     hasAnyProject: true,
     hasAvailableAgent: true,
     hasAvailableProject: true,
+    onOpenProjectManager: () => {},
+    onStartSession: () => {},
   },
 }
 
@@ -86,6 +88,7 @@ export const NeedsProject: Story = {
     hasAnyProject: false,
     hasAvailableAgent: true,
     hasAvailableProject: false,
+    onOpenProjectManager: () => {},
   },
 }
 
@@ -98,5 +101,6 @@ export const NeedsAgent: Story = {
     hasAnyProject: true,
     hasAvailableAgent: false,
     hasAvailableProject: true,
+    onOpenProjectManager: () => {},
   },
 }

@@ -37,9 +37,9 @@ export function ChatTranscript({
   return (
     <div
       data-testid="chat-transcript"
-      className="min-h-0 flex-1 overflow-y-auto bg-[#070b12] px-5 py-5 sm:px-6 sm:py-6"
+      className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-[#070b12] px-5 py-5 sm:px-6 sm:py-6"
     >
-      <div className="mx-auto flex min-h-full w-full max-w-4xl flex-col gap-5">
+      <div className="mx-auto flex min-h-full min-w-0 w-full max-w-4xl flex-col gap-5">
         {loading && !errorMessage && (
           <section className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-5 py-6 text-sm text-amber-100 shadow-sm">
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-amber-700">
@@ -99,10 +99,10 @@ export function ChatTranscript({
           return (
             <article
               key={message.id}
-              className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}
+              className={`flex min-w-0 ${isUser ? 'justify-end' : 'justify-start'}`}
             >
               <div
-                className={`max-w-[85%] rounded-2xl px-4 py-3 shadow-sm sm:max-w-[75%] ${
+                className={`min-w-0 max-w-[85%] rounded-2xl px-4 py-3 shadow-sm sm:max-w-[75%] ${
                   isUser
                     ? 'bg-teal-500 text-slate-950'
                     : 'border border-white/10 bg-slate-900/95 text-slate-100 backdrop-blur'

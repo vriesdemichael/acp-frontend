@@ -30,9 +30,7 @@ test.describe('chat empty-state onboarding', () => {
 
     await welcome.getByRole('button', { name: 'Start a session' }).click()
 
-    const sessionSurface = test.info().project.name.includes('mobile')
-      ? page.getByTestId('chat-session-drawer')
-      : page.getByTestId('chat-session-panel')
+    const sessionSurface = page.getByTestId('chat-session-drawer')
     await expect(sessionSurface.getByText(/^New Session$/)).toBeVisible()
     await expect(sessionSurface.getByRole('button', { name: /GitHub Copilot/i })).toBeVisible()
   })

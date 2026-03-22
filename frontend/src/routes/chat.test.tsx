@@ -275,13 +275,13 @@ describe('ChatPage', () => {
     expect(screen.getByTestId('chat-transcript')).toBeDefined()
 
     await waitFor(() => expect(MockEventSource.instance).not.toBeNull())
-    expect(screen.getByTestId('chat-session-panel')).toBeDefined()
-    expect(screen.getByRole('button', { name: 'Open project manager' })).toBeDefined()
+    expect(screen.queryByTestId('chat-session-panel')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Open project manager' })).toBeNull()
     expect(screen.getByRole('button', { name: 'Files' })).toBeDefined()
     expect(screen.getByRole('button', { name: 'Diff' })).toBeDefined()
   })
 
-  it('opens the session rail as a mobile drawer from the top bar', async () => {
+  it('opens the session rail as a drawer from the top bar', async () => {
     renderChatPage('/chat?session=test-session-id&agent=copilot&project=acp-frontend')
 
     fireEvent.click(await screen.findByRole('button', { name: 'Open navigation' }))
@@ -396,9 +396,9 @@ describe('ChatPage', () => {
     const transcript = await screen.findByTestId('chat-transcript')
     fireEvent.click(within(transcript).getByRole('button', { name: 'Start a session' }))
 
-    const sessionPanel = screen.getByTestId('chat-session-panel')
-    await waitFor(() => expect(within(sessionPanel).getByText('New Session')).toBeDefined())
-    expect(within(sessionPanel).getByRole('button', { name: /GitHub Copilot/i })).toBeDefined()
+    const sessionDrawer = screen.getByTestId('chat-session-drawer')
+    await waitFor(() => expect(within(sessionDrawer).getByText('New Session')).toBeDefined())
+    expect(within(sessionDrawer).getByRole('button', { name: /GitHub Copilot/i })).toBeDefined()
   })
 
   it('sends a POST when the form is submitted', async () => {
@@ -455,9 +455,11 @@ describe('ChatPage', () => {
 
     renderChatPage('/chat?agent=copilot&project=acp-frontend')
 
-    const createButton = await screen.findByRole('button', { name: 'New' })
-    fireEvent.click(createButton)
-    fireEvent.click(await screen.findByRole('button', { name: /GitHub Copilot/i }))
+    const transcript = await screen.findByTestId('chat-transcript')
+    fireEvent.click(within(transcript).getByRole('button', { name: 'Start a session' }))
+
+    const sessionDrawer = await screen.findByTestId('chat-session-drawer')
+    fireEvent.click(within(sessionDrawer).getByRole('button', { name: /GitHub Copilot/i }))
 
     await waitFor(() =>
       expect(
@@ -489,9 +491,14 @@ describe('ChatPage', () => {
 
   it('loads a previous transcript when a session is selected', async () => {
     renderChatPage()
-    await waitFor(() => expect(screen.getByText('Review SSE handling')).toBeDefined())
+    fireEvent.click(await screen.findByRole('button', { name: 'Open navigation' }))
 
-    fireEvent.click(screen.getByRole('button', { name: /Review SSE handling/i }))
+    const sessionDrawer = await screen.findByTestId('chat-session-drawer')
+    await waitFor(() =>
+      expect(within(sessionDrawer).getByText('Review SSE handling')).toBeDefined()
+    )
+
+    fireEvent.click(within(sessionDrawer).getByRole('button', { name: /Review SSE handling/i }))
 
     await waitFor(() => expect(screen.getByText('Previous answer')).toBeDefined())
   })
@@ -500,7 +507,10 @@ describe('ChatPage', () => {
     renderChatPage('/chat?session=test-session-id&agent=copilot&project=acp-frontend')
 
     await waitFor(() => expect(screen.getByText('Start the conversation')).toBeDefined())
-    fireEvent.click(screen.getByRole('button', { name: /Review SSE handling/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'Open navigation' }))
+
+    const sessionDrawer = await screen.findByTestId('chat-session-drawer')
+    fireEvent.click(within(sessionDrawer).getByRole('button', { name: /Review SSE handling/i }))
 
     await waitFor(() => expect(screen.getByText('Previous answer')).toBeDefined())
     expect(screen.queryByText('Start the conversation')).toBeNull()
@@ -553,9 +563,7 @@ describe('ChatPage', () => {
     renderChatPage('/chat?agent=copilot&project=acp-frontend')
 
     await waitFor(() =>
-      expect(
-        screen.getByText('No chats yet. Create a new session once an agent and project are ready.')
-      ).toBeDefined()
+      expect(getTranscriptRegion().getByText('Open a fresh chat in this project')).toBeDefined()
     )
   })
 
@@ -565,7 +573,9 @@ describe('ChatPage', () => {
 
     renderChatPage('/chat?agent=copilot')
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Open project manager' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Open navigation' }))
+    const sessionDrawer = await screen.findByTestId('chat-session-drawer')
+    fireEvent.click(within(sessionDrawer).getByRole('button', { name: 'Open project manager' }))
     fireEvent.click(await screen.findByRole('button', { name: /^Use$/ }))
 
     await waitFor(() =>
@@ -714,7 +724,9 @@ describe('ChatPage', () => {
 
     renderChatPage('/chat?session=test-session-id&agent=copilot&project=acp-frontend')
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Open project manager' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Open navigation' }))
+    const sessionDrawer = await screen.findByTestId('chat-session-drawer')
+    fireEvent.click(within(sessionDrawer).getByRole('button', { name: 'Open project manager' }))
     const useButtons = await screen.findAllByRole('button', { name: /^Use$/ })
     fireEvent.click(useButtons[0]!)
 
@@ -728,13 +740,15 @@ describe('ChatPage', () => {
 
     renderChatPage('/chat?session=test-session-id&agent=copilot&project=acp-frontend')
 
-    const sessionPanel = await screen.findByTestId('chat-session-panel')
-    expect(within(sessionPanel).getByText('Inspect auth bug')).toBeDefined()
+    fireEvent.click(await screen.findByRole('button', { name: 'Open navigation' }))
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Open project manager' }))
+    const sessionDrawer = await screen.findByTestId('chat-session-drawer')
+    expect(within(sessionDrawer).getByText('Inspect auth bug')).toBeDefined()
+
+    fireEvent.click(within(sessionDrawer).getByRole('button', { name: 'Open project manager' }))
     fireEvent.click((await screen.findAllByRole('button', { name: 'Shown' }))[0]!)
 
-    await waitFor(() => expect(within(sessionPanel).queryByText('Inspect auth bug')).toBeNull())
+    await waitFor(() => expect(within(sessionDrawer).queryByText('Inspect auth bug')).toBeNull())
   })
 
   it('shows a helpful error when no available projects exist', async () => {
@@ -969,7 +983,9 @@ describe('ChatPage', () => {
 
     renderChatPage('/chat?session=test-session-id&agent=copilot&project=acp-frontend')
 
-    const sessionPanel = await screen.findByTestId('chat-session-panel')
+    fireEvent.click(await screen.findByRole('button', { name: 'Open navigation' }))
+
+    const sessionPanel = await screen.findByTestId('chat-session-drawer')
 
     await waitFor(() => expect(within(sessionPanel).getByText('Inspect auth bug')).toBeDefined())
     expect(within(sessionPanel).getAllByText('ACP Frontend').length).toBeGreaterThan(0)
@@ -979,7 +995,6 @@ describe('ChatPage', () => {
     expect(within(sessionPanel).getByText('GitHub Copilot')).toBeDefined()
     expect(within(sessionPanel).getByText('Gemini CLI')).toBeDefined()
     expect(within(sessionPanel).getByText('Claude Code')).toBeDefined()
-    expect(within(sessionPanel).getByText('Offline')).toBeDefined()
-    expect(within(sessionPanel).getAllByText('Selected')).toHaveLength(1)
+    expect(within(sessionPanel).getByLabelText('Agent unavailable')).toBeDefined()
   })
 })

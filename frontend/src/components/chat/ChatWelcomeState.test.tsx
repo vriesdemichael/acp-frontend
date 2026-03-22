@@ -1,15 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import type { ReactNode } from 'react'
-
-vi.mock('@tanstack/react-router', () => ({
-  Link: ({ children, ...props }: { children: ReactNode } & Record<string, unknown>) => (
-    <a href={typeof props.to === 'string' ? props.to : '#'} {...props}>
-      {children}
-    </a>
-  ),
-}))
 
 import { ChatWelcomeState } from './ChatWelcomeState.js'
 
