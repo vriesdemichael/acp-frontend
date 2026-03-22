@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { Hono } from 'hono'
 import { projectsRoutes } from './projects.js'
+import type { ProjectDiffResult } from '../projects/types.js'
 
 const mocks = vi.hoisted(() => {
   class DuplicateProjectIdError extends Error {
@@ -54,10 +55,12 @@ const mocks = vi.hoisted(() => {
         hasChildren: !path,
       },
     ]),
-    readProjectDiff: vi.fn(async () => ({
-      status: 'ok',
-      diff: 'diff --git a/src/app.ts b/src/app.ts',
-    })),
+    readProjectDiff: vi.fn(
+      async (): Promise<ProjectDiffResult> => ({
+        status: 'ok',
+        diff: 'diff --git a/src/app.ts b/src/app.ts',
+      })
+    ),
     listProjectPathSuggestions: vi.fn(async (path: string) => [
       {
         name: 'projects',
@@ -145,9 +148,28 @@ describe('projects routes', () => {
     const res = await app.request('/api/projects/repo-1/diff')
     expect(res.status).toBe(200)
 
-    const body = (await res.json()) as { status: string; diff: string }
+    const body = (await res.json()) as { status: string; diff: string; message?: string }
     expect(body).toMatchObject({ status: 'ok' })
     expect(body.diff).toContain('diff --git')
+  })
+
+  it('returns diff errors instead of masking them as empty diffs', async () => {
+    mocks.readProjectDiff.mockResolvedValueOnce({
+      status: 'error',
+      diff: '',
+      message: 'fatal: not a git repository',
+    })
+
+    const app = new Hono().route('/api', projectsRoutes())
+
+    const res = await app.request('/api/projects/repo-1/diff')
+    expect(res.status).toBe(200)
+
+    const body = (await res.json()) as { status: string; message?: string }
+    expect(body).toMatchObject({
+      status: 'error',
+      message: 'fatal: not a git repository',
+    })
   })
 
   it('returns 409 for unavailable projects', async () => {

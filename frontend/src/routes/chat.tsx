@@ -16,7 +16,7 @@ import {
 } from '../components/chat/ProjectWorkspacePanel.js'
 
 interface ProjectDiffResult {
-  status: 'ok' | 'git_not_found'
+  status: 'ok' | 'git_not_found' | 'error'
   diff: string
   message?: string
 }
@@ -262,6 +262,7 @@ export function ChatPage() {
     <main className="h-[100dvh] overflow-hidden bg-[#05070b] text-slate-100">
       <div className="mx-auto flex h-full w-full max-w-[1800px] flex-col overflow-hidden">
         <ChatHeader
+          agentId={selectedAgent?.id ?? null}
           agentName={selectedAgent?.name ?? null}
           errorMessage={errorMessage}
           onToggleSidebar={() => setMobileSidebarOpen(true)}
@@ -351,8 +352,6 @@ export function ChatPage() {
                   projects={projects}
                   selectedProjectId={selectedProject?.id ?? null}
                   onProjectSelect={selectProject}
-                  onAddProject={addProject}
-                  onSuggestProjectPaths={suggestProjectPaths}
                   tree={tree}
                   treePath={treePath}
                   treeLoading={treeLoading}
@@ -384,9 +383,11 @@ export function ChatPage() {
                           ? 'error'
                           : diffResult?.status === 'git_not_found'
                             ? 'git_not_found'
-                            : diffResult?.diff
-                              ? 'ready'
-                              : 'empty'
+                            : diffResult?.status === 'error'
+                              ? 'error'
+                              : diffResult?.diff
+                                ? 'ready'
+                                : 'empty'
                     }
                     diff={diffResult?.diff}
                     message={diffError ?? diffResult?.message ?? null}

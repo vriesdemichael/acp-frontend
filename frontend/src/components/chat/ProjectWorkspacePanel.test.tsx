@@ -23,12 +23,6 @@ const DEFAULT_PROPS = {
   projects: [AVAILABLE_PROJECT, MISSING_PROJECT] as ProjectSummary[],
   selectedProjectId: AVAILABLE_PROJECT.id as string | null,
   onProjectSelect: vi.fn<(id: string) => void>(),
-  onAddProject: vi
-    .fn<(name: string, path: string) => Promise<ProjectSummary>>()
-    .mockResolvedValue(AVAILABLE_PROJECT),
-  onSuggestProjectPaths: vi
-    .fn<(path: string) => Promise<Array<{ name: string; path: string }>>>()
-    .mockResolvedValue([]),
   tree: [] as [],
   treePath: null as string | null,
   treeLoading: false,

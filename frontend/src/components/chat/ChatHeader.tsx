@@ -2,6 +2,7 @@ import type { ProjectSummary } from '../../hooks/useAgUiChat.js'
 import { AgentIcon } from './icons/AgentIcon.js'
 
 interface ChatHeaderProps {
+  agentId: string | null
   agentName: string | null
   onToggleSidebar?: () => void
   project: ProjectSummary | null
@@ -12,6 +13,7 @@ interface ChatHeaderProps {
 }
 
 export function ChatHeader({
+  agentId,
   agentName,
   onToggleSidebar,
   project,
@@ -63,7 +65,7 @@ export function ChatHeader({
           <div className="hidden items-center gap-1.5 rounded-full border border-white/10 bg-slate-900/80 px-3 py-1 text-xs text-slate-400 md:flex">
             {agentName ? (
               <>
-                <AgentIcon agentId={agentName} className="h-4 w-4" />
+                <AgentIcon agentId={agentId ?? undefined} className="h-4 w-4" />
                 <span>{agentName}</span>
               </>
             ) : (

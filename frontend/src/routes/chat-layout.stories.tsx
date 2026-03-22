@@ -19,6 +19,7 @@ function ChatLayoutStory() {
     <main className="min-h-screen bg-[#05070b] text-slate-100">
       <div className="mx-auto flex min-h-screen w-full max-w-[1800px] flex-col">
         <ChatHeader
+          agentId="copilot"
           agentName="GitHub Copilot"
           errorMessage={null}
           onToggleSidebar={() => setMobileSidebarOpen(true)}
@@ -156,22 +157,6 @@ function ChatLayoutStory() {
                   ]}
                   selectedProjectId="acp-frontend"
                   onProjectSelect={() => {}}
-                  onAddProject={() =>
-                    Promise.resolve({
-                      id: 'new-project',
-                      name: 'New Project',
-                      path: '/home/vries/projects/new-project',
-                      status: 'available' as const,
-                    })
-                  }
-                  onSuggestProjectPaths={(path) =>
-                    Promise.resolve([
-                      {
-                        name: 'acp-frontend',
-                        path: `${path.replace(/\/+$/, '')}/acp-frontend`,
-                      },
-                    ])
-                  }
                   tree={[
                     { name: 'src', path: 'src', type: 'directory', hasChildren: true },
                     {

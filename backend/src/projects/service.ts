@@ -135,12 +135,27 @@ export async function readProjectDiff(project: ProjectSummary): Promise<ProjectD
     }
 
     if (error && typeof error === 'object' && 'stdout' in error) {
+      const stdout = typeof error.stdout === 'string' ? error.stdout : ''
       const stderr =
         'stderr' in error && typeof error.stderr === 'string' ? error.stderr.trim() : undefined
+      const code =
+        'code' in error && (typeof error.code === 'number' || typeof error.code === 'string')
+          ? error.code
+          : undefined
+      const hasFatalGitError = typeof stderr === 'string' && /^fatal:/i.test(stderr)
+      const hasUsableDiff = stdout.length > 0
+
+      if (hasFatalGitError || (!hasUsableDiff && code != null)) {
+        return {
+          status: 'error',
+          diff: '',
+          message: stderr ?? 'Git diff failed for this project.',
+        }
+      }
 
       return {
         status: 'ok',
-        diff: typeof error.stdout === 'string' ? error.stdout : '',
+        diff: stdout,
         message: stderr,
       }
     }

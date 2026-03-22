@@ -5,6 +5,7 @@ const meta = {
   title: 'Chat/ChatHeader',
   component: ChatHeader,
   args: {
+    agentId: 'copilot',
     agentName: 'GitHub Copilot',
     project: {
       id: 'acp-frontend',
