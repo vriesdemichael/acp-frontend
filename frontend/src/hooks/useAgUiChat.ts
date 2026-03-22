@@ -486,9 +486,19 @@ export function useAgUiChat({
           const block: StructuredBlock = { kind: 'tool_call', payload }
 
           setMessages((current) => {
-            // Find the last assistant message to attach the block to, or create one
+            // Find the index of the most recent user message (start of current run)
+            const lastUserIdx = current.reduceRight(
+              (found, msg, idx) => (found === -1 && msg.role === 'user' ? idx : found),
+              -1
+            )
+
+            // Only attach to an assistant message that appears after the most recent user message.
+            // This prevents accidentally mutating the previous run's assistant message when a
+            // tool_call CUSTOM event arrives before TEXT_MESSAGE_START for the new run.
+            const searchFrom = lastUserIdx === -1 ? 0 : lastUserIdx + 1
             const lastAssistantIdx = current.reduceRight(
-              (found, msg, idx) => (found === -1 && msg.role === 'assistant' ? idx : found),
+              (found, msg, idx) =>
+                found === -1 && idx >= searchFrom && msg.role === 'assistant' ? idx : found,
               -1
             )
 
@@ -828,7 +838,10 @@ function writeStoredSelections(storageKey: string, values: string[]): void {
 
 /**
  * Upsert a StructuredBlock into a blocks array by callId.
- * If a block with the same callId exists, it is replaced; otherwise appended.
+ * If a block with the same callId exists, its payload is merged (existing fields
+ * are preserved and the incoming payload is overlaid), so partial updates
+ * (e.g. only result/done) don't discard earlier fields like toolName or args.
+ * If no matching block exists, the new block is appended.
  */
 function upsertBlock(
   existing: StructuredBlock[] | undefined,

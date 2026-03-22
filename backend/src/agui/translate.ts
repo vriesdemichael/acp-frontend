@@ -125,6 +125,9 @@ export class StreamTranslator {
       this.currentMessageId = null
     }
 
+    // Clear the toolCallId → toolName map so it doesn't grow unboundedly across runs
+    this.toolCallNames.clear()
+
     events.push({
       type: EventType.RUN_FINISHED,
       threadId: this.threadId,

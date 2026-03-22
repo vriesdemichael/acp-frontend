@@ -93,6 +93,33 @@ describe('StreamTranslator', () => {
     })
   })
 
+  it('includes toolName in CUSTOM event for tool_call_update after prior tool_call', () => {
+    // First register the tool_call so the translator can resolve toolName for updates
+    t.onSessionUpdate({
+      sessionUpdate: 'tool_call',
+      toolCallId: 'tool-1',
+      title: 'Read file',
+    })
+
+    const events = t.onSessionUpdate({
+      sessionUpdate: 'tool_call_update',
+      toolCallId: 'tool-1',
+      content: [{ type: 'content', content: { type: 'text', text: 'done' } }],
+    })
+
+    expect(events).toHaveLength(2)
+    expect(events[0]).toMatchObject({
+      type: EventType.TOOL_CALL_RESULT,
+      toolCallId: 'tool-1',
+      content: 'done',
+    })
+    expect(events[1]).toMatchObject({
+      type: EventType.CUSTOM,
+      name: 'a2ui:tool_call',
+      value: { callId: 'tool-1', toolName: 'Read file', result: 'done', done: true },
+    })
+  })
+
   it('falls back to rawOutput for tool_call_update results', () => {
     const events = t.onSessionUpdate({
       sessionUpdate: 'tool_call_update',
