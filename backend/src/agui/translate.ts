@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import {
   EventType,
   type BaseEvent,
+  type CustomEvent,
   type RunErrorEvent,
   type RunFinishedEvent,
   type RunStartedEvent,
@@ -66,6 +67,15 @@ export class StreamTranslator {
             toolCallName: update.title,
             parentMessageId: this.currentMessageId ?? undefined,
           } satisfies ToolCallStartEvent,
+          {
+            type: EventType.CUSTOM,
+            name: 'a2ui:tool_call',
+            value: {
+              callId: update.toolCallId,
+              toolName: update.title ?? '',
+              done: false,
+            },
+          } satisfies CustomEvent,
         ]
 
       case 'tool_call_update': {
@@ -80,6 +90,16 @@ export class StreamTranslator {
             content: resultText,
             role: 'tool',
           } satisfies ToolCallResultEvent,
+          {
+            type: EventType.CUSTOM,
+            name: 'a2ui:tool_call',
+            value: {
+              callId: update.toolCallId,
+              toolName: '',
+              result: resultText,
+              done: true,
+            },
+          } satisfies CustomEvent,
         ]
       }
 

@@ -1,4 +1,6 @@
 import type { ChatMessage } from '../../hooks/useAgUiChat.js'
+import { ENABLE_A2UI } from '../../config/features.js'
+import { StructuredAssistantMessage } from './StructuredAssistantMessage.js'
 import { ChatWelcomeState } from './ChatWelcomeState.js'
 
 interface ChatTranscriptProps {
@@ -95,6 +97,11 @@ export function ChatTranscript({
 
         {messages.map((message) => {
           const isUser = message.role === 'user'
+          const hasStructured =
+            ENABLE_A2UI &&
+            !isUser &&
+            message.structuredBlocks !== undefined &&
+            message.structuredBlocks.length > 0
 
           return (
             <article
@@ -115,7 +122,14 @@ export function ChatTranscript({
                 >
                   {isUser ? 'You' : activeAgentName}
                 </p>
-                <p className="mt-2 whitespace-pre-wrap text-sm leading-6">{message.content}</p>
+                {hasStructured && (
+                  <div className="mt-2">
+                    <StructuredAssistantMessage blocks={message.structuredBlocks!} />
+                  </div>
+                )}
+                {message.content && (
+                  <p className="mt-2 whitespace-pre-wrap text-sm leading-6">{message.content}</p>
+                )}
               </div>
             </article>
           )

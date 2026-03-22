@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { EventType } from '@ag-ui/core'
+import { ENABLE_A2UI } from '../config/features.js'
+import type { A2UIToolCallPayload, StructuredBlock } from '../components/chat/a2ui-types.js'
 
 const CHAT_AGENT_STORAGE_KEY = 'acp.chat.agent'
 const CHAT_PROJECT_STORAGE_KEY = 'acp.chat.project'
@@ -10,6 +12,7 @@ export interface ChatMessage {
   id: string
   role: 'user' | 'assistant'
   content: string
+  structuredBlocks?: StructuredBlock[]
 }
 
 export interface AgentSummary {
@@ -469,6 +472,59 @@ export function useAgUiChat({
       })
     })
 
+    if (ENABLE_A2UI) {
+      sse.addEventListener(EventType.CUSTOM, (event: MessageEvent<string>) => {
+        if (activeSessionRef.current !== currentSessionId) return
+
+        try {
+          const parsed = JSON.parse(event.data) as { name?: string; value?: unknown }
+          if (parsed.name !== 'a2ui:tool_call') return
+
+          const payload = parsed.value as A2UIToolCallPayload
+          if (!payload?.callId || !payload?.toolName) return
+
+          const block: StructuredBlock = { kind: 'tool_call', payload }
+
+          setMessages((current) => {
+            // Find the last assistant message to attach the block to, or create one
+            const lastAssistantIdx = current.reduceRight(
+              (found, msg, idx) => (found === -1 && msg.role === 'assistant' ? idx : found),
+              -1
+            )
+
+            if (lastAssistantIdx === -1) {
+              const syntheticId = `a2ui-${payload.callId}`
+              const existing = current.find((m) => m.id === syntheticId)
+              if (existing) {
+                return current.map((m) =>
+                  m.id === syntheticId
+                    ? { ...m, structuredBlocks: upsertBlock(m.structuredBlocks, block) }
+                    : m
+                )
+              }
+              return [
+                ...current,
+                {
+                  id: syntheticId,
+                  role: 'assistant',
+                  content: '',
+                  structuredBlocks: [block],
+                },
+              ]
+            }
+
+            return current.map((m, idx) =>
+              idx === lastAssistantIdx
+                ? { ...m, structuredBlocks: upsertBlock(m.structuredBlocks, block) }
+                : m
+            )
+          })
+        } catch {
+          // Malformed CUSTOM event — ignore silently
+        }
+      })
+    }
+
     const finishRun = () => {
       if (activeSessionRef.current !== currentSessionId) return
       setThinking(false)
@@ -768,4 +824,22 @@ function writeStoredSelections(storageKey: string, values: string[]): void {
   }
 
   window.localStorage.setItem(storageKey, JSON.stringify(values))
+}
+
+/**
+ * Upsert a StructuredBlock into a blocks array by callId.
+ * If a block with the same callId exists, it is replaced; otherwise appended.
+ */
+function upsertBlock(
+  existing: StructuredBlock[] | undefined,
+  block: StructuredBlock
+): StructuredBlock[] {
+  if (!existing) return [block]
+  const idx = existing.findIndex(
+    (b) => b.kind === block.kind && b.payload.callId === block.payload.callId
+  )
+  if (idx === -1) return [...existing, block]
+  const next = [...existing]
+  next[idx] = block
+  return next
 }
