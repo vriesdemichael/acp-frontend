@@ -1,7 +1,8 @@
 // @vitest-environment happy-dom
 import { describe, it, expect } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
-import { ChatDiffView, parseUnifiedDiff } from './ChatDiffView.js'
+import { ChatDiffView } from './ChatDiffView.js'
+import { parseUnifiedDiff } from './parseUnifiedDiff.js'
 
 const SAMPLE_DIFF = `diff --git a/src/app.tsx b/src/app.tsx
 index 1234567..89abcde 100644
