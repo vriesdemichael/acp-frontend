@@ -6,7 +6,7 @@ import {
   redirect,
 } from '@tanstack/react-router'
 import { ChatPage } from './routes/chat.js'
-import { SettingsPage } from './routes/backend-settings.js'
+import { SettingsPage } from './routes/settings.js'
 
 const rootRoute = createRootRoute({
   component: Outlet,
