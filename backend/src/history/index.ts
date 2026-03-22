@@ -1,6 +1,7 @@
 import type { SessionProjectContext, SessionSummary } from '../agents/types.js'
 import { readCopilotSessions } from './copilot.js'
 import { readGeminiSessions } from './gemini.js'
+import { readOpenCodeSessions } from './opencode.js'
 
 interface HistorySessionProvider {
   id: string
@@ -15,6 +16,10 @@ const HISTORY_SESSION_PROVIDERS: HistorySessionProvider[] = [
   {
     id: 'copilot',
     readSessions: readCopilotSessions,
+  },
+  {
+    id: 'opencode',
+    readSessions: readOpenCodeSessions,
   },
 ]
 
