@@ -12,6 +12,7 @@ const denseSessions = Array.from({ length: 8 }, (_, index) => ({
     name: 'ACP Frontend',
     path: '/home/vries/projects/acp-frontend',
   },
+  source: 'live' as const,
 }))
 
 const meta = {
@@ -74,6 +75,7 @@ export const GroupedByProject: Story = {
           name: 'Docs Site',
           path: '/home/vries/projects/docs-site',
         },
+        source: 'history' as const,
       },
     ],
     selectedAgentId: 'gemini-cli',
@@ -82,4 +84,12 @@ export const GroupedByProject: Story = {
 
 export const MobileDrawer: Story = {
   render: (args) => <MobileDrawerStory {...args} />,
+}
+
+export const DrawerClosed: Story = {
+  args: {
+    sessions: [],
+    activeSessionId: null,
+    mobileOpen: false,
+  },
 }

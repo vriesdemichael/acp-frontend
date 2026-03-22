@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { useMemo, useState } from 'react'
 import type { AgentSummary, SessionSummary } from '../../hooks/useAgUiChat.js'
 import { AgentIcon } from './icons/AgentIcon.js'
+import { formatRelativeDate } from './formatRelativeDate.js'
 
 interface SessionListProps {
   agents: AgentSummary[]
@@ -39,9 +40,8 @@ export function SessionList({
   settingsLink,
 }: SessionListProps) {
   const projectGroups = useMemo(
-    () =>
-      buildProjectGroups({ agents, sessions, selectedAgentId, activeSessionId, visibleProjectIds }),
-    [activeSessionId, agents, selectedAgentId, sessions, visibleProjectIds]
+    () => buildProjectGroups({ agents, sessions, activeSessionId, visibleProjectIds }),
+    [activeSessionId, agents, sessions, visibleProjectIds]
   )
   const selectedProjectHasSessions = useMemo(
     () =>
@@ -233,22 +233,39 @@ export function SessionList({
                             <p className="min-w-0 truncate text-sm font-medium text-slate-100">
                               {item.session.title}
                             </p>
-                            <span
-                              className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] ${item.badgeClassName}`}
-                            >
-                              {item.badgeLabel}
-                            </span>
                           </div>
                           <div className="mt-2 flex min-w-0 items-center gap-1.5 text-[11px] text-slate-500">
-                            <AgentIcon
-                              agentId={item.session.agentId}
-                              className="h-3 w-3 shrink-0"
-                            />
+                            <span className="relative inline-flex shrink-0 items-center justify-center">
+                              <AgentIcon
+                                agentId={item.session.agentId}
+                                className="h-3 w-3 shrink-0"
+                              />
+                              {!item.agentReady ? (
+                                <span
+                                  aria-label="Agent unavailable"
+                                  title="Agent unavailable"
+                                  className="absolute -right-1.5 -top-1.5 inline-flex h-3.5 w-3.5 items-center justify-center rounded-full border border-rose-500/40 bg-slate-950 text-[9px] leading-none text-rose-300"
+                                >
+                                  ×
+                                </span>
+                              ) : null}
+                            </span>
                             <span className="truncate">{item.agentName}</span>
                             <span aria-hidden="true">·</span>
                             <span className="truncate">
-                              Updated {formatUpdatedAt(item.session.updatedAt)}
+                              Updated {formatRelativeDate(item.session.updatedAt)}
                             </span>
+                            {item.session.source === 'history' ? (
+                              <>
+                                <span aria-hidden="true">·</span>
+                                <span
+                                  title="Session recorded by CLI tool — read-only history"
+                                  className="rounded border border-white/8 bg-slate-900/60 px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-slate-500"
+                                >
+                                  CLI
+                                </span>
+                              </>
+                            ) : null}
                           </div>
                         </button>
                       )
@@ -290,15 +307,13 @@ interface ProjectGroupInput {
   agents: AgentSummary[]
   sessions: SessionSummary[]
   visibleProjectIds?: string[]
-  selectedAgentId: string | null
   activeSessionId: string | null
 }
 
 interface SessionItem {
   session: SessionSummary
   agentName: string
-  badgeLabel: string
-  badgeClassName: string
+  agentReady: boolean
 }
 
 interface ProjectGroup {
@@ -312,7 +327,6 @@ function buildProjectGroups({
   agents,
   sessions,
   visibleProjectIds,
-  selectedAgentId,
   activeSessionId,
 }: ProjectGroupInput): ProjectGroup[] {
   const grouped = new Map<string, ProjectGroup>()
@@ -336,9 +350,7 @@ function buildProjectGroups({
     const projectName = session.project?.name ?? 'Unknown project'
     const projectPath = session.project?.path ?? 'No project path'
     const agent = agents.find((candidate) => candidate.id === session.agentId)
-    const isSelected = session.id === activeSessionId
-    const isDetected = agent?.status === 'detected'
-    const isUnavailable = !agent || agent.status === 'unavailable'
+    const agentReady = agent?.status === 'active'
 
     if (!grouped.has(projectId)) {
       grouped.set(projectId, {
@@ -352,24 +364,7 @@ function buildProjectGroups({
     grouped.get(projectId)!.sessions.push({
       session,
       agentName: agent?.name ?? session.agentId,
-      badgeLabel: isSelected
-        ? 'Selected'
-        : session.agentId === selectedAgentId
-          ? 'Current'
-          : isDetected
-            ? 'Detected'
-            : isUnavailable
-              ? 'Offline'
-              : 'Ready',
-      badgeClassName: isSelected
-        ? 'border border-teal-500/30 bg-teal-500/10 text-teal-200'
-        : session.agentId === selectedAgentId
-          ? 'border border-sky-500/25 bg-sky-500/10 text-sky-200'
-          : isDetected
-            ? 'border border-amber-500/25 bg-amber-500/10 text-amber-200'
-            : isUnavailable
-              ? 'border border-white/10 bg-slate-900 text-slate-400'
-              : 'border border-emerald-500/20 bg-emerald-500/10 text-emerald-200',
+      agentReady,
     })
   }
 
@@ -398,16 +393,4 @@ function compactProjectPath(path: string): string {
   }
 
   return `/${parts[0]}/${parts[1]}/.../${parts.at(-1)}`
-}
-
-function formatUpdatedAt(updatedAt: string): string {
-  const date = new Date(updatedAt)
-  if (Number.isNaN(date.valueOf())) return 'just now'
-
-  return new Intl.DateTimeFormat('en', {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  }).format(date)
 }
