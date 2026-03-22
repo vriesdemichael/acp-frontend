@@ -1,5 +1,3 @@
-import { Link } from '@tanstack/react-router'
-
 interface ChatWelcomeStateProps {
   activeAgentName: string
   canStartSession: boolean
@@ -97,12 +95,12 @@ export function ChatWelcomeState({
                 Start a session
               </button>
             ) : null}
-            <Link
-              to="/settings"
+            <a
+              href="/settings"
               className="inline-flex h-11 items-center justify-center rounded-xl border border-white/10 bg-transparent px-4 text-sm font-semibold text-slate-300 transition hover:border-white/15 hover:bg-slate-900/70 hover:text-slate-100"
             >
               Open settings
-            </Link>
+            </a>
           </div>
 
           <div className="mt-4 rounded-xl border border-white/8 bg-slate-900/70 px-3 py-3 text-sm text-slate-400">

@@ -1,9 +1,7 @@
 import { expect, test } from '@playwright/test'
 
 test.describe('chat navigation and diff regression coverage', () => {
-  test('opens the mobile navigation drawer from the header', async ({ page }) => {
-    test.skip(!test.info().project.name.includes('mobile'), 'mobile-only assertion')
-
+  test('opens the navigation drawer from the header', async ({ page }) => {
     await page.goto('/chat?agent=copilot&project=acp-frontend')
 
     await expect(page.getByRole('button', { name: 'Open navigation' })).toBeVisible({

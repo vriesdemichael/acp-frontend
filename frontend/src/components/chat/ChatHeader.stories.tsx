@@ -16,6 +16,7 @@ const meta = {
     errorMessage: null,
     ready: true,
     thinking: false,
+    onToggleSidebar: () => {},
   },
 } satisfies Meta<typeof ChatHeader>
 

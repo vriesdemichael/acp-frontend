@@ -7,8 +7,8 @@ const toSessionProjectContextMock = vi.fn((project) => ({
   name: project.name,
   path: project.path,
 }))
-const readGeminiSessionsMock = vi.fn()
-const readCopilotSessionsMock = vi.fn()
+const listHistorySessionsMock = vi.fn()
+const mergeSessionsMock = vi.fn((live, history) => [...history, ...live])
 const readBackendConfigMock = vi.fn()
 const detectAvailableCommandMock = vi.fn(() => ({ command: null }))
 const createGenericAcpAdapterMock = vi.fn()
@@ -19,12 +19,9 @@ vi.mock('../projects/service.js', () => ({
   toSessionProjectContext: toSessionProjectContextMock,
 }))
 
-vi.mock('../history/gemini.js', () => ({
-  readGeminiSessions: readGeminiSessionsMock,
-}))
-
-vi.mock('../history/copilot.js', () => ({
-  readCopilotSessions: readCopilotSessionsMock,
+vi.mock('../history/index.js', () => ({
+  listHistorySessions: listHistorySessionsMock,
+  mergeSessions: mergeSessionsMock,
 }))
 
 vi.mock('./config.js', () => ({
@@ -103,7 +100,7 @@ describe('AgentRegistry.listSessions', () => {
       listSessions: vi.fn(() => liveSessions),
     } as unknown as CopilotAdapter
 
-    readGeminiSessionsMock.mockReturnValue([
+    listHistorySessionsMock.mockReturnValue([
       {
         id: 'gemini-1',
         title: 'Gemini history',
@@ -112,9 +109,6 @@ describe('AgentRegistry.listSessions', () => {
         project: { id: 'repo-1', name: 'ACP Frontend', path: '/work/acp-frontend' },
         source: 'history' as const,
       },
-    ])
-
-    readCopilotSessionsMock.mockReturnValue([
       {
         id: 'copilot-1',
         title: 'Copilot history',
@@ -130,6 +124,41 @@ describe('AgentRegistry.listSessions', () => {
         agentId: 'copilot',
         project: { id: 'repo-1', name: 'ACP Frontend', path: '/work/acp-frontend' },
         source: 'history' as const,
+      },
+    ])
+
+    mergeSessionsMock.mockReturnValue([
+      {
+        id: 'copilot-1',
+        title: 'Copilot history',
+        updatedAt: '2026-03-20T11:00:00.000Z',
+        agentId: 'copilot',
+        project: { id: 'repo-1', name: 'ACP Frontend', path: '/work/acp-frontend' },
+        source: 'history',
+      },
+      {
+        id: 'live-1',
+        title: 'Live session',
+        updatedAt: '2026-03-20T10:00:00.000Z',
+        agentId: 'copilot',
+        project: { id: 'repo-1', name: 'ACP Frontend', path: '/work/acp-frontend' },
+        source: 'live',
+      },
+      {
+        id: 'dupe-1',
+        title: 'Live wins',
+        updatedAt: '2026-03-20T09:00:00.000Z',
+        agentId: 'copilot',
+        project: { id: 'repo-1', name: 'ACP Frontend', path: '/work/acp-frontend' },
+        source: 'live',
+      },
+      {
+        id: 'gemini-1',
+        title: 'Gemini history',
+        updatedAt: '2026-03-20T08:00:00.000Z',
+        agentId: 'gemini-cli',
+        project: { id: 'repo-1', name: 'ACP Frontend', path: '/work/acp-frontend' },
+        source: 'history',
       },
     ])
 
@@ -171,11 +200,34 @@ describe('AgentRegistry.listSessions', () => {
       },
     ])
 
-    expect(readGeminiSessionsMock).toHaveBeenCalledWith([
+    expect(listHistorySessionsMock).toHaveBeenCalledWith([
       { id: 'repo-1', name: 'ACP Frontend', path: '/work/acp-frontend' },
     ])
-    expect(readCopilotSessionsMock).toHaveBeenCalledWith([
-      { id: 'repo-1', name: 'ACP Frontend', path: '/work/acp-frontend' },
+    expect(mergeSessionsMock).toHaveBeenCalledWith(liveSessions, [
+      {
+        id: 'gemini-1',
+        title: 'Gemini history',
+        updatedAt: '2026-03-20T08:00:00.000Z',
+        agentId: 'gemini-cli',
+        project: { id: 'repo-1', name: 'ACP Frontend', path: '/work/acp-frontend' },
+        source: 'history',
+      },
+      {
+        id: 'copilot-1',
+        title: 'Copilot history',
+        updatedAt: '2026-03-20T11:00:00.000Z',
+        agentId: 'copilot',
+        project: { id: 'repo-1', name: 'ACP Frontend', path: '/work/acp-frontend' },
+        source: 'history',
+      },
+      {
+        id: 'dupe-1',
+        title: 'History should be removed',
+        updatedAt: '2026-03-20T12:00:00.000Z',
+        agentId: 'copilot',
+        project: { id: 'repo-1', name: 'ACP Frontend', path: '/work/acp-frontend' },
+        source: 'history',
+      },
     ])
   })
 })

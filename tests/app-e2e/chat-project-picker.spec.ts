@@ -81,25 +81,10 @@ async function openWorkspacePanelIfNeeded(page: Page) {
 
 async function waitForProjectPickerReady(page: Page) {
   const drawerToggle = page.getByRole('button', { name: 'Open navigation' })
-  if (await drawerToggle.isVisible().catch(() => false)) {
-    await expect(drawerToggle).toBeVisible({ timeout: 20_000 })
-    return
-  }
-
-  await expect(
-    page.getByTestId('chat-session-panel').getByRole('button', { name: 'Open project manager' })
-  ).toBeVisible({ timeout: 20_000 })
+  await expect(drawerToggle).toBeVisible({ timeout: 20_000 })
 }
 
 async function openProjectManager(page: Page) {
-  const directTrigger = page
-    .getByTestId('chat-session-panel')
-    .getByRole('button', { name: 'Open project manager' })
-  if (await directTrigger.isVisible().catch(() => false)) {
-    await directTrigger.click()
-    return
-  }
-
   const drawerToggle = page.getByRole('button', { name: 'Open navigation' })
   await drawerToggle.click()
   const drawer = page.getByTestId('chat-session-drawer')

@@ -126,7 +126,6 @@ export function ChatPage() {
   const canStartSession = Boolean(
     selectedProject && selectedProject.status === 'available' && hasAvailableAgent
   )
-  const shouldOpenCreateMenuInDrawer = typeof window !== 'undefined' && window.innerWidth < 1024
   const openProjectManager = useCallback(() => {
     if (mobileSidebarOpen) {
       setMobileSidebarOpen(false)
@@ -143,14 +142,8 @@ export function ChatPage() {
 
     setProjectManagerOpen(false)
     setCreateMenuOpen(true)
-    setMobileSidebarOpen(shouldOpenCreateMenuInDrawer)
-  }, [
-    canStartSession,
-    hasAnyProject,
-    hasAvailableProject,
-    openProjectManager,
-    shouldOpenCreateMenuInDrawer,
-  ])
+    setMobileSidebarOpen(true)
+  }, [canStartSession, hasAnyProject, hasAvailableProject, openProjectManager])
 
   const getParentTreePath = useCallback((path: string): string | null => {
     const lastSlash = path.lastIndexOf('/')
@@ -278,7 +271,7 @@ export function ChatPage() {
           thinking={thinking}
         />
 
-        <div className="grid min-h-0 flex-1 overflow-hidden lg:grid-cols-[19rem_minmax(0,1fr)]">
+        <div className="relative min-h-0 flex-1 overflow-hidden">
           <SessionList
             agents={agents}
             sessions={sessions}
@@ -317,7 +310,7 @@ export function ChatPage() {
             }
           />
 
-          <section className="flex min-h-0 min-w-0 flex-col overflow-hidden bg-[#070b12]">
+          <section className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-[#070b12]">
             <div className="flex items-center gap-2 border-b border-white/8 px-4 py-2.5 sm:px-5">
               <WorkspaceToggleButton
                 label="Files"

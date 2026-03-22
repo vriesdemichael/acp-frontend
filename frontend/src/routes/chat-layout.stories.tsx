@@ -33,7 +33,7 @@ function ChatLayoutStory() {
           thinking={false}
         />
 
-        <div className="grid min-h-0 flex-1 lg:grid-cols-[19rem_minmax(0,1fr)]">
+        <div className="relative min-h-0 flex-1 overflow-hidden">
           <SessionList
             agents={[
               { id: 'copilot', name: 'GitHub Copilot', status: 'active', command: 'copilot' },
