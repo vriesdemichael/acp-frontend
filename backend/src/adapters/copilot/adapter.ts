@@ -177,6 +177,7 @@ export class CopilotAdapter implements SessionAdapter {
       updatedAt: session.updatedAt.toISOString(),
       agentId: this.agentId,
       project: session.project,
+      source: 'live',
     }
   }
 

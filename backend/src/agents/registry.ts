@@ -22,6 +22,8 @@ import { createGenericAcpAdapter } from '../adapters/generic/index.js'
 import { StdioAcpProcess } from '../adapters/shared/process.js'
 import { deriveEndpointSupport } from '../adapters/shared/capabilities.js'
 import type { SessionProjectContext } from './types.js'
+import { listProjects, toSessionProjectContext } from '../projects/service.js'
+import { readGeminiSessions } from '../history/gemini.js'
 
 interface RegisteredAgent {
   id: string
@@ -198,9 +200,18 @@ export class AgentRegistry {
   }
 
   listSessions(): SessionSummary[] {
-    return this.agents
-      .flatMap((agent) => agent.adapter?.listSessions() ?? [])
-      .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+    const liveSessions = this.agents.flatMap((agent) => agent.adapter?.listSessions() ?? [])
+
+    const knownProjects = listProjects().map(toSessionProjectContext)
+    const historySessions = readGeminiSessions(knownProjects)
+
+    // Merge: live sessions take precedence; dedupe by session ID
+    const liveIds = new Set(liveSessions.map((s) => s.id))
+    const dedupedHistory = historySessions.filter((s) => !liveIds.has(s.id))
+
+    return [...liveSessions, ...dedupedHistory].sort((left, right) =>
+      right.updatedAt.localeCompare(left.updatedAt)
+    )
   }
 
   getSession(sessionId: string): SessionDetails | null {

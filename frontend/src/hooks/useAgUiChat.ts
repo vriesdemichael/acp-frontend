@@ -38,6 +38,7 @@ export interface SessionSummary {
   updatedAt: string
   agentId: string
   project: SessionProjectContext | null
+  source: 'live' | 'history'
 }
 
 interface SessionDetails extends SessionSummary {

@@ -95,6 +95,7 @@ describe('sessions routes', () => {
           name: 'ACP Frontend',
           path: '/work/acp-frontend',
         },
+        source: 'live' as const,
         messages: [],
       })),
     })

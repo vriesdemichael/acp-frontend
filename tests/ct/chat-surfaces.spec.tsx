@@ -76,6 +76,7 @@ test.describe('chat surfaces', () => {
               name: 'ACP Frontend',
               path: '/home/runner/work/acp-frontend/acp-frontend',
             },
+            source: 'live' as const,
           }))}
           selectedAgentId="copilot"
           activeSessionId="session-1"
