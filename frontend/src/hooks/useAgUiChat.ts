@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { EventType } from '@ag-ui/core'
+import type { StructuredBlock } from '../components/chat/a2ui-types.js'
 
 export interface ChatMessage {
   id: string
   role: 'user' | 'assistant'
   content: string
+  structuredBlocks?: StructuredBlock[]
 }
 
 export interface AgentSummary {
