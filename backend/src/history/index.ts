@@ -1,25 +1,29 @@
-import type { SessionProjectContext, SessionSummary } from '../agents/types.js'
-import { readCopilotSessions } from './copilot.js'
-import { readGeminiSessions } from './gemini.js'
-import { readOpenCodeSessions } from './opencode.js'
+import type { SessionDetails, SessionProjectContext, SessionSummary } from '../agents/types.js'
+import { readCopilotSessions, getCopilotSession } from './copilot.js'
+import { readGeminiSessions, getGeminiSession } from './gemini.js'
+import { readOpenCodeSessions, getOpenCodeSession } from './opencode.js'
 
 interface HistorySessionProvider {
   id: string
   readSessions: (knownProjects: SessionProjectContext[]) => SessionSummary[]
+  getSession: (sessionId: string, knownProjects: SessionProjectContext[]) => SessionDetails | null
 }
 
 const HISTORY_SESSION_PROVIDERS: HistorySessionProvider[] = [
   {
     id: 'gemini-cli',
     readSessions: readGeminiSessions,
+    getSession: getGeminiSession,
   },
   {
     id: 'copilot',
     readSessions: readCopilotSessions,
+    getSession: getCopilotSession,
   },
   {
     id: 'opencode',
     readSessions: readOpenCodeSessions,
+    getSession: getOpenCodeSession,
   },
 ]
 
@@ -28,6 +32,17 @@ export function listHistorySessions(knownProjects: SessionProjectContext[]): Ses
     provider.readSessions(knownProjects)
   )
   return dedupeSessions(sessions)
+}
+
+export function getHistorySession(
+  sessionId: string,
+  knownProjects: SessionProjectContext[]
+): SessionDetails | null {
+  for (const provider of HISTORY_SESSION_PROVIDERS) {
+    const session = provider.getSession(sessionId, knownProjects)
+    if (session) return session
+  }
+  return null
 }
 
 export function mergeSessions(

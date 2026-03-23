@@ -18,7 +18,12 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import type { SessionSummary, SessionProjectContext } from '../agents/types.js'
+import type {
+  SessionDetails,
+  SessionMessage,
+  SessionSummary,
+  SessionProjectContext,
+} from '../agents/types.js'
 
 interface GeminiContentPart {
   text?: string
@@ -108,6 +113,73 @@ export function readGeminiSessions(knownProjects: SessionProjectContext[]): Sess
   }
 
   return results
+}
+
+/**
+ * Return full session details (including messages) for a specific Gemini session ID.
+ * Scans all project dirs to find the matching session file.
+ */
+export function getGeminiSession(
+  sessionId: string,
+  knownProjects: SessionProjectContext[]
+): SessionDetails | null {
+  if (!existsSync(GEMINI_TMP_DIR)) {
+    return null
+  }
+
+  let projectDirs: string[]
+  try {
+    projectDirs = readdirSync(GEMINI_TMP_DIR, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
+  } catch {
+    return null
+  }
+
+  for (const dir of projectDirs) {
+    const projectRootFile = join(GEMINI_TMP_DIR, dir, '.project_root')
+    if (!existsSync(projectRootFile)) continue
+
+    const projectPath = readProjectRoot(projectRootFile)
+    if (!projectPath) continue
+
+    const project = resolveProject(projectPath, knownProjects)
+    if (!project) continue
+
+    const chatsDir = join(GEMINI_TMP_DIR, dir, 'chats')
+    if (!existsSync(chatsDir)) continue
+
+    let sessionFiles: string[]
+    try {
+      sessionFiles = readdirSync(chatsDir).filter((name) => name.endsWith('.json'))
+    } catch {
+      continue
+    }
+
+    for (const file of sessionFiles) {
+      const session = parseGeminiSession(join(chatsDir, file))
+      if (!session || session.sessionId !== sessionId) continue
+
+      const messages: SessionMessage[] = (session.messages ?? []).flatMap((m) => {
+        const role: 'user' | 'assistant' = m.type === 'user' ? 'user' : 'assistant'
+        const content = extractText(m.content)
+        if (!content.trim()) return []
+        return [{ id: m.id, role, content }]
+      })
+
+      return {
+        id: session.sessionId,
+        title: deriveTitle(session),
+        updatedAt: session.lastUpdated ?? session.startTime,
+        agentId: GEMINI_AGENT_ID,
+        project,
+        source: 'history',
+        messages,
+      }
+    }
+  }
+
+  return null
 }
 
 function readProjectRoot(filePath: string): string | null {

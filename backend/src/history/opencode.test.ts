@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { readOpenCodeSessions } from './opencode.js'
+import { readOpenCodeSessions, getOpenCodeSession } from './opencode.js'
 import * as fs from 'node:fs'
 import * as cp from 'node:child_process'
 import type { SessionProjectContext } from '../agents/types.js'
@@ -73,5 +73,92 @@ describe('readOpenCodeSessions', () => {
   it('handles empty database output', () => {
     vi.mocked(cp.execSync).mockImplementation(() => '')
     expect(readOpenCodeSessions([{ id: 'p', name: 'P', path: '/code' }])).toEqual([])
+  })
+})
+
+describe('getOpenCodeSession', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+    vi.mocked(fs.existsSync).mockReturnValue(true)
+    vi.mocked(cp.execSync).mockReturnValue('')
+  })
+
+  it('returns null if db does not exist', () => {
+    vi.mocked(fs.existsSync).mockReturnValue(false)
+    expect(getOpenCodeSession('ses_1', [])).toBeNull()
+  })
+
+  it('returns null if sqlite3 is not installed', () => {
+    vi.mocked(cp.execSync).mockImplementation((cmd) => {
+      if (typeof cmd === 'string' && cmd.includes('sqlite3 -version')) {
+        throw new Error('Command failed')
+      }
+      return ''
+    })
+    expect(getOpenCodeSession('ses_1', [])).toBeNull()
+  })
+
+  it('returns null when the session is not found in the database', () => {
+    vi.mocked(cp.execSync).mockImplementation((cmd) => {
+      if (typeof cmd === 'string' && cmd.includes('sqlite3 -version')) return '3.43.2'
+      return ''
+    })
+    expect(getOpenCodeSession('ses_missing', [{ id: 'p', name: 'P', path: '/code' }])).toBeNull()
+  })
+
+  it('returns full session details with messages', () => {
+    const knownProjects: SessionProjectContext[] = [
+      { id: 'proj1', name: 'Proj 1', path: '/code/project1' },
+    ]
+
+    vi.mocked(cp.execSync).mockImplementation((cmd) => {
+      if (typeof cmd === 'string' && cmd.includes('sqlite3 -version')) return '3.43.2'
+      if (typeof cmd === 'string' && cmd.includes('ses_detail')) {
+        // First query: metadata
+        if (cmd.includes('JOIN project')) {
+          return 'ses_detail|||Fix the bug|||1700000000000|||/code/project1\n'
+        }
+        // Second query: messages
+        return [
+          'msg-1|||user|||What is wrong?',
+          'msg-2|||assistant|||The issue is in line 42.',
+        ].join('\n')
+      }
+      return ''
+    })
+
+    expect(getOpenCodeSession('ses_detail', knownProjects)).toEqual({
+      id: 'ses_detail',
+      title: 'Fix the bug',
+      updatedAt: new Date(1700000000000).toISOString(),
+      agentId: 'opencode',
+      project: knownProjects[0],
+      source: 'history',
+      messages: [
+        { id: 'msg-1', role: 'user', content: 'What is wrong?' },
+        { id: 'msg-2', role: 'assistant', content: 'The issue is in line 42.' },
+      ],
+    })
+  })
+
+  it('returns session with empty messages when no message rows are returned', () => {
+    const knownProjects: SessionProjectContext[] = [
+      { id: 'proj1', name: 'Proj 1', path: '/code/project1' },
+    ]
+
+    let callCount = 0
+    vi.mocked(cp.execSync).mockImplementation((cmd) => {
+      if (typeof cmd === 'string' && cmd.includes('sqlite3 -version')) return '3.43.2'
+      if (typeof cmd === 'string' && cmd.includes('sqlite3 -separator')) {
+        callCount++
+        if (callCount === 1) return 'ses_empty|||Empty session|||1700000005000|||/code/project1\n'
+        return ''
+      }
+      return ''
+    })
+
+    const result = getOpenCodeSession('ses_empty', knownProjects)
+    expect(result).not.toBeNull()
+    expect(result?.messages).toEqual([])
   })
 })

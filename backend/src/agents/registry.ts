@@ -23,7 +23,7 @@ import { StdioAcpProcess } from '../adapters/shared/process.js'
 import { deriveEndpointSupport } from '../adapters/shared/capabilities.js'
 import type { SessionProjectContext } from './types.js'
 import { listProjects, toSessionProjectContext } from '../projects/service.js'
-import { listHistorySessions, mergeSessions } from '../history/index.js'
+import { listHistorySessions, mergeSessions, getHistorySession } from '../history/index.js'
 
 interface RegisteredAgent {
   id: string
@@ -214,7 +214,8 @@ export class AgentRegistry {
       if (session) return session
     }
 
-    return null
+    const knownProjects = listProjects().map(toSessionProjectContext)
+    return getHistorySession(sessionId, knownProjects)
   }
 
   async sendMessage(sessionId: string, text: string, agentId?: string): Promise<void> {

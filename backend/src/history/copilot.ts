@@ -1,7 +1,12 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import type { SessionProjectContext, SessionSummary } from '../agents/types.js'
+import type {
+  SessionDetails,
+  SessionMessage,
+  SessionProjectContext,
+  SessionSummary,
+} from '../agents/types.js'
 
 interface CopilotWorkspaceMeta {
   id?: string
@@ -16,6 +21,12 @@ interface CopilotUserMessageEvent {
   data?: {
     content?: string
   }
+}
+
+interface CopilotAnyEvent {
+  type: string
+  id?: string
+  data?: Record<string, unknown>
 }
 
 const COPILOT_SESSION_STATE_DIR =
@@ -73,6 +84,92 @@ export function readCopilotSessions(knownProjects: SessionProjectContext[]): Ses
   }
 
   return results
+}
+
+export function getCopilotSession(
+  sessionId: string,
+  knownProjects: SessionProjectContext[]
+): SessionDetails | null {
+  if (!existsSync(COPILOT_SESSION_STATE_DIR)) {
+    return null
+  }
+
+  let sessionDirs: string[]
+  try {
+    sessionDirs = readdirSync(COPILOT_SESSION_STATE_DIR, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
+  } catch {
+    return null
+  }
+
+  for (const dir of sessionDirs) {
+    const workspaceFile = join(COPILOT_SESSION_STATE_DIR, dir, 'workspace.yaml')
+    if (!existsSync(workspaceFile)) continue
+
+    const metadata = readWorkspaceMetadata(workspaceFile)
+    if (!metadata.cwd) continue
+
+    const effectiveId = metadata.id ?? dir
+    if (effectiveId !== sessionId) continue
+
+    const project = resolveProject(metadata.cwd, knownProjects)
+    if (!project) continue
+
+    const updatedAt = metadata.updated_at ?? metadata.created_at
+    if (!updatedAt) continue
+
+    const title = deriveTitle(dir, metadata)
+    const messages = readSessionMessages(dir)
+
+    return {
+      id: sessionId,
+      title,
+      updatedAt,
+      agentId: COPILOT_AGENT_ID,
+      project,
+      source: 'history',
+      messages,
+    }
+  }
+
+  return null
+}
+
+function readSessionMessages(sessionDir: string): SessionMessage[] {
+  const eventsFile = join(COPILOT_SESSION_STATE_DIR, sessionDir, 'events.jsonl')
+  if (!existsSync(eventsFile)) return []
+
+  const messages: SessionMessage[] = []
+
+  try {
+    const raw = readFileSync(eventsFile, 'utf8')
+    let messageIndex = 0
+
+    for (const line of raw.split(/\r?\n/)) {
+      if (!line.trim()) continue
+
+      const event = JSON.parse(line) as CopilotAnyEvent
+
+      if (event.type === 'user.message') {
+        const content = (event.data?.['content'] as string | undefined)?.trim()
+        if (content) {
+          messages.push({ id: event.id ?? `user-${messageIndex}`, role: 'user', content })
+          messageIndex++
+        }
+      } else if (event.type === 'assistant.message') {
+        const content = (event.data?.['content'] as string | undefined)?.trim()
+        if (content) {
+          messages.push({ id: event.id ?? `assistant-${messageIndex}`, role: 'assistant', content })
+          messageIndex++
+        }
+      }
+    }
+  } catch {
+    return messages
+  }
+
+  return messages
 }
 
 function readWorkspaceMetadata(filePath: string): CopilotWorkspaceMeta {

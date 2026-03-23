@@ -90,6 +90,11 @@ export function useAgUiChat({
   const activeSessionRef = useRef<string | null>(sessionId)
   const pendingRouteSessionRef = useRef<string | null>(null)
   const didBootstrapRef = useRef(false)
+  // Stable ref to the latest loadSession so the bootstrap effect doesn't need it
+  // in its dependency array (which would cause infinite re-bootstrap loops).
+  const loadSessionRef = useRef<
+    ((id: string, syncRoute?: boolean) => Promise<SessionDetails | null>) | null
+  >(null)
 
   useEffect(() => {
     if (agentId) {
@@ -213,6 +218,10 @@ export function useAgUiChat({
       sessionId,
     ]
   )
+
+  // Keep the ref in sync so the bootstrap effect can call the latest version
+  // without declaring loadSession as a dependency.
+  loadSessionRef.current = loadSession
 
   useEffect(() => {
     if (!sessionId) return
@@ -383,7 +392,7 @@ export function useAgUiChat({
         if (preferredSession) {
           activeSessionRef.current = preferredSession.id
           setCurrentSessionId(preferredSession.id)
-          await loadSession(preferredSession.id, false)
+          await loadSessionRef.current!(preferredSession.id, false)
           return
         }
 
@@ -423,7 +432,6 @@ export function useAgUiChat({
     currentAgentId,
     currentProjectId,
     fetchJson,
-    loadSession,
     onAgentSelected,
     onProjectSelected,
     onSessionSelected,
@@ -435,6 +443,7 @@ export function useAgUiChat({
     if (!currentSessionId) return
 
     activeSessionRef.current = currentSessionId
+    setErrorMessage(null)
     const sse = new EventSource(`/api/stream?sessionId=${encodeURIComponent(currentSessionId)}`)
 
     sse.addEventListener(EventType.RUN_STARTED, () => {
