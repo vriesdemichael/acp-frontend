@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import {
   EventType,
   type BaseEvent,
+  type CustomEvent,
   type RunErrorEvent,
   type RunFinishedEvent,
   type RunStartedEvent,
@@ -15,6 +16,7 @@ import type { Content, SessionUpdate, ToolCallUpdate } from '@agentclientprotoco
 
 export class StreamTranslator {
   private currentMessageId: string | null = null
+  private toolCallNames = new Map<string, string>()
 
   constructor(
     readonly threadId: string,
@@ -58,7 +60,9 @@ export class StreamTranslator {
         return events
       }
 
-      case 'tool_call':
+      case 'tool_call': {
+        const toolName = update.title ?? ''
+        this.toolCallNames.set(update.toolCallId, toolName)
         return [
           {
             type: EventType.TOOL_CALL_START,
@@ -66,11 +70,23 @@ export class StreamTranslator {
             toolCallName: update.title,
             parentMessageId: this.currentMessageId ?? undefined,
           } satisfies ToolCallStartEvent,
+          {
+            type: EventType.CUSTOM,
+            name: 'a2ui:tool_call',
+            value: {
+              callId: update.toolCallId,
+              toolName,
+              done: false,
+            },
+          } satisfies CustomEvent,
         ]
+      }
 
       case 'tool_call_update': {
         const resultText = extractToolResultText(update)
         if (resultText === null) return []
+
+        const resolvedName = this.toolCallNames.get(update.toolCallId) ?? ''
 
         return [
           {
@@ -80,6 +96,16 @@ export class StreamTranslator {
             content: resultText,
             role: 'tool',
           } satisfies ToolCallResultEvent,
+          {
+            type: EventType.CUSTOM,
+            name: 'a2ui:tool_call',
+            value: {
+              callId: update.toolCallId,
+              toolName: resolvedName,
+              result: resultText,
+              done: true,
+            },
+          } satisfies CustomEvent,
         ]
       }
 
@@ -98,6 +124,9 @@ export class StreamTranslator {
       } satisfies TextMessageEndEvent)
       this.currentMessageId = null
     }
+
+    // Clear the toolCallId → toolName map so it doesn't grow unboundedly across runs
+    this.toolCallNames.clear()
 
     events.push({
       type: EventType.RUN_FINISHED,

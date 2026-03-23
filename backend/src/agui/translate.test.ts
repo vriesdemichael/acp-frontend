@@ -53,33 +53,70 @@ describe('StreamTranslator', () => {
     })
   })
 
-  it('translates tool_call into TOOL_CALL_START', () => {
+  it('translates tool_call into TOOL_CALL_START and an a2ui:tool_call CUSTOM event', () => {
     const events = t.onSessionUpdate({
       sessionUpdate: 'tool_call',
       toolCallId: 'tool-1',
       title: 'Read file',
     })
 
-    expect(events).toHaveLength(1)
+    expect(events).toHaveLength(2)
     expect(events[0]).toMatchObject({
       type: EventType.TOOL_CALL_START,
       toolCallId: 'tool-1',
       toolCallName: 'Read file',
     })
+    expect(events[1]).toMatchObject({
+      type: EventType.CUSTOM,
+      name: 'a2ui:tool_call',
+      value: { callId: 'tool-1', toolName: 'Read file', done: false },
+    })
   })
 
-  it('translates tool_call_update text content into TOOL_CALL_RESULT', () => {
+  it('translates tool_call_update text content into TOOL_CALL_RESULT and an a2ui:tool_call CUSTOM event', () => {
     const events = t.onSessionUpdate({
       sessionUpdate: 'tool_call_update',
       toolCallId: 'tool-1',
       content: [{ type: 'content', content: { type: 'text', text: 'done' } }],
     })
 
-    expect(events).toHaveLength(1)
+    expect(events).toHaveLength(2)
     expect(events[0]).toMatchObject({
       type: EventType.TOOL_CALL_RESULT,
       toolCallId: 'tool-1',
       content: 'done',
+    })
+    expect(events[1]).toMatchObject({
+      type: EventType.CUSTOM,
+      name: 'a2ui:tool_call',
+      value: { callId: 'tool-1', result: 'done', done: true },
+    })
+  })
+
+  it('includes toolName in CUSTOM event for tool_call_update after prior tool_call', () => {
+    // First register the tool_call so the translator can resolve toolName for updates
+    t.onSessionUpdate({
+      sessionUpdate: 'tool_call',
+      toolCallId: 'tool-1',
+      title: 'Read file',
+    })
+
+    const events = t.onSessionUpdate({
+      sessionUpdate: 'tool_call_update',
+      toolCallId: 'tool-1',
+      content: [{ type: 'content', content: { type: 'text', text: 'done' } }],
+    })
+
+    expect(events).toHaveLength(2)
+    expect(events[0]).toMatchObject({
+      type: EventType.TOOL_CALL_RESULT,
+      toolCallId: 'tool-1',
+      content: 'done',
+    })
+    expect(events[1]).toMatchObject({
+      type: EventType.CUSTOM,
+      name: 'a2ui:tool_call',
+      value: { callId: 'tool-1', toolName: 'Read file', result: 'done', done: true },
     })
   })
 
@@ -93,6 +130,11 @@ describe('StreamTranslator', () => {
     expect(events[0]).toMatchObject({
       type: EventType.TOOL_CALL_RESULT,
       content: JSON.stringify({ ok: true }),
+    })
+    expect(events[1]).toMatchObject({
+      type: EventType.CUSTOM,
+      name: 'a2ui:tool_call',
+      value: { callId: 'tool-1', result: JSON.stringify({ ok: true }), done: true },
     })
   })
 
