@@ -2,11 +2,16 @@ import { test, expect, type Page } from '@playwright/test'
 
 test.describe('chat layout story stabilization', () => {
   test('shows project context panel on desktop', async ({ page }) => {
+    // Use a wide enough viewport so the xl: grid column (≥1280px iframe) is visible.
+    // Storybook's own chrome takes ~220px, so 1600px total puts the iframe well above xl.
+    await page.setViewportSize({ width: 1600, height: 900 })
     await page.goto('/?path=/story/pages-chatlayout--default')
     const preview = await waitForPreviewFrame(page)
     await dismissStorybookOverlay(page)
 
-    await expect(preview.getByText('Project Context')).toBeVisible({ timeout: 15_000 })
+    await expect(preview.getByRole('heading', { name: 'Project Context' })).toBeVisible({
+      timeout: 15_000,
+    })
     await expect(preview.getByText('ACP Frontend')).toBeVisible()
     await expect(preview.getByText('Docs Site')).toBeVisible()
   })
@@ -16,7 +21,7 @@ test.describe('chat layout story stabilization', () => {
     const preview = await waitForPreviewFrame(page)
     await dismissStorybookOverlay(page)
 
-    await expect(preview.getByText('Chats')).toBeVisible({ timeout: 15_000 })
+    await expect(preview.getByRole('heading', { name: 'Chats' })).toBeVisible({ timeout: 15_000 })
     await expect(preview.getByText('Recent chats across all active backends.')).toBeVisible()
   })
 })
