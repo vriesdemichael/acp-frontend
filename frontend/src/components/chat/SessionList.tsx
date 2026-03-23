@@ -65,6 +65,8 @@ export function SessionList({
             onClick={handleNewChat}
             disabled={creatingSession || activeAgents.length === 0}
             aria-label={activeAgents.length > 1 ? 'New chat — pick agent' : 'New chat'}
+            aria-expanded={activeAgents.length > 1 ? pickerOpen : undefined}
+            aria-haspopup={activeAgents.length > 1 ? 'listbox' : undefined}
             className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-slate-900 px-3 text-sm font-semibold text-slate-50 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-800 disabled:text-slate-500"
           >
             {creatingSession ? 'Opening…' : 'New'}
@@ -77,14 +79,15 @@ export function SessionList({
 
           {pickerOpen && activeAgents.length > 1 && (
             <div
-              role="menu"
+              role="listbox"
               aria-label="Pick an agent for the new chat"
               className="absolute right-0 top-full z-20 mt-1 w-48 rounded-xl border border-white/10 bg-slate-900 py-1 shadow-xl"
             >
               {activeAgents.map((agent) => (
                 <button
                   key={agent.id}
-                  role="menuitem"
+                  role="option"
+                  aria-selected={false}
                   type="button"
                   onClick={() => handleAgentPick(agent.id)}
                   className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-100 hover:bg-slate-800"

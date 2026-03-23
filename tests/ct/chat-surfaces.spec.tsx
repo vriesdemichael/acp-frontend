@@ -37,6 +37,7 @@ test.describe('chat surfaces', () => {
             { id: 'user-1', role: 'user', content: 'Please inspect the layout.' },
             { id: 'assistant-1', role: 'assistant', content: 'The spacing looks balanced now.' },
           ]}
+          hasSession
           loading={false}
           ready
           thinking

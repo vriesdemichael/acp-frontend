@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
-import { getConfigPath } from '../storage.js'
+import { resolveConfigPath } from '../storage.js'
 
 export interface BackendDefinitionRecord {
   id: string
@@ -15,8 +15,7 @@ interface BackendConfigFile {
   backends?: BackendDefinitionRecord[]
 }
 
-const BACKEND_CONFIG_PATH =
-  process.env['ACP_BACKENDS_CONFIG_PATH'] ?? getConfigPath('backends.json')
+const BACKEND_CONFIG_PATH = resolveConfigPath('backends.json', 'ACP_BACKENDS_CONFIG_PATH')
 
 const DEFAULT_BACKENDS: BackendDefinitionRecord[] = [
   {
