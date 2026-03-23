@@ -12,8 +12,9 @@ test.describe('chat layout story stabilization', () => {
     await expect(preview.getByRole('heading', { name: 'Project Context' })).toBeVisible({
       timeout: 15_000,
     })
-    await expect(preview.getByText('ACP Frontend')).toBeVisible()
-    await expect(preview.getByText('Docs Site')).toBeVisible()
+    const panel = preview.getByTestId('chat-context-panel')
+    await expect(panel.getByText('ACP Frontend', { exact: true })).toBeVisible()
+    await expect(panel.getByText('Docs Site', { exact: true })).toBeVisible()
   })
 
   test('keeps the session list visible on mobile', async ({ page }) => {
