@@ -252,11 +252,11 @@ export function useAgUiChat({
           fetchJson<SessionSummary[]>('/api/sessions'),
         ])
 
+        if (cancelled) return
+
         setAgents(nextAgents)
         setProjects(nextProjects)
         setSessions(nextSessions)
-
-        if (cancelled) return
 
         const nextActiveAgents = nextAgents.filter((candidate) => candidate.status === 'active')
         if (nextActiveAgents.length === 0) {
