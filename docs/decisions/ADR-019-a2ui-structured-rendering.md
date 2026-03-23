@@ -110,3 +110,15 @@ Explicitly out of scope for the initial pass:
 - Unit tests must cover: plain text message rendered normally, valid `tool_call` block rendered, malformed CUSTOM event ignored without crash, `ENABLE_A2UI = false` causes CUSTOM events to be ignored.
 - `StreamTranslator` must continue to emit `TOOL_CALL_START` / `TOOL_CALL_RESULT` in addition to `a2ui:tool_call` CUSTOM events (do not replace, only add).
 - Do not persist `structuredBlocks`; session reload restores only `content`.
+
+### toolName resolution in StreamTranslator
+
+`StreamTranslator` maintains a `toolCallNames: Map<string, string>` that records the `toolCallId → toolName` mapping when a `tool_call` ACP update is processed. When a subsequent `tool_call_update` arrives, the resolved name is looked up from this map and included in the emitted `a2ui:tool_call` CUSTOM event. The map is cleared in `onRunFinish()` to prevent unbounded growth across runs. Never derive `toolName` by re-parsing the original `tool_call` update from `tool_call_update` — the update does not carry the title.
+
+### upsertBlock merge semantics
+
+The `upsertBlock` helper in `useAgUiChat.ts` must **merge** payloads when a block with the same `callId` already exists: spread the existing payload first, then overlay the incoming payload. This ensures that fields set on the initial `tool_call` event (e.g. `toolName`, `args`) are not overwritten by the follow-up `tool_call_update` event which carries only `result` and `done`. Never replace an existing block wholesale.
+
+### Run-scoped block attachment
+
+When a CUSTOM event arrives and there is no assistant message to attach to yet, the handler must find the most recent **user** message first, then search for an assistant message strictly **after** that user message. This prevents the block from being attached to an assistant message from a previous run. If no such assistant message exists, a synthetic assistant message (id `a2ui-<callId>`) is created and appended to the transcript. React keys for rendered blocks must use `${block.kind}-${block.payload.callId}` — never array indices.
