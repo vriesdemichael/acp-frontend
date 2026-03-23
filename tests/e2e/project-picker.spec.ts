@@ -15,7 +15,9 @@ test.describe('chat layout story stabilization', () => {
     const panel = preview.getByTestId('chat-context-panel')
     await expect(panel.getByText('ACP Frontend', { exact: true })).toBeVisible()
     // Verify the selected project path is shown in the info card
-    await expect(panel.getByText('/home/vries/projects/acp-frontend')).toBeVisible()
+    await expect(
+      panel.getByText('/home/vries/projects/acp-frontend', { exact: true })
+    ).toBeVisible()
   })
 
   test('keeps the session list visible on mobile', async ({ page }) => {
