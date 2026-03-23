@@ -107,6 +107,7 @@ function ChatLayoutStory() {
                     'A darker shell with a compact control bar and slimmer side panels will get much closer to the reference pattern without copying it directly.',
                 },
               ]}
+              hasSession
               loading={false}
               ready
               thinking

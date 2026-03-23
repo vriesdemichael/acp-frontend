@@ -12,7 +12,7 @@ interface ProjectWorkspacePanelProps {
   projects: ProjectSummary[]
   selectedProjectId: string | null
   onProjectSelect: (projectId: string) => void | Promise<void>
-  activeAgentCount: number
+  activeAgentCount?: number
   tree: ProjectTreeEntry[]
   treePath: string | null
   treeLoading: boolean
@@ -27,7 +27,7 @@ export function ProjectWorkspacePanel({
   projects,
   selectedProjectId,
   onProjectSelect,
-  activeAgentCount,
+  activeAgentCount = 0,
   tree,
   treePath,
   treeLoading,

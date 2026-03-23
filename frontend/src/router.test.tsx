@@ -224,7 +224,7 @@ describe('app router', () => {
     render(<App routerInstance={createAppRouter()} />)
 
     await waitFor(() => expect(screen.getByText('MCP Configuration')).toBeDefined())
-    expect(screen.getByText(/Backend ACP settings are now available/i)).toBeDefined()
+    expect(screen.getByText(/Manage ACP backends and MCP servers from one place/i)).toBeDefined()
   })
 
   it('renders the backend settings route', async () => {

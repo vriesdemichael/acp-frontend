@@ -172,6 +172,7 @@ export function ChatPage() {
             <ChatTranscript
               activeAgentName={activeAgentName}
               messages={messages}
+              hasSession={activeSessionId !== null}
               loading={loading}
               ready={ready}
               thinking={thinking}

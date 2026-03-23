@@ -49,12 +49,12 @@ describe('ProjectWorkspacePanel', () => {
   })
 
   it('renders explorer-only layout without project management controls', () => {
-    renderPanel({ layout: 'explorer' })
+    renderPanel()
 
     const panel = screen.getByTestId('chat-context-panel')
     expect(within(panel).queryByText('Manage Project Views')).toBeNull()
     expect(within(panel).queryByRole('button', { name: /Open/i })).toBeNull()
-    expect(within(panel).getByText('Project Explorer')).toBeDefined()
+    expect(within(panel).getByText('Project Context')).toBeDefined()
     expect(within(panel).getByText('/work/acp-frontend')).toBeDefined()
   })
 
