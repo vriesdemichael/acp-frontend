@@ -1,5 +1,29 @@
 # Changelog
 
+## [1.2.0](https://github.com/vriesdemichael/acp-frontend/compare/acp-frontend-v1.1.0...acp-frontend-v1.2.0) (2026-03-24)
+
+
+### Features
+
+* add A2UI structured rendering layer on top of AG-UI ([#64](https://github.com/vriesdemichael/acp-frontend/issues/64)) ([a31d9f9](https://github.com/vriesdemichael/acp-frontend/commit/a31d9f9daefafa819c14572c0508f62b99b07690))
+* add OpenCode session history provider ([#61](https://github.com/vriesdemichael/acp-frontend/issues/61)) ([c72ca85](https://github.com/vriesdemichael/acp-frontend/commit/c72ca858052278c4a5429220f7b959d6a459579a)), closes [#58](https://github.com/vriesdemichael/acp-frontend/issues/58)
+* formalise mcp.json config loading ([#65](https://github.com/vriesdemichael/acp-frontend/issues/65)) ([23440a4](https://github.com/vriesdemichael/acp-frontend/commit/23440a4ab404a53072e9a306fe397b195ca0ab34))
+* multi-agent UX with flat session list and colored status dots ([386e612](https://github.com/vriesdemichael/acp-frontend/commit/386e6126158a37b7704ff0ebfec8a29afc0d7e29)), closes [#40](https://github.com/vriesdemichael/acp-frontend/issues/40)
+
+
+### Bug Fixes
+
+* address Copilot review feedback and fix e2e + CT tests after multi-agent refactor ([5ad2c14](https://github.com/vriesdemichael/acp-frontend/commit/5ad2c140527900c92048559603ff06e7a50e78c9))
+* address Copilot review feedback on PR [#41](https://github.com/vriesdemichael/acp-frontend/issues/41) ([adac74e](https://github.com/vriesdemichael/acp-frontend/commit/adac74e203ef5eb441715e76e7cc65d7ee712db7))
+* check project path instead of Docs Site option in e2e test ([da5af5e](https://github.com/vriesdemichael/acp-frontend/commit/da5af5e1de4ddce55e9cf023313ec02014f55515))
+* resolve agent picker, session filtering, XDG storage, and loading banner bugs ([83c9f30](https://github.com/vriesdemichael/acp-frontend/commit/83c9f303982cf2d61ea8a6bbd8375369f4038894))
+* resolve history session 404s and bootstrap connecting-chip loop ([f83af63](https://github.com/vriesdemichael/acp-frontend/commit/f83af63215b69e4fef2148298bd4f9960c2c1eed))
+* resolve type errors and test failures after rebase onto main ([06eb323](https://github.com/vriesdemichael/acp-frontend/commit/06eb3230f57dad5381ca217add260a9c4177cdec))
+* scope ACP Frontend/Docs Site locators to chat-context-panel in e2e test ([bca4e5e](https://github.com/vriesdemichael/acp-frontend/commit/bca4e5eca7694c306236a0d22e770369c2a2b146))
+* update Storybook smoke test for removed agent selector in chat header ([738fce6](https://github.com/vriesdemichael/acp-frontend/commit/738fce6067d43701a737d5cc06a98160445892b0))
+* use exact:true for project path locator to avoid option element match ([bd74d3f](https://github.com/vriesdemichael/acp-frontend/commit/bd74d3f23490f3ff9630ace03dbe5514603629fa))
+* use wider viewport and role-based locators in project-picker e2e test ([9ba5ad0](https://github.com/vriesdemichael/acp-frontend/commit/9ba5ad05e96274a148d2ec4e935edc4b15d8050b))
+
 ## [1.1.0](https://github.com/vriesdemichael/acp-frontend/compare/acp-frontend-v1.0.0...acp-frontend-v1.1.0) (2026-03-22)
 
 
