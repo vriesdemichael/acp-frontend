@@ -24,6 +24,7 @@ import { deriveEndpointSupport } from '../adapters/shared/capabilities.js'
 import type { SessionProjectContext } from './types.js'
 import { listProjects, toSessionProjectContext } from '../projects/service.js'
 import { listHistorySessions, mergeSessions, getHistorySession } from '../history/index.js'
+import { FakeSessionAdapter } from '../testing/fakeAdapter.js'
 
 interface RegisteredAgent {
   id: string
@@ -240,6 +241,14 @@ export class AgentRegistry {
     return true
   }
 
+  resetSessions(): void {
+    for (const agent of this.agents) {
+      if (agent.adapter instanceof FakeSessionAdapter) {
+        agent.adapter.reset()
+      }
+    }
+  }
+
   eventsForSession(sessionId: string) {
     return this.findAdapterForSession(sessionId)?.events ?? null
   }
@@ -249,22 +258,27 @@ export class AgentRegistry {
   }
 
   private buildRegisteredAgent(backend: BackendDefinitionRecord): RegisteredAgent {
+    const useFakeBackend = process.env['ACP_FAKE_BACKEND'] === '1'
     const configuredCommand = normalizeCommand(backend.command)
     const usesCustomCommand = configuredCommand !== null
-    const detectedCommand = usesCustomCommand
-      ? detectAvailableCommand([configuredCommand]).command
-      : detectAvailableCommand(backend.commandCandidates).command
+    const detectedCommand = useFakeBackend
+      ? (configuredCommand ?? backend.commandCandidates[0] ?? backend.id)
+      : usesCustomCommand
+        ? detectAvailableCommand([configuredCommand]).command
+        : detectAvailableCommand(backend.commandCandidates).command
     const effectiveCommand = configuredCommand ?? detectedCommand
 
     let adapter: SessionAdapter | undefined
-    if (backend.enabled && effectiveCommand) {
-      if (backend.id === 'copilot' && backend.commandCandidates.includes('copilot')) {
+    if (backend.enabled && (effectiveCommand || useFakeBackend)) {
+      if (useFakeBackend) {
+        adapter = new FakeSessionAdapter(backend.id, backend.name)
+      } else if (backend.id === 'copilot' && backend.commandCandidates.includes('copilot')) {
         adapter = isCopilotAvailable() || usesCustomCommand ? this.copilotAdapter : undefined
       } else {
         adapter = createGenericAcpAdapter({
           id: backend.id,
           name: backend.name,
-          command: effectiveCommand,
+          command: effectiveCommand!,
           args: backend.args,
         })
       }

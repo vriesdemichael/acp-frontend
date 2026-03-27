@@ -11,7 +11,7 @@ function ComposerStory(props: {
   const [value, setValue] = useState(props.initialValue ?? '')
 
   return (
-    <div className="max-w-3xl rounded-[2rem] border border-white/70 bg-white/80 shadow-[0_18px_60px_rgba(15,23,42,0.07)]">
+    <div className="max-w-5xl rounded-[2rem] border border-white/10 bg-slate-950/75 shadow-[0_18px_60px_rgba(2,6,23,0.25)]">
       <ChatComposer
         value={value}
         onChange={setValue}

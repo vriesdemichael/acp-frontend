@@ -25,7 +25,7 @@ test.describe('chat surfaces', () => {
     )
 
     await expect(component.getByText('Ready')).toBeVisible()
-    await expect(component.getByText('ACP Frontend')).toBeVisible()
+    await expect(component.getByText('ACP Frontend', { exact: true })).toBeVisible()
   })
 
   test('renders transcript on mobile viewport', async ({ mount }) => {

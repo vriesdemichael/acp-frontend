@@ -57,6 +57,43 @@ export const LongTranscript: Story = {
   },
 }
 
+export const DenseDesktop: Story = {
+  args: {
+    hasSession: true,
+    messages: [
+      {
+        id: 'assistant-1',
+        role: 'assistant',
+        content:
+          'The transcript should become the clear hero of the page, with fewer decorative status treatments stealing attention from the conversation itself.',
+      },
+      {
+        id: 'user-1',
+        role: 'user',
+        content: 'So the layout should feel more like a chat app than a dashboard?',
+      },
+      {
+        id: 'assistant-2',
+        role: 'assistant',
+        content:
+          'Exactly. Keep context available, but let the eye land on the exchange first and the controls second.',
+      },
+      {
+        id: 'user-2',
+        role: 'user',
+        content:
+          'And files or diff should stay in the same column rather than opening a separate workspace?',
+      },
+      {
+        id: 'assistant-3',
+        role: 'assistant',
+        content:
+          'Yes. The mental model is one conversation surface with contextual modes, not three competing panes.',
+      },
+    ],
+  },
+}
+
 export const Thinking: Story = {
   args: {
     hasSession: true,

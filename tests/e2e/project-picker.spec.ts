@@ -21,12 +21,16 @@ test.describe('chat layout story stabilization', () => {
   })
 
   test('keeps the session list visible on mobile', async ({ page }) => {
-    await page.goto('/?path=/story/pages-chatlayout--default')
+    await page.setViewportSize({ width: 430, height: 900 })
+    await page.goto('/?path=/story/pages-chatlayout--mobile-drawer-open')
     const preview = await waitForPreviewFrame(page)
     await dismissStorybookOverlay(page)
 
-    await expect(preview.getByRole('heading', { name: 'Chats' })).toBeVisible({ timeout: 15_000 })
-    await expect(preview.getByText('Recent chats across all active backends.')).toBeVisible()
+    const drawer = preview.getByTestId('chat-session-drawer')
+    await expect(drawer.getByRole('heading', { name: 'Chats' })).toBeVisible({ timeout: 15_000 })
+    await expect(
+      drawer.getByText('Recent conversations for the current workspace, sorted by activity.')
+    ).toBeVisible()
   })
 })
 

@@ -6,6 +6,7 @@ const meta = {
   component: ChatHeader,
   args: {
     renderLink: ({ className, children }) => <span className={className}>{children}</span>,
+    activeAgentName: 'GitHub Copilot',
     project: {
       id: 'acp-frontend',
       name: 'ACP Frontend',
@@ -13,6 +14,7 @@ const meta = {
       status: 'available',
     },
     sessionId: '8bde315f-d2a3-4521-80e2-a55a0f2598d8',
+    title: 'Agentic Coding Presentation Outline',
     errorMessage: null,
     ready: true,
     thinking: false,
