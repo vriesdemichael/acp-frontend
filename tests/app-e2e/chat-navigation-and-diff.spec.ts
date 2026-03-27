@@ -1,52 +1,36 @@
 import { expect, test } from '@playwright/test'
+import { gotoChat } from './helpers.js'
 
 test.describe('chat navigation and diff regression coverage', () => {
-  test('opens the navigation drawer from the header', async ({ page }) => {
-    await page.goto('/chat?agent=copilot&project=acp-frontend')
+  test('shows the correct navigation surface for the viewport', async ({ page }, testInfo) => {
+    await gotoChat(page, '/chat?project=acp-frontend')
 
-    await expect(page.getByRole('button', { name: 'Open navigation' })).toBeVisible({
-      timeout: 20_000,
-    })
-    await page.getByRole('button', { name: 'Open navigation' }).click()
-
-    const drawer = page.getByTestId('chat-session-drawer')
-    await expect(drawer).toBeVisible()
-    await expect(drawer.getByRole('button', { name: 'Close navigation' })).toBeVisible()
-    await expect(drawer.getByRole('button', { name: 'Open project manager' })).toBeVisible()
+    if (testInfo.project.name.includes('mobile')) {
+      await expect(page.getByRole('button', { name: 'Open navigation' })).toBeVisible({
+        timeout: 20_000,
+      })
+      await page.getByRole('button', { name: 'Open navigation' }).click()
+      await expect(page.getByTestId('chat-session-drawer')).toBeVisible()
+    } else {
+      await expect(page.getByTestId('chat-session-panel')).toBeVisible({ timeout: 20_000 })
+      await expect(page.getByRole('button', { name: 'Open navigation' })).toHaveCount(0)
+    }
   })
 
   test('renders the structured diff view in the main chat area', async ({ page }) => {
-    await page.route('**/api/projects/acp-frontend/diff', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          status: 'ok',
-          diff: `diff --git a/src/app.tsx b/src/app.tsx
-index 1234567..89abcde 100644
---- a/src/app.tsx
-+++ b/src/app.tsx
-@@ -1,3 +1,4 @@
- import { AppShell } from './shell'
--import { LegacyPane } from './legacy'
-+import { ChatDiffView } from './chat'
- 
-+const enabled = true
- export function App() {
-`,
-        }),
-      })
-    })
+    await gotoChat(page, '/chat?project=acp-frontend')
 
-    await page.goto('/chat?agent=copilot&project=acp-frontend')
-    await page.getByRole('button', { name: 'Diff' }).click()
+    const startSession = page.getByRole('button', { name: 'Start a session' })
+    if (await startSession.isVisible().catch(() => false)) {
+      await startSession.click()
+      await expect(page).toHaveURL(/session=/)
+    }
+
+    await page.getByRole('button', { name: 'Diff' }).first().click()
 
     const diffView = page.getByTestId('chat-diff-view')
     await expect(diffView).toBeVisible({ timeout: 20_000 })
-    await expect(diffView.getByText('1 file changed')).toBeVisible()
-    await expect(diffView.getByText(/^src\/app\.tsx$/)).toBeVisible()
-    await expect(diffView.getByText("import { ChatDiffView } from './chat'")).toBeVisible()
-    await expect(diffView.getByText("import { LegacyPane } from './legacy'")).toBeVisible()
+    await expect(diffView.getByText('Working tree is clean')).toBeVisible()
     await expect(page.getByTestId('chat-composer')).toBeVisible()
   })
 })

@@ -58,6 +58,14 @@ describe('ProjectWorkspacePanel', () => {
     expect(within(panel).getByText('/work/acp-frontend')).toBeDefined()
   })
 
+  it('can hide the project picker in supporting file mode', () => {
+    renderPanel({ showProjectPicker: false })
+
+    const panel = screen.getByTestId('chat-context-panel')
+    expect(within(panel).queryByRole('combobox', { name: /Active project/i })).toBeNull()
+    expect(within(panel).getByText('Current Project')).toBeDefined()
+  })
+
   it('renders selected project summary in full layout', () => {
     renderPanel()
 

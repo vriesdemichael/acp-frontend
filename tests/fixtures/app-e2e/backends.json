@@ -3,7 +3,7 @@
     {
       "id": "copilot",
       "name": "GitHub Copilot",
-      "enabled": false,
+      "enabled": true,
       "commandCandidates": ["copilot"],
       "command": null,
       "args": ["--acp"]

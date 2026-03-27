@@ -69,6 +69,15 @@ export function sessionsRoutes(registry: AgentRegistry): Hono {
     return c.json({ closed: true })
   })
 
+  app.post('/testing/reset-sessions', (c) => {
+    if (process.env['ACP_FAKE_BACKEND'] !== '1') {
+      return c.json({ error: 'Not found' }, 404)
+    }
+
+    registry.resetSessions()
+    return c.json({ ok: true })
+  })
+
   return app
 }
 

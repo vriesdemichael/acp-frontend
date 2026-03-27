@@ -13,6 +13,7 @@ interface ProjectWorkspacePanelProps {
   selectedProjectId: string | null
   onProjectSelect: (projectId: string) => void | Promise<void>
   activeAgentCount?: number
+  showProjectPicker?: boolean
   tree: ProjectTreeEntry[]
   treePath: string | null
   treeLoading: boolean
@@ -28,6 +29,7 @@ export function ProjectWorkspacePanel({
   selectedProjectId,
   onProjectSelect,
   activeAgentCount = 0,
+  showProjectPicker = true,
   tree,
   treePath,
   treeLoading,
@@ -83,33 +85,54 @@ export function ProjectWorkspacePanel({
           Pick the repository the agent should work in, then browse a read-only folder tree.
         </p>
 
-        <div className="mt-5 rounded-xl border border-white/10 bg-slate-900/80 p-3">
-          <label className="block">
-            <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
-              Active Project
-            </span>
-            <select
-              value={selectedProjectId ?? ''}
-              onChange={(event) => void onProjectSelect(event.target.value)}
-              aria-label="Active project"
-              className="mt-2 w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-teal-500"
-            >
-              <option value="" disabled>
-                {projects.length === 0 ? 'No projects configured' : 'Select a project'}
-              </option>
-              {projects.map((project) => (
-                <option
-                  key={project.id}
-                  value={project.id}
-                  disabled={project.status !== 'available' || activeAgentCount === 0}
-                >
-                  {buildProjectOptionLabel(project, activeAgentCount)}
+        {showProjectPicker ? (
+          <div className="mt-5 rounded-xl border border-white/10 bg-slate-900/80 p-3">
+            <label className="block">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
+                Active Project
+              </span>
+              <select
+                value={selectedProjectId ?? ''}
+                onChange={(event) => void onProjectSelect(event.target.value)}
+                aria-label="Active project"
+                className="mt-2 w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-teal-500"
+              >
+                <option value="" disabled>
+                  {projects.length === 0 ? 'No projects configured' : 'Select a project'}
                 </option>
-              ))}
-            </select>
-          </label>
+                {projects.map((project) => (
+                  <option
+                    key={project.id}
+                    value={project.id}
+                    disabled={project.status !== 'available'}
+                  >
+                    {buildProjectOptionLabel(project, activeAgentCount)}
+                  </option>
+                ))}
+              </select>
+            </label>
 
-          {selectedProject ? (
+            {selectedProject ? (
+              <div className="mt-3 rounded-lg border border-white/8 bg-slate-950/70 px-3 py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="truncate text-sm font-semibold text-slate-50">
+                    {selectedProject.name}
+                  </p>
+                  <span className={buildProjectStatusClassName(selectedProject.status)}>
+                    {selectedProject.status}
+                  </span>
+                </div>
+                <p className="mt-2 break-all text-[11px] leading-5 text-slate-400">
+                  {selectedProject.path}
+                </p>
+              </div>
+            ) : null}
+          </div>
+        ) : selectedProject ? (
+          <div className="mt-5 rounded-xl border border-white/10 bg-slate-900/80 p-3">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
+              Current Project
+            </p>
             <div className="mt-3 rounded-lg border border-white/8 bg-slate-950/70 px-3 py-3">
               <div className="flex items-center justify-between gap-3">
                 <p className="truncate text-sm font-semibold text-slate-50">
@@ -123,8 +146,8 @@ export function ProjectWorkspacePanel({
                 {selectedProject.path}
               </p>
             </div>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
 
         <section className="mt-4 flex min-h-0 flex-1 flex-col rounded-xl border border-white/10 bg-slate-900/70 p-3">
           <div className="flex items-center justify-between gap-3">

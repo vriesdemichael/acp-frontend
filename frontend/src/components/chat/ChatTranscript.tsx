@@ -39,11 +39,11 @@ export function ChatTranscript({
   return (
     <div
       data-testid="chat-transcript"
-      className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-[#070b12] px-5 py-5 sm:px-6 sm:py-6"
+      className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-[#070b12] px-4 py-5 sm:px-6 sm:py-6 lg:px-8"
     >
-      <div className="mx-auto flex min-h-full min-w-0 w-full max-w-4xl flex-col gap-5">
+      <div className="mx-auto flex min-h-full min-w-0 w-full max-w-5xl flex-col gap-6">
         {loading && !errorMessage && (
-          <section className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-5 py-6 text-sm text-amber-100 shadow-sm">
+          <section className="rounded-[1.75rem] border border-amber-500/20 bg-amber-500/10 px-5 py-6 text-sm text-amber-100 shadow-sm">
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-amber-700">
               Loading
             </p>
@@ -59,7 +59,7 @@ export function ChatTranscript({
         {errorMessage && (
           <section
             role="alert"
-            className="rounded-2xl border border-rose-500/20 bg-rose-500/10 px-5 py-5 text-sm text-rose-100 shadow-sm"
+            className="rounded-[1.75rem] border border-rose-500/20 bg-rose-500/10 px-5 py-5 text-sm text-rose-100 shadow-sm"
           >
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-rose-700">
               Attention
@@ -69,14 +69,14 @@ export function ChatTranscript({
         )}
 
         {ready && messages.length === 0 && (
-          <section className="rounded-2xl border border-dashed border-white/10 bg-slate-900/55 px-5 py-8 text-center shadow-sm">
+          <section className="rounded-[2rem] border border-dashed border-white/10 bg-[linear-gradient(180deg,rgba(15,23,42,0.78),rgba(6,10,18,0.92))] px-5 py-9 text-center shadow-sm sm:px-7">
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
               Transcript
             </p>
             <h2 className="mt-3 font-[family:var(--font-display)] text-4xl text-slate-50">
               Start the conversation
             </h2>
-            <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-slate-400">
+            <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-slate-400">
               Ask {activeAgentName} to inspect code, explain a failure, or sketch a next step for
               the current workspace.
             </p>
@@ -109,7 +109,7 @@ export function ChatTranscript({
               className={`flex min-w-0 ${isUser ? 'justify-end' : 'justify-start'}`}
             >
               <div
-                className={`min-w-0 max-w-[85%] rounded-2xl px-4 py-3 shadow-sm sm:max-w-[75%] ${
+                className={`min-w-0 max-w-[90%] rounded-[1.6rem] px-4 py-3.5 shadow-sm sm:max-w-[80%] lg:max-w-[72%] ${
                   isUser
                     ? 'bg-teal-500 text-slate-950'
                     : 'border border-white/10 bg-slate-900/95 text-slate-100 backdrop-blur'
@@ -128,7 +128,9 @@ export function ChatTranscript({
                   </div>
                 )}
                 {message.content && (
-                  <p className="mt-2 whitespace-pre-wrap text-sm leading-6">{message.content}</p>
+                  <p className="mt-2 whitespace-pre-wrap text-[15px] leading-7">
+                    {message.content}
+                  </p>
                 )}
               </div>
             </article>
@@ -137,7 +139,7 @@ export function ChatTranscript({
 
         {thinking && (
           <div className="flex justify-start" aria-live="polite">
-            <div className="rounded-2xl border border-white/10 bg-slate-900/95 px-4 py-3 text-sm text-slate-300 shadow-sm backdrop-blur">
+            <div className="rounded-[1.4rem] border border-teal-500/15 bg-slate-900/95 px-4 py-3 text-sm text-slate-300 shadow-sm backdrop-blur">
               Thinking…
             </div>
           </div>

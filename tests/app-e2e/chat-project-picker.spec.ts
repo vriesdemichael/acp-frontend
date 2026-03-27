@@ -1,15 +1,20 @@
 import { dirname } from 'node:path'
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test } from '@playwright/test'
+import {
+  gotoChat,
+  openNavigationIfMobile,
+  openProjectManager,
+  waitForChatShell,
+} from './helpers.js'
 
 test.describe('real chat project picker', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/chat')
+    await gotoChat(page, '/chat?project=acp-frontend')
     await page.evaluate(() => {
       window.localStorage.clear()
     })
-    await page.goto('/chat')
-    await openWorkspacePanelIfNeeded(page)
-    await waitForProjectPickerReady(page)
+    await page.reload()
+    await waitForChatShell(page)
   })
 
   test('shows the saved project picker instead of restoring the add form on reload', async ({
@@ -22,8 +27,7 @@ test.describe('real chat project picker', () => {
     await page.getByRole('combobox', { name: 'Project path' }).fill('/')
 
     await page.reload()
-    await openWorkspacePanelIfNeeded(page)
-
+    await waitForChatShell(page)
     await openProjectManager(page)
     await expect(page.getByRole('form', { name: 'Add project form' })).toHaveCount(0)
   })
@@ -57,12 +61,11 @@ test.describe('real chat project picker', () => {
       .not.toBe('pending')
   })
 
-  test('keeps the mobile workspace panel usable', async ({ page }) => {
-    test.skip(!test.info().project.name.includes('mobile'), 'mobile-only assertion')
+  test('keeps the mobile workspace panel usable', async ({ page }, testInfo) => {
+    test.skip(!testInfo.project.name.includes('mobile'), 'mobile-only assertion')
 
-    const drawerToggle = page.getByRole('button', { name: 'Open navigation' })
-    await expect(drawerToggle).toBeVisible({ timeout: 20_000 })
-    await drawerToggle.click()
+    const openedDrawer = await openNavigationIfMobile(page)
+    expect(openedDrawer).toBe(true)
 
     const drawer = page.getByTestId('chat-session-drawer')
     await expect(drawer).toBeVisible()
@@ -71,23 +74,3 @@ test.describe('real chat project picker', () => {
     await expect(page.getByRole('combobox', { name: 'Project path' })).toBeVisible()
   })
 })
-
-async function openWorkspacePanelIfNeeded(page: Page) {
-  const toggle = page.getByRole('button', { name: /Workspace/i })
-  if (await toggle.isVisible().catch(() => false)) {
-    await toggle.click()
-  }
-}
-
-async function waitForProjectPickerReady(page: Page) {
-  const drawerToggle = page.getByRole('button', { name: 'Open navigation' })
-  await expect(drawerToggle).toBeVisible({ timeout: 20_000 })
-}
-
-async function openProjectManager(page: Page) {
-  const drawerToggle = page.getByRole('button', { name: 'Open navigation' })
-  await drawerToggle.click()
-  const drawer = page.getByTestId('chat-session-drawer')
-  await expect(drawer).toBeVisible()
-  await drawer.getByRole('button', { name: 'Open project manager' }).click()
-}

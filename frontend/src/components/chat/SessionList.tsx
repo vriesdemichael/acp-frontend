@@ -46,17 +46,19 @@ export function SessionList({
   return (
     <aside
       data-testid="chat-session-panel"
-      className="flex min-h-[18rem] flex-col border-r border-white/8 bg-slate-950/88 p-3 text-slate-100 shadow-[inset_-1px_0_0_rgba(148,163,184,0.08)] backdrop-blur"
+      className="flex min-h-[18rem] flex-col border-r border-white/8 bg-slate-950/84 p-4 text-slate-100 shadow-[inset_-1px_0_0_rgba(148,163,184,0.08)] backdrop-blur"
     >
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">
             Sessions
           </p>
-          <h2 className="mt-2 font-[family:var(--font-display)] text-2xl leading-tight text-slate-50">
+          <h2 className="mt-2 font-[family:var(--font-display)] text-[2rem] leading-tight text-slate-50">
             Chats
           </h2>
-          <p className="mt-2 text-xs text-slate-500">Recent chats across all active backends.</p>
+          <p className="mt-2 max-w-[14rem] text-xs leading-5 text-slate-400">
+            Recent conversations for the current workspace, sorted by activity.
+          </p>
         </div>
 
         <div className="relative">
@@ -66,8 +68,8 @@ export function SessionList({
             disabled={creatingSession || activeAgents.length === 0}
             aria-label={activeAgents.length > 1 ? 'New chat — pick agent' : 'New chat'}
             aria-expanded={activeAgents.length > 1 ? pickerOpen : undefined}
-            aria-haspopup={activeAgents.length > 1 ? 'listbox' : undefined}
-            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-slate-900 px-3 text-sm font-semibold text-slate-50 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-800 disabled:text-slate-500"
+            aria-haspopup={activeAgents.length > 1 ? 'menu' : undefined}
+            className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-slate-900/80 px-3.5 text-sm font-semibold text-slate-50 transition hover:border-white/15 hover:bg-slate-900 disabled:cursor-not-allowed disabled:bg-slate-800 disabled:text-slate-500"
           >
             {creatingSession ? 'Opening…' : 'New'}
             {activeAgents.length > 1 && !creatingSession && (
@@ -79,18 +81,17 @@ export function SessionList({
 
           {pickerOpen && activeAgents.length > 1 && (
             <div
-              role="listbox"
+              role="menu"
               aria-label="Pick an agent for the new chat"
-              className="absolute right-0 top-full z-20 mt-1 w-48 rounded-xl border border-white/10 bg-slate-900 py-1 shadow-xl"
+              className="absolute right-0 top-full z-20 mt-2 w-52 rounded-2xl border border-white/10 bg-slate-900/95 p-1.5 shadow-xl"
             >
               {activeAgents.map((agent) => (
                 <button
                   key={agent.id}
-                  role="option"
-                  aria-selected={false}
+                  role="menuitem"
                   type="button"
                   onClick={() => handleAgentPick(agent.id)}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-100 hover:bg-slate-800"
+                  className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-slate-100 transition hover:bg-slate-800"
                 >
                   <AgentDot status={agent.status} />
                   {agent.name}
@@ -101,9 +102,9 @@ export function SessionList({
         </div>
       </div>
 
-      <div className="mt-4 flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto">
+      <div className="mt-5 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
         {visibleSessions.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-white/10 bg-slate-900/70 p-4 text-sm text-slate-400">
+          <div className="rounded-2xl border border-dashed border-white/10 bg-slate-900/55 p-4 text-sm text-slate-400">
             {activeAgents.length === 0
               ? 'No backends are ready yet. Start an adapter and reload to continue.'
               : 'No chats yet.'}
@@ -118,23 +119,34 @@ export function SessionList({
                 key={session.id}
                 type="button"
                 onClick={() => void onSelect(session.id)}
-                className={`rounded-lg border px-3 py-3 text-left transition ${
+                className={`rounded-2xl border px-3.5 py-3.5 text-left transition ${
                   active
-                    ? 'border-teal-500/50 bg-teal-500/10 shadow-[inset_0_0_0_1px_rgba(45,212,191,0.08)]'
-                    : 'border-transparent bg-transparent hover:border-white/8 hover:bg-slate-900/70'
+                    ? 'border-teal-500/35 bg-[linear-gradient(180deg,rgba(10,28,34,0.92),rgba(7,19,28,0.96))] shadow-[inset_0_0_0_1px_rgba(45,212,191,0.08)]'
+                    : 'border-white/6 bg-slate-950/35 hover:border-white/10 hover:bg-slate-900/60'
                 }`}
               >
-                <p className="truncate text-sm font-medium text-slate-100">{session.title}</p>
-                <div className="mt-2 flex items-center gap-1.5">
-                  <AgentDot status={agent?.status ?? 'unavailable'} />
-                  <p className="text-[11px] text-slate-500">{agent?.name ?? session.agentId}</p>
+                <div className="flex items-start justify-between gap-3">
+                  <p className="min-w-0 flex-1 truncate text-sm font-medium text-slate-100">
+                    {session.title}
+                  </p>
+                  {active ? (
+                    <span className="rounded-full border border-teal-500/25 bg-teal-500/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-teal-200">
+                      Active
+                    </span>
+                  ) : null}
                 </div>
-                <p className="mt-1 text-[11px] text-slate-500">
-                  {formatUpdatedAt(session.updatedAt)}
-                </p>
-                {session.project ? (
-                  <p className="mt-1 truncate text-[11px] text-slate-500">{session.project.name}</p>
-                ) : null}
+
+                <div className="mt-3 flex items-center gap-1.5">
+                  <AgentDot status={agent?.status ?? 'unavailable'} />
+                  <p className="text-[11px] text-slate-400">{agent?.name ?? session.agentId}</p>
+                </div>
+
+                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500">
+                  <span>{formatUpdatedAt(session.updatedAt)}</span>
+                  {session.project ? (
+                    <span className="truncate">{session.project.name}</span>
+                  ) : null}
+                </div>
               </button>
             )
           })
