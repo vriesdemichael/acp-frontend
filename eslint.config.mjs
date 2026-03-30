@@ -6,7 +6,15 @@ import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
   {
-    ignores: ['dist', 'node_modules', 'playwright-report', 'storybook-static', 'playwright/.cache'],
+    ignores: [
+      'dist',
+      'node_modules',
+      'playwright-report',
+      'storybook-static',
+      'playwright/.cache',
+      '.tmp',
+      'coverage',
+    ],
   },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],

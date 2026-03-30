@@ -18,13 +18,15 @@ function mockFetch() {
         json: () =>
           Promise.resolve([
             {
-              id: 'copilot',
-              name: 'GitHub Copilot',
+              id: 'copilot-vscode-host',
+              name: 'GitHub Copilot VS Code (Host)',
               status: 'active',
-              command: 'copilot',
-              detectedCommand: 'copilot',
-              args: ['--acp'],
-              defaultArgs: ['--acp'],
+              command: null,
+              detectedCommand: null,
+              args: [],
+              defaultArgs: [],
+              historyPathHints: ['/mnt/c/Users/vries/AppData/Roaming/Code/User/workspaceStorage'],
+              cliHistoryPathHints: [],
               enabled: true,
               usesCustomCommand: false,
               endpointSupport: {
@@ -32,30 +34,77 @@ function mockFetch() {
                 implemented: ['session/new'],
                 unknown: ['terminal/*', 'project discovery'],
               },
+              historySupport: {
+                source: 'derived',
+                supported: ['text', 'markdown'],
+                discoveredSources: [
+                  {
+                    id: 'src-1',
+                    backendId: 'copilot-vscode-host',
+                    providerId: 'copilot-vscode-host',
+                    kind: 'vscode_workspace_db',
+                    path: '/mnt/c/Users/vries/AppData/Roaming/Code/User/workspaceStorage/x/state.vscdb',
+                    platform: 'mounted_host',
+                    access: 'readable',
+                    signal: 'contains_history',
+                    discoveredBy: 'auto',
+                    sessionCount: 42,
+                  },
+                  {
+                    id: 'src-2',
+                    backendId: 'copilot-vscode-host',
+                    providerId: 'copilot-vscode-host',
+                    kind: 'vscode_chat_sessions',
+                    path: '/mnt/c/Users/vries/AppData/Roaming/Code/User/workspaceStorage/x/chatSessions',
+                    platform: 'mounted_host',
+                    access: 'readable',
+                    signal: 'contains_history',
+                    discoveredBy: 'auto',
+                    sessionCount: 10,
+                  },
+                ],
+                discoverySummary: [
+                  {
+                    family: 'vscode',
+                    readable: 2,
+                    missing: 0,
+                    invalid: 0,
+                    containsHistory: 2,
+                  },
+                ],
+              },
               lastTestResult: null,
             },
           ]),
       } as Response)
     }
 
-    if (url === '/api/backends/copilot/test' && opts?.method === 'POST') {
+    if (url === '/api/backends/copilot-vscode-host/test' && opts?.method === 'POST') {
       return Promise.resolve({
         ok: true,
         json: () =>
           Promise.resolve({
-            id: 'copilot',
-            name: 'GitHub Copilot',
+            id: 'copilot-vscode-host',
+            name: 'GitHub Copilot VS Code (Host)',
             status: 'active',
-            command: 'copilot',
-            detectedCommand: 'copilot',
-            args: ['--acp'],
-            defaultArgs: ['--acp'],
+            command: null,
+            detectedCommand: null,
+            args: [],
+            defaultArgs: [],
+            historyPathHints: [],
+            cliHistoryPathHints: [],
             enabled: true,
             usesCustomCommand: false,
             endpointSupport: {
               source: 'connection',
               implemented: ['session/new', 'session/list'],
               unknown: [],
+            },
+            historySupport: {
+              source: 'derived',
+              supported: ['text', 'markdown'],
+              discoveredSources: [],
+              discoverySummary: [],
             },
             lastTestResult: {
               ok: true,
@@ -79,12 +128,20 @@ function mockFetch() {
             detectedCommand: 'custom-wrapper',
             args: ['--acp'],
             defaultArgs: ['--acp'],
+            historyPathHints: [],
+            cliHistoryPathHints: [],
             enabled: true,
             usesCustomCommand: true,
             endpointSupport: {
               source: 'unknown',
               implemented: [],
               unknown: ['session/new'],
+            },
+            historySupport: {
+              source: 'none',
+              supported: [],
+              discoveredSources: [],
+              discoverySummary: [],
             },
           }),
       } as Response)
@@ -233,9 +290,20 @@ describe('app router', () => {
     render(<App routerInstance={createAppRouter()} />)
 
     await waitFor(() => expect(screen.getByText('ACP Backends')).toBeDefined())
-    expect(screen.getByDisplayValue('GitHub Copilot')).toBeDefined()
+    expect(screen.getByDisplayValue('GitHub Copilot VS Code (Host)')).toBeDefined()
     expect(screen.getByText('Reported By Connection')).toBeDefined()
     expect(screen.getByText('Add Backend')).toBeDefined()
+    expect(
+      screen.getByDisplayValue('/mnt/c/Users/vries/AppData/Roaming/Code/User/workspaceStorage')
+    ).toBeDefined()
+    expect(screen.getByText('History Sources')).toBeDefined()
+    expect(screen.getByText('Discovery Summary')).toBeDefined()
+    expect(screen.getByText('vscode')).toBeDefined()
+    expect(
+      screen.getByText(
+        '/mnt/c/Users/vries/AppData/Roaming/Code/User/workspaceStorage/x/state.vscdb'
+      )
+    ).toBeDefined()
     expect(screen.getByRole('link', { name: 'Back To Chat' })).toBeDefined()
     expect(screen.getByRole('button', { name: 'Test' })).toBeDefined()
   })
@@ -246,6 +314,7 @@ describe('app router', () => {
     render(<App routerInstance={createAppRouter()} />)
 
     await waitFor(() => expect(screen.getByPlaceholderText('Type a message…')).toBeDefined())
-    await waitFor(() => expect(window.location.search).toBe('?project=acp-frontend'))
+    await waitFor(() => expect(window.location.search.includes('%20')).toBe(false))
+    await waitFor(() => expect(window.location.search.includes('project=')).toBe(true))
   })
 })

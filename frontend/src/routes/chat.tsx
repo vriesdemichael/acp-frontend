@@ -70,6 +70,7 @@ export function ChatPage() {
     availableProjects,
     creatingSession,
     errorMessage,
+    historyLoading,
     loading,
     messages,
     projects,
@@ -82,6 +83,7 @@ export function ChatPage() {
     sessionId: activeSessionId,
     sessions,
     startNewSession,
+    streamReconnecting,
     suggestProjectPaths,
     thinking,
   } = useAgUiChat({
@@ -222,7 +224,9 @@ export function ChatPage() {
       }
 
       const filtered = current.filter((projectId) => nextVisible.includes(projectId))
-      return filtered.length > 0 ? filtered : nextVisible
+      const added = nextVisible.filter((projectId) => !current.includes(projectId))
+      const merged = [...filtered, ...added]
+      return merged.length > 0 ? merged : nextVisible
     })
   }, [availableProjects])
 
@@ -277,8 +281,8 @@ export function ChatPage() {
     workspaceView === 'diff' ? 'Diff' : workspaceView === 'files' ? 'Files' : 'Chat'
 
   return (
-    <main className="min-h-screen bg-[#05070b] text-slate-100">
-      <div className="mx-auto flex min-h-screen w-full max-w-[1800px] flex-col">
+    <main className="h-[100dvh] overflow-hidden bg-[#05070b] text-slate-100">
+      <div className="flex h-full min-h-0 w-full flex-col">
         <ChatHeader
           activeAgentName={activeAgentName}
           errorMessage={errorMessage}
@@ -324,12 +328,13 @@ export function ChatPage() {
           </div>
         </div>
 
-        <div className="grid min-h-0 flex-1 lg:grid-cols-[20rem_minmax(0,1fr)] xl:grid-cols-[18.5rem_minmax(0,1fr)_19rem]">
-          <aside className="hidden lg:flex">
+        <div className="grid min-h-0 flex-1 overflow-hidden lg:grid-cols-[20rem_minmax(0,1fr)] lg:grid-rows-[1fr]">
+          <aside className="hidden min-h-0 overflow-hidden lg:flex">
             <div className="flex min-h-0 w-full flex-col">
               <SessionList
                 agents={agents}
                 sessions={filteredSessions}
+                selectedProjectId={selectedProject?.id ?? null}
                 activeSessionId={activeSessionId}
                 creatingSession={creatingSession}
                 onCreate={startNewSession}
@@ -360,7 +365,7 @@ export function ChatPage() {
             </div>
           </aside>
 
-          <section className="flex min-h-[32rem] min-w-0 flex-col overflow-hidden bg-[#070b12] lg:border-x lg:border-white/8">
+          <section className="flex min-h-0 min-w-0 flex-col overflow-hidden bg-[#070b12] lg:border-x lg:border-white/8">
             <div className="hidden items-center justify-between border-b border-white/8 bg-slate-950/72 px-6 py-3 lg:flex">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">
@@ -405,6 +410,8 @@ export function ChatPage() {
                 hasAvailableAgent={activeAgents.length > 0}
                 hasAvailableProject={availableProjects.length > 0}
                 messages={messages}
+                projectPath={selectedProject?.path ?? null}
+                sessionId={activeSessionId}
                 hasSession={activeSessionId !== null}
                 loading={loading}
                 onOpenProjectManager={openProjectManager}
@@ -415,8 +422,10 @@ export function ChatPage() {
                   }
                 }}
                 ready={ready}
+                streamReconnecting={streamReconnecting}
                 thinking={thinking}
                 errorMessage={errorMessage}
+                historyLoading={historyLoading}
               />
             ) : workspaceView === 'diff' ? (
               <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
@@ -463,31 +472,6 @@ export function ChatPage() {
               }
             />
           </section>
-
-          <div className="hidden xl:flex">
-            <ProjectWorkspacePanel
-              projects={projects}
-              selectedProjectId={selectedProject?.id ?? null}
-              onProjectSelect={handleProjectSelect}
-              activeAgentCount={activeAgents.length}
-              tree={tree}
-              treePath={treePath}
-              treeLoading={treeLoading}
-              treeError={treeError}
-              expandedPaths={expandedPaths}
-              onToggleFolder={async (path) => {
-                const collapsing = expandedPaths.includes(path)
-
-                setExpandedPaths((current) =>
-                  collapsing ? current.filter((item) => item !== path) : [path]
-                )
-
-                await loadTree(collapsing ? getParentTreePath(path) : path)
-              }}
-              selectedEntryPath={selectedEntryPath}
-              onSelectEntry={setSelectedEntryPath}
-            />
-          </div>
         </div>
       </div>
 
@@ -524,6 +508,7 @@ export function ChatPage() {
               <SessionList
                 agents={agents}
                 sessions={filteredSessions}
+                selectedProjectId={selectedProject?.id ?? null}
                 activeSessionId={activeSessionId}
                 creatingSession={creatingSession}
                 onCreate={async (agentId) => {

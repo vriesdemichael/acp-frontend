@@ -125,6 +125,7 @@ function mockFetch(options?: {
               title: 'New chat',
               updatedAt: '2026-03-18T08:00:00.000Z',
               agentId: 'copilot',
+              source: 'live',
               project: {
                 id: 'acp-frontend',
                 name: 'ACP Frontend',
@@ -147,6 +148,7 @@ function mockFetch(options?: {
                     title: 'Inspect auth bug',
                     updatedAt: '2026-03-18T08:00:00.000Z',
                     agentId: 'copilot',
+                    source: 'live',
                     project: {
                       id: 'acp-frontend',
                       name: 'ACP Frontend',
@@ -158,6 +160,7 @@ function mockFetch(options?: {
                     title: 'Review SSE handling',
                     updatedAt: '2026-03-17T09:30:00.000Z',
                     agentId: 'copilot',
+                    source: 'live',
                     project: {
                       id: 'acp-frontend',
                       name: 'ACP Frontend',
@@ -169,7 +172,7 @@ function mockFetch(options?: {
       } as Response)
     }
 
-    if (url === `/api/sessions/${SESSION_ID}`) {
+    if (url === `/api/sessions/${SESSION_ID}` || url.startsWith(`/api/sessions/${SESSION_ID}?`)) {
       return Promise.resolve({
         ok: true,
         json: () =>
@@ -188,7 +191,10 @@ function mockFetch(options?: {
       } as Response)
     }
 
-    if (url === `/api/sessions/${SECOND_SESSION_ID}`) {
+    if (
+      url === `/api/sessions/${SECOND_SESSION_ID}` ||
+      url.startsWith(`/api/sessions/${SECOND_SESSION_ID}?`)
+    ) {
       return Promise.resolve({
         ok: true,
         json: () =>
@@ -253,12 +259,7 @@ describe('ChatPage', () => {
 
     await waitFor(() => expect(MockEventSource.instance).not.toBeNull())
     expect(screen.getByTestId('chat-session-panel')).toBeDefined()
-    expect(screen.getByTestId('chat-context-panel')).toBeDefined()
-    expect(screen.getByRole('combobox', { name: /Active project/i })).toBeDefined()
-    expect(screen.getByText('/home/vries/projects/acp-frontend')).toBeDefined()
-    expect(screen.getByRole('button', { name: /Workspace/i }).getAttribute('aria-expanded')).toBe(
-      'false'
-    )
+    expect(screen.getAllByText('/home/vries/projects/acp-frontend').length).toBeGreaterThan(0)
   })
 
   it('keeps sessions from visible projects in the session rail instead of scoping to the selected project only', async () => {
@@ -721,7 +722,7 @@ describe('ChatPage', () => {
         } as Response)
       }
 
-      if (url === `/api/sessions/${SESSION_ID}`) {
+      if (url === `/api/sessions/${SESSION_ID}` || url.startsWith(`/api/sessions/${SESSION_ID}?`)) {
         return Promise.resolve({
           ok: true,
           json: () =>
@@ -784,7 +785,7 @@ describe('ChatPage', () => {
     await waitFor(() => expect(window.location.search).not.toContain(`session=${SESSION_ID}`))
   })
 
-  it('shows flat session list with agent dots for all active backends', async () => {
+  it('renders sessions grouped by project and updates the list when switching projects', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
@@ -870,9 +871,9 @@ describe('ChatPage', () => {
                   updatedAt: '2026-03-18T10:00:00.000Z',
                   agentId: 'gemini-cli',
                   project: {
-                    id: 'acp-frontend',
-                    name: 'ACP Frontend',
-                    path: '/home/vries/projects/acp-frontend',
+                    id: 'docs-site',
+                    name: 'Docs Site',
+                    path: '/home/vries/projects/docs-site',
                   },
                 },
                 {
@@ -881,16 +882,19 @@ describe('ChatPage', () => {
                   updatedAt: '2026-03-17T06:00:00.000Z',
                   agentId: 'claude-code',
                   project: {
-                    id: 'acp-frontend',
-                    name: 'ACP Frontend',
-                    path: '/home/vries/projects/acp-frontend',
+                    id: 'docs-site',
+                    name: 'Docs Site',
+                    path: '/home/vries/projects/docs-site',
                   },
                 },
               ]),
           } as Response)
         }
 
-        if (url === `/api/sessions/${SESSION_ID}`) {
+        if (
+          url === `/api/sessions/${SESSION_ID}` ||
+          url.startsWith(`/api/sessions/${SESSION_ID}?`)
+        ) {
           return Promise.resolve({
             ok: true,
             json: () =>
@@ -917,22 +921,24 @@ describe('ChatPage', () => {
 
     const sessionPanel = await screen.findByTestId('chat-session-panel')
 
-    // Flat list shows sessions from all non-disabled agents within selected project
     await waitFor(() => expect(within(sessionPanel).getByText('Inspect auth bug')).toBeDefined())
+    expect(within(sessionPanel).getByText('ACP Frontend')).toBeDefined()
+    expect(within(sessionPanel).getByText('Docs Site')).toBeDefined()
     expect(within(sessionPanel).getByText('Gemini discovery notes')).toBeDefined()
-    // Sessions from 'unavailable' agents are visible (only 'disabled' status hides sessions)
     expect(within(sessionPanel).getByText('Claude backlog')).toBeDefined()
-
-    // Agent names appear as row labels on each session
     expect(within(sessionPanel).getAllByText('GitHub Copilot').length).toBeGreaterThan(0)
     expect(within(sessionPanel).getByText('Gemini CLI')).toBeDefined()
-    // claude-code agent name appears since its sessions are not hidden
     expect(within(sessionPanel).getByText('Claude Code')).toBeDefined()
-
-    // Active agents have online dots; no pill badges for grouping
     expect(within(sessionPanel).getAllByLabelText('online').length).toBeGreaterThan(0)
-    expect(within(sessionPanel).queryByText('Selected')).toBeNull()
-    expect(within(sessionPanel).queryByText('Ready')).toBeNull()
-    expect(within(sessionPanel).queryByText('Offline')).toBeNull()
+    expect(within(sessionPanel).getByText('Current')).toBeDefined()
+
+    fireEvent.click(screen.getByLabelText('Open project manager'))
+    const useButtons = await screen.findAllByRole('button', { name: /^Use$/ })
+    fireEvent.click(useButtons[0]!)
+
+    await waitFor(() => expect(within(sessionPanel).getAllByText('Current').length).toBe(1))
+    await waitFor(() => expect(within(sessionPanel).getByText('Docs Site')).toBeDefined())
+    expect(within(sessionPanel).getByText('Gemini discovery notes')).toBeDefined()
+    expect(within(sessionPanel).getByText('Claude backlog')).toBeDefined()
   })
 })

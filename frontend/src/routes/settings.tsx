@@ -1,6 +1,10 @@
 import { Link } from '@tanstack/react-router'
 import { useState } from 'react'
-import { useBackendSettings, type BackendSummary } from '../hooks/useBackendSettings.js'
+import {
+  useBackendSettings,
+  type BackendSummary,
+  type HistorySourceDescriptor,
+} from '../hooks/useBackendSettings.js'
 
 export function SettingsPage() {
   const {
@@ -60,7 +64,8 @@ export function SettingsPage() {
 
           <p className="mt-4 max-w-3xl text-sm leading-6 text-slate-400">
             Manage ACP backends and MCP servers from one place. Backend capability claims now come
-            from the last established ACP connection.
+            from the last established ACP connection, while history support tracks richer transcript
+            fidelity like reasoning, patches, attachments, and compaction notices.
           </p>
 
           {errorMessage ? (
@@ -156,7 +161,14 @@ interface BackendCardProps {
   testing: boolean
   onSave: (
     backendId: string,
-    patch: { enabled?: boolean; command?: string | null; args?: string[]; name?: string }
+    patch: {
+      enabled?: boolean
+      command?: string | null
+      args?: string[]
+      name?: string
+      historyPathHints?: string[]
+      cliHistoryPathHints?: string[]
+    }
   ) => Promise<void>
   onTest: (backendId: string) => Promise<void>
 }
@@ -166,10 +178,16 @@ function BackendCard({ backend, busy, testing, onSave, onTest }: BackendCardProp
   const [name, setName] = useState(backend.name)
   const [command, setCommand] = useState(backend.command ?? '')
   const [args, setArgs] = useState(backend.args.join(' '))
+  const [historyPathHints, setHistoryPathHints] = useState(backend.historyPathHints.join('\n'))
+  const [cliHistoryPathHints, setCliHistoryPathHints] = useState(
+    backend.cliHistoryPathHints.join('\n')
+  )
 
   const detectedLabel = backend.detectedCommand
     ? `Detected: ${backend.detectedCommand}`
     : 'Not detected'
+
+  const isCopilot = backend.id === 'copilot'
 
   const handleSave = async () => {
     await onSave(backend.id, {
@@ -177,6 +195,8 @@ function BackendCard({ backend, busy, testing, onSave, onTest }: BackendCardProp
       enabled,
       command: command.trim() || null,
       args: parseArgs(args),
+      historyPathHints: parseLines(historyPathHints),
+      cliHistoryPathHints: parseLines(cliHistoryPathHints),
     })
   }
 
@@ -230,6 +250,47 @@ function BackendCard({ backend, busy, testing, onSave, onTest }: BackendCardProp
             className="mt-2 w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-teal-500"
           />
         </label>
+
+        <label className="block">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+            {isCopilot ? 'VS Code Workspace Storage Roots' : 'History Path Hints'}
+          </span>
+          <textarea
+            value={historyPathHints}
+            onChange={(event) => setHistoryPathHints(event.target.value)}
+            placeholder="One path per line"
+            rows={4}
+            className="mt-2 w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-teal-500"
+          />
+          <p className="mt-2 text-xs text-slate-500">
+            {isCopilot
+              ? 'Paths to VS Code workspaceStorage directories containing Copilot Chat history. Example: /home/user/.vscode-server/data/User/workspaceStorage'
+              : 'Optional extra search roots for remote hosts, copied profiles, or non-standard VS Code storage.'}
+          </p>
+        </label>
+
+        {isCopilot ? (
+          <label className="block">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+              CLI Session Directories
+            </span>
+            <textarea
+              value={cliHistoryPathHints}
+              onChange={(event) => setCliHistoryPathHints(event.target.value)}
+              placeholder="One path per line"
+              rows={4}
+              className="mt-2 w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-teal-500"
+            />
+            <p className="mt-2 text-xs text-slate-500">
+              Paths to Copilot CLI session-state directories. WSL paths start with{' '}
+              <code className="rounded bg-slate-800 px-1">/</code> (e.g.{' '}
+              <code className="rounded bg-slate-800 px-1">~/.copilot/session-state</code>).
+              Windows-mounted host paths start with{' '}
+              <code className="rounded bg-slate-800 px-1">/mnt/</code>. Leave empty to use the
+              default locations.
+            </p>
+          </label>
+        ) : null}
       </div>
 
       <div className="mt-5 grid gap-3 md:grid-cols-2">
@@ -243,6 +304,22 @@ function BackendCard({ backend, busy, testing, onSave, onTest }: BackendCardProp
           tone="ready"
         />
         <EndpointColumn title="Unknown" items={backend.endpointSupport.unknown} tone="unknown" />
+      </div>
+
+      <div className="mt-3">
+        <EndpointColumn
+          title={`History Support (${backend.historySupport.source})`}
+          items={backend.historySupport.supported}
+          tone={backend.historySupport.supported.length > 0 ? 'ready' : 'unknown'}
+        />
+      </div>
+
+      <div className="mt-3">
+        <HistorySourcesPanel sources={backend.historySupport.discoveredSources} />
+      </div>
+
+      <div className="mt-3">
+        <HistoryDiscoverySummary summaries={backend.historySupport.discoverySummary ?? []} />
       </div>
 
       <div className="mt-5 flex items-center justify-between gap-3 border-t border-white/10 pt-4">
@@ -284,6 +361,92 @@ function BackendCard({ backend, busy, testing, onSave, onTest }: BackendCardProp
   )
 }
 
+function HistorySourcesPanel({ sources }: { sources: HistorySourceDescriptor[] }) {
+  return (
+    <div className="rounded-xl border border-white/10 bg-slate-950 px-3 py-3 text-slate-300">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+          History Sources
+        </p>
+        <span className="text-[11px] text-slate-500">{sources.length} found</span>
+      </div>
+
+      {sources.length === 0 ? (
+        <p className="mt-3 text-[11px] text-slate-500">No discovered history sources.</p>
+      ) : (
+        <div className="mt-3 grid gap-3">
+          {sources.map((source) => (
+            <article
+              key={source.id}
+              className="rounded-lg border border-white/10 bg-slate-900/70 p-3"
+            >
+              <div className="flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-[0.12em] text-slate-500">
+                <span>{source.kind}</span>
+                <span>•</span>
+                <span>{source.platform}</span>
+                <span>•</span>
+                <span>{source.access}</span>
+                <span>•</span>
+                <span>{source.signal}</span>
+              </div>
+              <p className="mt-2 break-all font-mono text-xs text-slate-200">{source.path}</p>
+              <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-slate-500">
+                <span>{source.discoveredBy === 'auto' ? 'Auto-discovered' : 'Manual'}</span>
+                {source.sessionCount !== undefined ? (
+                  <span>{source.sessionCount} sessions</span>
+                ) : null}
+                {source.lastModifiedMs ? (
+                  <span>Updated {new Date(source.lastModifiedMs).toLocaleString()}</span>
+                ) : null}
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function HistoryDiscoverySummary({
+  summaries,
+}: {
+  summaries: Array<{
+    family: string
+    readable: number
+    missing: number
+    invalid: number
+    containsHistory: number
+  }>
+}) {
+  if (summaries.length === 0) {
+    return null
+  }
+
+  return (
+    <div className="rounded-xl border border-white/10 bg-slate-950 px-3 py-3 text-slate-300">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+        Discovery Summary
+      </p>
+      <div className="mt-3 grid gap-2 md:grid-cols-2">
+        {summaries.map((summary) => (
+          <div
+            key={summary.family}
+            className="rounded-lg border border-white/10 bg-slate-900/70 p-3"
+          >
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-200">
+              {summary.family}
+            </p>
+            <p className="mt-2 text-[11px] text-slate-400">
+              {summary.readable} readable - {summary.containsHistory} with history -{' '}
+              {summary.missing} missing - {summary.invalid} invalid
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 interface EndpointColumnProps {
   title: string
   items: string[]
@@ -317,6 +480,13 @@ function EndpointColumn({ title, items, tone }: EndpointColumnProps) {
 function parseArgs(value: string): string[] {
   return value
     .split(' ')
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
+function parseLines(value: string): string[] {
+  return value
+    .split('\n')
     .map((item) => item.trim())
     .filter(Boolean)
 }
