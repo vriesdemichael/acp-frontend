@@ -114,7 +114,25 @@ export function useAgUiChat({
     sessionsRef.current = nextSessions
     setSessions(nextSessions)
   }, [])
-  const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [messages, setMessagesRaw] = useState<ChatMessage[]>([])
+  const messagesRef = useRef<ChatMessage[]>([])
+  // Wraps the raw setter so that messagesRef always stays in sync.
+  // Used wherever we need to snapshot messages in a callback without stale-closure issues.
+  const setMessages = useCallback(
+    (next: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => {
+      if (typeof next === 'function') {
+        setMessagesRaw((prev) => {
+          const resolved = next(prev)
+          messagesRef.current = resolved
+          return resolved
+        })
+      } else {
+        messagesRef.current = next
+        setMessagesRaw(next)
+      }
+    },
+    []
+  )
   const [thinking, setThinking] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -660,6 +678,11 @@ export function useAgUiChat({
       if (!currentSessionId) return
       setErrorMessage(null)
       setCreatingSession(true)
+
+      // Snapshot messages before the async call — we'll prepend them to the new session
+      // so the transcript shows the full prior conversation immediately.
+      const priorMessages = messagesRef.current
+
       try {
         // Pass sourceAgentId so the backend can disambiguate cross-provider session lookups
         const sourceAgentId = currentSession?.agentId ?? null
@@ -676,7 +699,9 @@ export function useAgUiChat({
         )
         activeSessionRef.current = session.id
         setCurrentSessionId(session.id)
-        setMessages(session.messages)
+        // Prepend the source conversation so the transcript is continuous.
+        // The new session's own messages (the context-handoff exchange) are appended after.
+        setMessages([...priorMessages, ...session.messages])
         setCurrentProjectId(session.project?.id ?? null)
         onSessionCreated(session.id)
         if (session.project?.id !== projectId) {
