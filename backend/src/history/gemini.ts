@@ -15,10 +15,11 @@
  *     id, timestamp, type ("user" | "gemini"), content (string | ContentPart[])
  */
 
-import { existsSync, readdirSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import type {
+  HistorySourceDescriptor,
   SessionDetails,
   SessionMessage,
   SessionSummary,
@@ -46,6 +47,70 @@ interface GeminiSession {
 const GEMINI_TMP_DIR = process.env['GEMINI_TMP_DIR'] ?? join(homedir(), '.gemini', 'tmp')
 
 const GEMINI_AGENT_ID = 'gemini-cli'
+
+export function discoverGeminiHistorySources(): HistorySourceDescriptor[] {
+  if (!existsSync(GEMINI_TMP_DIR)) {
+    return [
+      {
+        id: `gemini:${GEMINI_TMP_DIR}`,
+        backendId: GEMINI_AGENT_ID,
+        providerId: GEMINI_AGENT_ID,
+        kind: 'gemini_tmp_dir',
+        path: GEMINI_TMP_DIR,
+        platform: 'linux',
+        access: 'missing',
+        signal: 'unknown',
+        discoveredBy: 'auto',
+      },
+    ]
+  }
+
+  try {
+    const projectDirs = readdirSync(GEMINI_TMP_DIR, { withFileTypes: true }).filter((entry) =>
+      entry.isDirectory()
+    )
+    let sessionCount = 0
+
+    for (const entry of projectDirs) {
+      const chatsDir = join(GEMINI_TMP_DIR, entry.name, 'chats')
+      if (!existsSync(chatsDir)) {
+        continue
+      }
+
+      sessionCount += readdirSync(chatsDir).filter((name) => name.endsWith('.json')).length
+    }
+
+    return [
+      {
+        id: `gemini:${GEMINI_TMP_DIR}`,
+        backendId: GEMINI_AGENT_ID,
+        providerId: GEMINI_AGENT_ID,
+        kind: 'gemini_tmp_dir',
+        path: GEMINI_TMP_DIR,
+        platform: 'linux',
+        access: 'readable',
+        signal: sessionCount > 0 ? 'contains_history' : 'empty',
+        discoveredBy: 'auto',
+        lastModifiedMs: statSync(GEMINI_TMP_DIR).mtimeMs,
+        sessionCount,
+      },
+    ]
+  } catch {
+    return [
+      {
+        id: `gemini:${GEMINI_TMP_DIR}`,
+        backendId: GEMINI_AGENT_ID,
+        providerId: GEMINI_AGENT_ID,
+        kind: 'gemini_tmp_dir',
+        path: GEMINI_TMP_DIR,
+        platform: 'linux',
+        access: 'invalid',
+        signal: 'unknown',
+        discoveredBy: 'auto',
+      },
+    ]
+  }
+}
 
 /**
  * Enumerate all Gemini CLI sessions on disk and return those whose project

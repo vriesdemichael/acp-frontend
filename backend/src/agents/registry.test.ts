@@ -13,6 +13,7 @@ const readBackendConfigMock = vi.fn()
 const detectAvailableCommandMock = vi.fn(() => ({ command: null }))
 const createGenericAcpAdapterMock = vi.fn()
 const isCopilotAvailableMock = vi.fn(() => false)
+const getHistorySourceDescriptorsMock = vi.fn<(...args: unknown[]) => unknown[]>(() => [])
 
 vi.mock('../projects/service.js', () => ({
   listProjects: listProjectsMock,
@@ -20,6 +21,7 @@ vi.mock('../projects/service.js', () => ({
 }))
 
 vi.mock('../history/index.js', () => ({
+  getHistorySourceDescriptors: getHistorySourceDescriptorsMock,
   listHistorySessions: listHistorySessionsMock,
   mergeSessions: mergeSessionsMock,
 }))
@@ -55,6 +57,8 @@ describe('AgentRegistry.listSessions', () => {
         commandCandidates: ['copilot'],
         command: 'copilot',
         args: ['--acp'],
+        historyPathHints: ['/tmp/copilot-vscode'],
+        cliHistoryPathHints: [],
       },
       {
         id: 'gemini-cli',
@@ -63,6 +67,7 @@ describe('AgentRegistry.listSessions', () => {
         commandCandidates: ['gemini'],
         command: null,
         args: ['--acp'],
+        historyPathHints: [],
       },
     ])
 
@@ -200,9 +205,13 @@ describe('AgentRegistry.listSessions', () => {
       },
     ])
 
-    expect(listHistorySessionsMock).toHaveBeenCalledWith([
-      { id: 'repo-1', name: 'ACP Frontend', path: '/work/acp-frontend' },
-    ])
+    expect(listHistorySessionsMock).toHaveBeenCalledWith(
+      [{ id: 'repo-1', name: 'ACP Frontend', path: '/work/acp-frontend' }],
+      [
+        { id: 'copilot', historyPathHints: ['/tmp/copilot-vscode'], cliHistoryPathHints: [] },
+        { id: 'gemini-cli', historyPathHints: [], cliHistoryPathHints: [] },
+      ]
+    )
     expect(mergeSessionsMock).toHaveBeenCalledWith(liveSessions, [
       {
         id: 'gemini-1',
@@ -228,6 +237,120 @@ describe('AgentRegistry.listSessions', () => {
         project: { id: 'repo-1', name: 'ACP Frontend', path: '/work/acp-frontend' },
         source: 'history',
       },
+    ])
+  })
+})
+
+describe('AgentRegistry.listBackends', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    readBackendConfigMock.mockReturnValue([
+      {
+        id: 'opencode',
+        name: 'OpenCode',
+        enabled: true,
+        commandCandidates: ['opencode'],
+        command: 'opencode',
+        args: ['--acp'],
+        historyPathHints: [],
+      },
+    ])
+    listProjectsMock.mockReturnValue([])
+  })
+
+  it('reports OpenCode history compatibility support', async () => {
+    const copilotAdapter = {
+      listSessions: vi.fn(() => []),
+      getEndpointSupport: vi.fn(() => ({ source: 'unknown', implemented: [], unknown: [] })),
+    } as unknown as CopilotAdapter
+
+    const { AgentRegistry } = await import('./registry.js')
+    const registry = new AgentRegistry(copilotAdapter)
+
+    expect(registry.listBackends()).toEqual([
+      expect.objectContaining({
+        id: 'opencode',
+        historySupport: {
+          source: 'native',
+          supported: [
+            'text',
+            'markdown',
+            'reasoning',
+            'tool_calls',
+            'skills',
+            'subagents',
+            'attachments',
+            'rich_media',
+            'file_operations',
+            'patches',
+            'compaction',
+          ],
+          discoveredSources: [],
+          discoverySummary: [],
+        },
+      }),
+    ])
+  })
+
+  it('reports Copilot history compatibility support conservatively', async () => {
+    readBackendConfigMock.mockReturnValue([
+      {
+        id: 'copilot',
+        name: 'GitHub Copilot',
+        enabled: true,
+        commandCandidates: ['copilot'],
+        command: null,
+        args: ['--acp'],
+        historyPathHints: ['/mnt/c/Users/vries/AppData/Roaming/Code/User/workspaceStorage'],
+      },
+    ])
+
+    const copilotAdapter = {
+      getEndpointSupport: vi.fn(() => ({ source: 'unknown', implemented: [], unknown: [] })),
+      listSessions: vi.fn(() => []),
+    } as unknown as CopilotAdapter
+    createGenericAcpAdapterMock.mockReturnValue({
+      getEndpointSupport: vi.fn(() => ({ source: 'unknown', implemented: [], unknown: [] })),
+      listSessions: vi.fn(() => []),
+    })
+    getHistorySourceDescriptorsMock.mockReturnValue([
+      {
+        id: 'src-vscode',
+        backendId: 'copilot',
+        providerId: 'copilot',
+        kind: 'vscode_chat_sessions' as const,
+        path: '/tmp/copilot-vscode/chatSessions',
+        platform: 'linux' as const,
+        access: 'readable' as const,
+        signal: 'contains_history' as const,
+        discoveredBy: 'manual' as const,
+      },
+    ])
+
+    const { AgentRegistry } = await import('./registry.js')
+    const registry = new AgentRegistry(copilotAdapter)
+
+    expect(registry.listBackends()).toEqual([
+      expect.objectContaining({
+        id: 'copilot',
+        historyPathHints: ['/mnt/c/Users/vries/AppData/Roaming/Code/User/workspaceStorage'],
+        historySupport: {
+          source: 'derived',
+          supported: ['text', 'markdown', 'reasoning', 'tool_calls', 'truncation'],
+          discoveredSources: [
+            expect.objectContaining({ kind: 'vscode_chat_sessions', discoveredBy: 'manual' }),
+          ],
+          discoverySummary: [
+            {
+              family: 'vscode',
+              readable: 1,
+              missing: 0,
+              invalid: 0,
+              containsHistory: 1,
+            },
+          ],
+        },
+      }),
     ])
   })
 })

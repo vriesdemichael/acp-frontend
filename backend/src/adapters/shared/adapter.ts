@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto'
 import {
   EventType,
   type BaseEvent,
+  type CustomEvent,
   type TextMessageContentEvent,
   type TextMessageStartEvent,
 } from '@ag-ui/core'
@@ -221,6 +222,41 @@ export class GenericAcpAdapter implements SessionAdapter {
           break
         }
 
+        case EventType.CUSTOM: {
+          const customEvent = event as CustomEvent
+          if (customEvent.name !== 'a2ui:tool_call') {
+            break
+          }
+
+          const payload = customEvent.value as Record<string, unknown>
+          const callId = typeof payload['callId'] === 'string' ? payload['callId'] : null
+          const toolName = typeof payload['toolName'] === 'string' ? payload['toolName'] : null
+          if (!callId || !toolName) {
+            break
+          }
+
+          const assistantMessage = this.findOrCreateAssistantMessage(
+            session.messages,
+            `assistant-tool-${callId}`
+          )
+
+          assistantMessage.structuredBlocks = upsertStructuredBlock(
+            assistantMessage.structuredBlocks ?? [],
+            {
+              kind: 'tool_call',
+              payload: {
+                callId,
+                toolName,
+                args: payload['args'],
+                result: typeof payload['result'] === 'string' ? payload['result'] : undefined,
+                done: payload['done'] === true,
+              },
+            }
+          )
+          session.updatedAt = new Date()
+          break
+        }
+
         default:
           break
       }
@@ -245,6 +281,24 @@ export class GenericAcpAdapter implements SessionAdapter {
     messages.push(fallbackMessage)
     return fallbackMessage
   }
+}
+
+function upsertStructuredBlock(
+  blocks: NonNullable<SessionMessage['structuredBlocks']>,
+  nextBlock: NonNullable<SessionMessage['structuredBlocks']>[number]
+): NonNullable<SessionMessage['structuredBlocks']> {
+  const existingIndex = blocks.findIndex(
+    (block) =>
+      block.kind === 'tool_call' &&
+      nextBlock.kind === 'tool_call' &&
+      block.payload.callId === nextBlock.payload.callId
+  )
+
+  if (existingIndex === -1) {
+    return [...blocks, nextBlock]
+  }
+
+  return blocks.map((block, index) => (index === existingIndex ? nextBlock : block))
 }
 
 function deriveSessionTitle(text: string): string {

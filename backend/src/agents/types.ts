@@ -10,6 +10,66 @@ export interface AgentSummary {
   command: string | null
 }
 
+export type HistoryCapability =
+  | 'text'
+  | 'markdown'
+  | 'reasoning'
+  | 'tool_calls'
+  | 'skills'
+  | 'subagents'
+  | 'attachments'
+  | 'rich_media'
+  | 'file_operations'
+  | 'patches'
+  | 'compaction'
+  | 'truncation'
+
+export type HistorySourceAccessStatus = 'readable' | 'missing' | 'permission_error' | 'invalid'
+
+export type HistorySourceSignalStatus = 'contains_history' | 'empty' | 'unknown'
+
+export type HistorySourceKind =
+  | 'cli_session_dir'
+  | 'cli_history_dir'
+  | 'vscode_workspace_db'
+  | 'vscode_chat_sessions'
+  | 'vscode_chat_editing_sessions'
+  | 'vscode_extension_resources'
+  | 'gemini_tmp_dir'
+  | 'opencode_db'
+
+export type HistorySourcePlatform = 'linux' | 'mounted_host' | 'windows' | 'unknown'
+
+export interface HistorySourceDescriptor {
+  id: string
+  backendId: string
+  providerId: string
+  kind: HistorySourceKind
+  path: string
+  platform: HistorySourcePlatform
+  access: HistorySourceAccessStatus
+  signal: HistorySourceSignalStatus
+  discoveredBy: 'auto' | 'manual'
+  lastModifiedMs?: number
+  sessionCount?: number
+  warnings?: string[]
+}
+
+export interface HistorySourceDiscoverySummary {
+  family: string
+  readable: number
+  missing: number
+  invalid: number
+  containsHistory: number
+}
+
+export interface HistorySupport {
+  source: 'none' | 'derived' | 'native'
+  supported: HistoryCapability[]
+  discoveredSources: HistorySourceDescriptor[]
+  discoverySummary?: HistorySourceDiscoverySummary[]
+}
+
 export interface BackendEndpointSupport {
   source: 'connection' | 'unknown'
   implemented: string[]
@@ -20,9 +80,13 @@ export interface BackendSummary extends AgentSummary {
   enabled: boolean
   args: string[]
   defaultArgs: string[]
+  historyPathHints: string[]
+  /** CLI session-state directory hints. Only used by the `copilot` backend. */
+  cliHistoryPathHints: string[]
   detectedCommand: string | null
   usesCustomCommand: boolean
   endpointSupport: BackendEndpointSupport
+  historySupport: HistorySupport
   lastTestResult: BackendTestResult | null
 }
 
@@ -36,7 +100,133 @@ export interface SessionMessage {
   id: string
   role: 'user' | 'assistant'
   content: string
+  structuredBlocks?: StructuredBlock[]
+  turnInfo?: TurnInfo
 }
+
+export interface TurnPatchSummary {
+  hash: string
+  nextHash?: string
+  files: string[]
+  additions?: number
+  deletions?: number
+}
+
+export interface TurnInfo {
+  providerId?: string
+  modelId?: string
+  mode?: string
+  startedAtMs?: number
+  completedAtMs?: number
+  durationMs?: number
+  modifiedFiles?: string[]
+  patches?: TurnPatchSummary[]
+}
+
+export interface ToolCallBlock {
+  kind: 'tool_call'
+  payload: {
+    callId: string
+    toolName: string
+    args?: unknown
+    result?: string
+    done: boolean
+  }
+}
+
+export interface ReasoningBlock {
+  kind: 'reasoning'
+  payload: {
+    title?: string
+    text: string
+  }
+}
+
+export interface SkillInvocationBlock {
+  kind: 'skill_invocation'
+  payload: {
+    callId: string
+    skillName: string
+    status: 'running' | 'completed' | 'error'
+    result?: string
+  }
+}
+
+export interface SubagentInvocationBlock {
+  kind: 'subagent_invocation'
+  payload: {
+    callId: string
+    agentName: string
+    status: 'running' | 'completed' | 'error'
+    prompt?: string
+    result?: string
+    sessionId?: string
+  }
+}
+
+export interface AttachmentBlock {
+  kind: 'attachment'
+  payload: {
+    mime: string
+    filename: string
+    url: string
+  }
+}
+
+export interface FileOperationBlock {
+  kind: 'file_operation'
+  payload: {
+    path: string
+    operation: 'create' | 'edit' | 'delete' | 'reference'
+    source?: string
+  }
+}
+
+export interface ModelSwitchBlock {
+  kind: 'model_switch'
+  payload: {
+    fromModelId?: string
+    toModelId: string
+  }
+}
+
+export interface ApprovalNoticeBlock {
+  kind: 'approval_notice'
+  payload: {
+    title: string
+    message?: string
+    state: 'pending' | 'approved' | 'rejected'
+  }
+}
+
+export interface CompactionNoticeBlock {
+  kind: 'compaction_notice'
+  payload: {
+    auto: boolean
+    overflow: boolean
+  }
+}
+
+export interface TruncationNoticeBlock {
+  kind: 'truncation_notice'
+  payload: {
+    tokenLimit?: number
+    tokensRemoved?: number
+    messagesRemoved?: number
+  }
+}
+
+export type StructuredBlock =
+  | ToolCallBlock
+  | ReasoningBlock
+  | SkillInvocationBlock
+  | SubagentInvocationBlock
+  | AttachmentBlock
+  | FileOperationBlock
+  | ModelSwitchBlock
+  | ApprovalNoticeBlock
+  | CompactionNoticeBlock
+  | TruncationNoticeBlock
 
 export interface SessionSummary {
   id: string

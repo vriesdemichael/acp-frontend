@@ -4,6 +4,10 @@ import { sessionsRoutes } from './sessions.js'
 import { RegistryError } from '../agents/types.js'
 import type { AgentRegistry } from '../agents/registry.js'
 
+const { getHistoryPatchDiffMock } = vi.hoisted(() => ({
+  getHistoryPatchDiffMock: vi.fn<(...args: unknown[]) => string | null>(() => null),
+}))
+
 vi.mock('../mcp.js', () => ({
   loadMcpServers: () => [],
 }))
@@ -37,6 +41,10 @@ vi.mock('../projects/service.js', () => ({
   })),
 }))
 
+vi.mock('../history/index.js', () => ({
+  getHistoryPatchDiff: getHistoryPatchDiffMock,
+}))
+
 function createRegistryStub(overrides?: Partial<AgentRegistry>): AgentRegistry {
   return {
     listSessions: vi.fn(() => []),
@@ -49,6 +57,40 @@ function createRegistryStub(overrides?: Partial<AgentRegistry>): AgentRegistry {
 }
 
 describe('sessions routes', () => {
+  it('returns a history patch diff when available', async () => {
+    getHistoryPatchDiffMock.mockReturnValueOnce('diff --git a/foo b/foo')
+    const registry = createRegistryStub()
+    const app = new Hono().route('/api', sessionsRoutes(registry))
+
+    const res = await app.request('/api/sessions/session-1/patch-diff', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fromHash: 'abc123', toHash: 'def456', files: ['src/app.ts'] }),
+    })
+
+    expect(res.status).toBe(200)
+    expect(getHistoryPatchDiffMock).toHaveBeenCalledWith({
+      sessionId: 'session-1',
+      fromHash: 'abc123',
+      toHash: 'def456',
+      files: ['src/app.ts'],
+    })
+    await expect(res.json()).resolves.toEqual({ diff: 'diff --git a/foo b/foo' })
+  })
+
+  it('rejects patch diff requests without both hashes', async () => {
+    const registry = createRegistryStub()
+    const app = new Hono().route('/api', sessionsRoutes(registry))
+
+    const res = await app.request('/api/sessions/session-1/patch-diff', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fromHash: 'abc123' }),
+    })
+
+    expect(res.status).toBe(400)
+  })
+
   it('maps structured session-not-found errors to 404', async () => {
     const registry = createRegistryStub({
       sendMessage: vi.fn(async () => {

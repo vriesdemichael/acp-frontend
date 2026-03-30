@@ -38,6 +38,8 @@ export function agentsRoutes(registry: AgentRegistry): Hono {
       command?: string | null
       args?: string[]
       name?: string
+      historyPathHints?: string[]
+      cliHistoryPathHints?: string[]
     }>()
 
     try {
