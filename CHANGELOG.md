@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.2.1](https://github.com/vriesdemichael/acp-frontend/compare/acp-frontend-v1.2.0...acp-frontend-v1.2.1) (2026-03-30)
+
+
+### Bug Fixes
+
+* address Copilot review feedback and resolve E2E storybook test failure ([8a3cb53](https://github.com/vriesdemichael/acp-frontend/commit/8a3cb5305987a921d97168b86db650b3c1271159))
+* **backend:** fence history session lookup by agentId to prevent Copilot compaction false positive ([d67a046](https://github.com/vriesdemichael/acp-frontend/commit/d67a046d99dd2495e3e9bbf1146b4cd76722ffeb))
+* **frontend:** resolve 7 UI bugs — layout, overflow, project visibility, markdown highlighting, composer visibility, right-panel removal ([1c99aaa](https://github.com/vriesdemichael/acp-frontend/commit/1c99aaa05be2e292e2fbc2f7bf62ea3281599ded))
+
 ## [1.2.0](https://github.com/vriesdemichael/acp-frontend/compare/acp-frontend-v1.1.0...acp-frontend-v1.2.0) (2026-03-24)
 
 
