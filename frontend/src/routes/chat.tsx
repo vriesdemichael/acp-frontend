@@ -120,7 +120,14 @@ export function ChatPage() {
     [activeSessionId, sessions]
   )
   const isHistorySession = currentSession?.source === 'history'
-  const resumableAgents = useMemo(() => agents.filter((agent) => agent.canResume), [agents])
+  // For history sessions: all active agents. For live sessions: all active agents except the current one.
+  const resumableAgents = useMemo(
+    () =>
+      agents.filter(
+        (agent) => agent.canResume && (isHistorySession || agent.id !== currentSession?.agentId)
+      ),
+    [agents, currentSession?.agentId, isHistorySession]
+  )
   const activeAgentName = useMemo(() => {
     const agent = agents.find((candidate) => candidate.id === activeSession?.agentId)
     return agent?.name ?? 'the agent'

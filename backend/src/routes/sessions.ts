@@ -106,6 +106,20 @@ export function sessionsRoutes(registry: AgentRegistry): Hono {
         projectResult.project,
         loadMcpServers()
       )
+
+      // Inject prior conversation history so the target agent has full context.
+      // The ACP newSession call has no history field, so we send a synthetic
+      // "context handoff" prompt immediately after session creation.
+      if (sourceSession.messages.length > 0) {
+        const transcript = sourceSession.messages
+          .map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
+          .join('\n\n')
+        const handoffPrompt =
+          `[Context from a previous conversation being continued here]\n\n${transcript}\n\n` +
+          `[End of previous conversation. Please acknowledge you have the context and are ready to continue.]`
+        await registry.sendMessage(newSessionId, handoffPrompt, agentId)
+      }
+
       return c.json(registry.getSession(newSessionId), 201)
     } catch (error) {
       return buildErrorResponse(c, error)

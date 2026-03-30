@@ -1,4 +1,4 @@
-import type { FormEvent } from 'react'
+import { useState, useEffect, useRef, type FormEvent } from 'react'
 
 /** Minimal agent shape needed for the delegation panel. */
 interface ResumableAgent {
@@ -19,7 +19,7 @@ interface ChatComposerProps {
   resumableAgents?: ResumableAgent[]
   /** Called when the user picks an agent to continue with. */
   onResume?: (agentId: string) => void
-  /** True while a resume operation is in flight. */
+  /** True while a resume/switch operation is in flight. */
   resuming?: boolean
 }
 
@@ -35,6 +35,21 @@ export function ChatComposer({
   onResume,
   resuming = false,
 }: ChatComposerProps) {
+  const [switchOpen, setSwitchOpen] = useState(false)
+  const switchRef = useRef<HTMLDivElement>(null)
+
+  // Close the popover when clicking outside
+  useEffect(() => {
+    if (!switchOpen) return
+    const handler = (e: MouseEvent) => {
+      if (switchRef.current && !switchRef.current.contains(e.target as Node)) {
+        setSwitchOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [switchOpen])
+
   if (isHistorySession) {
     return (
       <div
@@ -72,6 +87,8 @@ export function ChatComposer({
     )
   }
 
+  const canSwitch = resumableAgents.length > 0 && !resuming
+
   return (
     <form
       onSubmit={onSubmit}
@@ -89,6 +106,67 @@ export function ChatComposer({
             className="w-full rounded-[1.2rem] border border-white/10 bg-slate-900/90 px-4 py-3.5 text-sm text-slate-100 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30 disabled:cursor-not-allowed disabled:bg-slate-900/70 disabled:text-slate-500"
           />
         </label>
+
+        {/* Switch-agent popover — only shown in live sessions with other active agents */}
+        {resumableAgents.length > 0 && (
+          <div ref={switchRef} className="relative">
+            <button
+              type="button"
+              data-testid="switch-agent-button"
+              disabled={!canSwitch}
+              onClick={() => setSwitchOpen((o) => !o)}
+              title="Continue in a different agent"
+              className="inline-flex h-[3.2rem] items-center gap-1.5 rounded-[1.2rem] border border-white/10 bg-slate-900/90 px-3.5 text-sm text-slate-400 transition hover:border-white/20 hover:text-slate-200 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {resuming ? (
+                <span className="text-xs">Switching…</span>
+              ) : (
+                <>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 16 16"
+                    fill="currentColor"
+                    className="size-3.5"
+                    aria-hidden="true"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.75.75 0 0 1 1.06-1.06L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                  <span className="hidden xs:inline">Switch agent</span>
+                </>
+              )}
+            </button>
+
+            {switchOpen && (
+              <div
+                data-testid="switch-agent-popover"
+                className="absolute bottom-full right-0 mb-2 min-w-[13rem] rounded-2xl border border-white/10 bg-slate-900 py-1.5 shadow-2xl"
+              >
+                <p className="px-3.5 pb-1.5 pt-1 text-[11px] font-medium uppercase tracking-wider text-slate-500">
+                  Continue in…
+                </p>
+                {resumableAgents.map((agent) => (
+                  <button
+                    key={agent.id}
+                    type="button"
+                    data-testid={`switch-agent-${agent.id}`}
+                    onClick={() => {
+                      setSwitchOpen(false)
+                      onResume?.(agent.id)
+                    }}
+                    className="flex w-full items-center gap-2.5 px-3.5 py-2 text-sm text-slate-200 transition hover:bg-white/5 hover:text-white"
+                  >
+                    <span className="size-1.5 rounded-full bg-teal-400" aria-hidden="true" />
+                    {agent.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         <button
           type="submit"
