@@ -7,11 +7,14 @@ import {
   ndJsonStream,
   type Client,
   type ClientCapabilities,
+  type ContentBlock,
   type CreateTerminalRequest,
   type CreateTerminalResponse,
   type InitializeResponse,
   type KillTerminalRequest,
   type KillTerminalResponse,
+  type LoadSessionRequest,
+  type LoadSessionResponse,
   type NewSessionRequest,
   type NewSessionResponse,
   type PromptRequest,
@@ -22,6 +25,8 @@ import {
   type ReleaseTerminalResponse,
   type RequestPermissionRequest,
   type RequestPermissionResponse,
+  type ResumeSessionRequest,
+  type ResumeSessionResponse,
   type SessionNotification,
   type TerminalOutputRequest,
   type TerminalOutputResponse,
@@ -31,9 +36,13 @@ import {
   type WriteTextFileResponse,
 } from '@agentclientprotocol/sdk'
 
+export type { ContentBlock }
+
 export interface AcpSessionClient {
   initialize(): Promise<InitializeResponse>
   newSession(params: NewSessionRequest): Promise<NewSessionResponse>
+  loadSession(params: LoadSessionRequest): Promise<LoadSessionResponse>
+  unstable_resumeSession(params: ResumeSessionRequest): Promise<ResumeSessionResponse>
   prompt(params: PromptRequest): Promise<PromptResponse>
   close(): Promise<void>
   readonly info: InitializeResponse | null
@@ -113,6 +122,28 @@ export class StdioAcpProcess {
         }
 
         return this.connection.newSession(params)
+      },
+      loadSession: async (params) => {
+        if (!this.connection) {
+          throw new Error('StdioAcpProcess: connection not initialized')
+        }
+
+        if (!this.connection.loadSession) {
+          throw new Error('StdioAcpProcess: agent does not support session/load')
+        }
+
+        return this.connection.loadSession(params)
+      },
+      unstable_resumeSession: async (params) => {
+        if (!this.connection) {
+          throw new Error('StdioAcpProcess: connection not initialized')
+        }
+
+        if (!this.connection.unstable_resumeSession) {
+          throw new Error('StdioAcpProcess: agent does not support session/resume')
+        }
+
+        return this.connection.unstable_resumeSession(params)
       },
       prompt: async (params) => {
         if (!this.connection) {

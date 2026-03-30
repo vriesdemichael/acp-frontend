@@ -56,6 +56,7 @@ const UNKNOWN_ENDPOINT_SUPPORT = {
     'session/new',
     'session/prompt',
     'session/update',
+    'session/load',
     'session/list',
     'session/resume',
     'session/fork',
@@ -91,6 +92,10 @@ export class AgentRegistry {
   listBackends(): BackendSummary[] {
     return this.agents.map((agent) => {
       const status = this.toAgentStatus(agent)
+      const endpointSupport =
+        this.capabilityResults.get(agent.id) ??
+        agent.adapter?.getEndpointSupport() ??
+        UNKNOWN_ENDPOINT_SUPPORT
       return {
         id: agent.id,
         name: agent.name,
@@ -104,10 +109,7 @@ export class AgentRegistry {
         cliHistoryPathHints: agent.cliHistoryPathHints,
         enabled: agent.enabled,
         usesCustomCommand: agent.usesCustomCommand,
-        endpointSupport:
-          this.capabilityResults.get(agent.id) ??
-          agent.adapter?.getEndpointSupport() ??
-          UNKNOWN_ENDPOINT_SUPPORT,
+        endpointSupport,
         historySupport: getHistorySupport(agent.id),
         lastTestResult: agent.lastTestResult,
       }
@@ -280,6 +282,24 @@ export class AgentRegistry {
     }
 
     await adapter.sendMessage(sessionId, text)
+  }
+
+  async sendHandoff(
+    sessionId: string,
+    messages: SessionDetails['messages'],
+    agentId?: string
+  ): Promise<void> {
+    const adapter = this.findAdapterForSession(sessionId)
+
+    if (!adapter) {
+      throw new RegistryError('session_not_found', `Session not found: ${sessionId}`)
+    }
+
+    if (agentId && agentId !== adapter.agentId) {
+      throw new RegistryError('agent_mismatch', `Agent mismatch for session ${sessionId}`)
+    }
+
+    await adapter.sendHandoff(sessionId, messages)
   }
 
   closeSession(sessionId: string): boolean {

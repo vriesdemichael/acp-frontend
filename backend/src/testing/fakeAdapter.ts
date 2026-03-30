@@ -5,6 +5,7 @@ import type {
   BackendEndpointSupport,
   SessionAdapter,
   SessionDetails,
+  SessionMessage,
   SessionProjectContext,
   SessionSummary,
 } from '../agents/types.js'
@@ -85,6 +86,12 @@ export class FakeSessionAdapter implements SessionAdapter {
         this.events.emit(sessionId, event)
       }
     })
+  }
+
+  async sendHandoff(sessionId: string, messages: SessionMessage[]): Promise<void> {
+    // In the fake adapter, treat a handoff like a regular message summarising the history.
+    const summary = `[Handoff] Received ${String(messages.length)} prior message(s).`
+    await this.sendMessage(sessionId, summary)
   }
 
   closeSession(sessionId: string): void {

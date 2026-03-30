@@ -51,6 +51,7 @@ function createRegistryStub(overrides?: Partial<AgentRegistry>): AgentRegistry {
     getSession: vi.fn(() => null),
     createSession: vi.fn(async () => 'session-1'),
     sendMessage: vi.fn(async () => undefined),
+    sendHandoff: vi.fn(async () => undefined),
     closeSession: vi.fn(() => false),
     ...overrides,
   } as unknown as AgentRegistry
@@ -195,6 +196,14 @@ describe('sessions routes', () => {
       agentId: 'gemini-cli',
       project: { id: 'repo-1', name: 'ACP Frontend', path: '/work/acp-frontend' },
       source: 'history' as const,
+      messages: [
+        { id: 'msg-1', role: 'user' as const, content: 'Hello' },
+        { id: 'msg-2', role: 'assistant' as const, content: 'Hi there' },
+      ],
+    }
+
+    const historySessionEmpty = {
+      ...historySession,
       messages: [],
     }
 
@@ -208,9 +217,9 @@ describe('sessions routes', () => {
       messages: [],
     }
 
-    function makeGetSession() {
+    function makeGetSession(session = historySession) {
       return vi.fn((id: string) => {
-        if (id === 'history-session-1') return historySession
+        if (id === 'history-session-1') return session
         if (id === 'new-session-id') return newSession
         return null
       })
@@ -218,7 +227,7 @@ describe('sessions routes', () => {
 
     it('creates a new live session on the target agent and returns 201', async () => {
       const registry = createRegistryStub({
-        getSession: makeGetSession(),
+        getSession: makeGetSession(historySessionEmpty),
         createSession: vi.fn(async () => 'new-session-id'),
       })
       const app = new Hono().route('/api', sessionsRoutes(registry))
@@ -244,7 +253,7 @@ describe('sessions routes', () => {
 
     it('inherits the source session project when projectId is omitted', async () => {
       const registry = createRegistryStub({
-        getSession: makeGetSession(),
+        getSession: makeGetSession(historySessionEmpty),
         createSession: vi.fn(async () => 'new-session-id'),
       })
       const app = new Hono().route('/api', sessionsRoutes(registry))
@@ -264,7 +273,7 @@ describe('sessions routes', () => {
     })
 
     it('uses sourceAgentId to disambiguate cross-provider lookups', async () => {
-      const getSessionSpy = makeGetSession()
+      const getSessionSpy = makeGetSession(historySessionEmpty)
       const registry = createRegistryStub({
         getSession: getSessionSpy,
         createSession: vi.fn(async () => 'new-session-id'),
@@ -310,7 +319,7 @@ describe('sessions routes', () => {
 
     it('returns 503 when the target agent is unavailable', async () => {
       const registry = createRegistryStub({
-        getSession: makeGetSession(),
+        getSession: makeGetSession(historySessionEmpty),
         createSession: vi.fn(async () => {
           throw new RegistryError('agent_unavailable', 'Agent unavailable: copilot')
         }),
@@ -328,6 +337,46 @@ describe('sessions routes', () => {
       })
 
       expect(res.status).toBe(503)
+    })
+
+    it('calls sendHandoff with source messages when the session has history', async () => {
+      const sendHandoffSpy = vi.fn(async () => undefined)
+      const registry = createRegistryStub({
+        getSession: makeGetSession(historySession),
+        createSession: vi.fn(async () => 'new-session-id'),
+        sendHandoff: sendHandoffSpy,
+      })
+      const app = new Hono().route('/api', sessionsRoutes(registry))
+
+      await app.request('/api/sessions/history-session-1/resume', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ agentId: 'copilot', sourceAgentId: 'gemini-cli' }),
+      })
+
+      expect(sendHandoffSpy).toHaveBeenCalledWith(
+        'new-session-id',
+        historySession.messages,
+        'copilot'
+      )
+    })
+
+    it('skips sendHandoff when the source session has no messages', async () => {
+      const sendHandoffSpy = vi.fn(async () => undefined)
+      const registry = createRegistryStub({
+        getSession: makeGetSession(historySessionEmpty),
+        createSession: vi.fn(async () => 'new-session-id'),
+        sendHandoff: sendHandoffSpy,
+      })
+      const app = new Hono().route('/api', sessionsRoutes(registry))
+
+      await app.request('/api/sessions/history-session-1/resume', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ agentId: 'copilot', sourceAgentId: 'gemini-cli' }),
+      })
+
+      expect(sendHandoffSpy).not.toHaveBeenCalled()
     })
   })
 })

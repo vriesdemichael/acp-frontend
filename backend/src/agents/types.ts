@@ -8,7 +8,10 @@ export interface AgentSummary {
   name: string
   status: AgentStatus
   command: string | null
-  /** True when the agent is active and can accept a resume/continuation request. */
+  /**
+   * True when the agent is active (running) and can accept a new session with a
+   * conversation handoff. Any active agent qualifies — no ACP capability negotiation required.
+   */
   canResume: boolean
 }
 
@@ -257,6 +260,12 @@ export interface SessionAdapter {
   ownsSession(sessionId: string): boolean
   newSession(project: SessionProjectContext | null, mcpServers?: McpServer[]): Promise<string>
   sendMessage(sessionId: string, text: string): Promise<void>
+  /**
+   * Send a structured handoff prompt containing prior conversation history.
+   * Uses an EmbeddedResource content block so the agent receives the transcript
+   * as a proper context resource rather than a bare text prompt.
+   */
+  sendHandoff(sessionId: string, messages: SessionMessage[]): Promise<void>
   closeSession(sessionId: string): void
   listSessions(): SessionSummary[]
   getSession(sessionId: string): SessionDetails | null

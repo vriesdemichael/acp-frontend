@@ -9,3 +9,4 @@ storybook-static
 .acp
 playwright/.cache
 test-results
+.tmp

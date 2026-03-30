@@ -120,7 +120,8 @@ export function ChatPage() {
     [activeSessionId, sessions]
   )
   const isHistorySession = currentSession?.source === 'history'
-  // For history sessions: all active agents. For live sessions: all active agents except the current one.
+  // For history sessions: all active agents (any can receive a handoff).
+  // For live sessions: all active agents except the current one (switch-agent).
   const resumableAgents = useMemo(
     () =>
       agents.filter(
