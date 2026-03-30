@@ -1,5 +1,10 @@
 import type { FormEvent } from 'react'
-import type { AgentSummary } from '../../hooks/useAgUiChat.js'
+
+/** Minimal agent shape needed for the delegation panel. */
+interface ResumableAgent {
+  id: string
+  name: string
+}
 
 interface ChatComposerProps {
   value: string
@@ -11,7 +16,7 @@ interface ChatComposerProps {
   /** When true, renders a read-only history session delegation panel instead of the input. */
   isHistorySession?: boolean
   /** Agents the user can delegate/resume this history session to. */
-  resumableAgents?: AgentSummary[]
+  resumableAgents?: ResumableAgent[]
   /** Called when the user picks an agent to continue with. */
   onResume?: (agentId: string) => void
   /** True while a resume operation is in flight. */

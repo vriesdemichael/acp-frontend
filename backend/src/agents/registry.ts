@@ -76,36 +76,42 @@ export class AgentRegistry {
   }
 
   listAgents(): AgentSummary[] {
-    return this.agents.map((agent) => ({
-      id: agent.id,
-      name: agent.name,
-      status: this.toAgentStatus(agent),
-      command: agent.command,
-      canResume: this.toAgentStatus(agent) === 'active',
-    }))
+    return this.agents.map((agent) => {
+      const status = this.toAgentStatus(agent)
+      return {
+        id: agent.id,
+        name: agent.name,
+        status,
+        command: agent.command,
+        canResume: status === 'active',
+      }
+    })
   }
 
   listBackends(): BackendSummary[] {
-    return this.agents.map((agent) => ({
-      id: agent.id,
-      name: agent.name,
-      status: this.toAgentStatus(agent),
-      command: agent.command,
-      canResume: this.toAgentStatus(agent) === 'active',
-      detectedCommand: agent.detectedCommand,
-      args: agent.args,
-      defaultArgs: agent.args,
-      historyPathHints: agent.historyPathHints,
-      cliHistoryPathHints: agent.cliHistoryPathHints,
-      enabled: agent.enabled,
-      usesCustomCommand: agent.usesCustomCommand,
-      endpointSupport:
-        this.capabilityResults.get(agent.id) ??
-        agent.adapter?.getEndpointSupport() ??
-        UNKNOWN_ENDPOINT_SUPPORT,
-      historySupport: getHistorySupport(agent.id),
-      lastTestResult: agent.lastTestResult,
-    }))
+    return this.agents.map((agent) => {
+      const status = this.toAgentStatus(agent)
+      return {
+        id: agent.id,
+        name: agent.name,
+        status,
+        command: agent.command,
+        canResume: status === 'active',
+        detectedCommand: agent.detectedCommand,
+        args: agent.args,
+        defaultArgs: agent.args,
+        historyPathHints: agent.historyPathHints,
+        cliHistoryPathHints: agent.cliHistoryPathHints,
+        enabled: agent.enabled,
+        usesCustomCommand: agent.usesCustomCommand,
+        endpointSupport:
+          this.capabilityResults.get(agent.id) ??
+          agent.adapter?.getEndpointSupport() ??
+          UNKNOWN_ENDPOINT_SUPPORT,
+        historySupport: getHistorySupport(agent.id),
+        lastTestResult: agent.lastTestResult,
+      }
+    })
   }
 
   addBackend(input: { name: string; command: string; args?: string[] }): BackendSummary {

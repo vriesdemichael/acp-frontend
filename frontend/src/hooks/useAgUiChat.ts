@@ -661,12 +661,17 @@ export function useAgUiChat({
       setErrorMessage(null)
       setCreatingSession(true)
       try {
+        // Pass sourceAgentId so the backend can disambiguate cross-provider session lookups
+        const sourceAgentId = currentSession?.agentId ?? null
         const session = await fetchJson<SessionDetails>(
           `/api/sessions/${encodeURIComponent(currentSessionId)}/resume`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ agentId }),
+            body: JSON.stringify({
+              agentId,
+              ...(sourceAgentId ? { sourceAgentId } : {}),
+            }),
           }
         )
         activeSessionRef.current = session.id
@@ -685,7 +690,15 @@ export function useAgUiChat({
         setCreatingSession(false)
       }
     },
-    [currentSessionId, fetchJson, onProjectSelected, onSessionCreated, projectId, refreshSessions]
+    [
+      currentSession?.agentId,
+      currentSessionId,
+      fetchJson,
+      onProjectSelected,
+      onSessionCreated,
+      projectId,
+      refreshSessions,
+    ]
   )
 
   const addProject = useCallback(
