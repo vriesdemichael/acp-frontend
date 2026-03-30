@@ -10,6 +10,7 @@ export function deriveEndpointSupport(info: InitializeResponse | null): BackendE
         'session/new',
         'session/prompt',
         'session/update',
+        'session/load',
         'session/list',
         'session/resume',
         'session/fork',
@@ -25,6 +26,10 @@ export function deriveEndpointSupport(info: InitializeResponse | null): BackendE
   const unknown: string[] = []
   const capabilities = info.agentCapabilities as Record<string, unknown> | undefined
   const sessionCapabilities = readRecord(capabilities?.['sessionCapabilities'])
+
+  // loadSession is a top-level agentCapabilities flag (stable)
+  if (capabilities?.['loadSession']) implemented.push('session/load')
+  else unknown.push('session/load')
 
   if (sessionCapabilities?.['list']) implemented.push('session/list')
   else unknown.push('session/list')

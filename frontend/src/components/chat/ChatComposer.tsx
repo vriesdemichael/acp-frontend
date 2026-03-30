@@ -63,7 +63,8 @@ export function ChatComposer({
 
           {resumableAgents.length === 0 ? (
             <p className="text-sm text-slate-500">
-              No active agents available. Start an adapter and reload to continue.
+              No active agents available. Enable and start an agent in Settings to import this
+              conversation.
             </p>
           ) : (
             <div className="flex flex-wrap gap-2">

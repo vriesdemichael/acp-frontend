@@ -129,6 +129,56 @@ export class GenericAcpAdapter implements SessionAdapter {
     }
   }
 
+  async sendHandoff(sessionId: string, messages: SessionMessage[]): Promise<void> {
+    const session = this.sessions.get(sessionId)
+    if (!session) {
+      throw new Error(`Session not found: ${sessionId}`)
+    }
+
+    const runId = randomUUID()
+    const translator = new StreamTranslator(sessionId, runId)
+    const emit = (events: BaseEvent[]) => {
+      this.applyEvents(session, events)
+      for (const ev of events) this.events.emit(sessionId, ev)
+    }
+
+    emit(translator.onRunStart())
+
+    try {
+      session.forwardUpdate = (notification) => {
+        emit(translator.onSessionUpdate(notification.update))
+      }
+
+      const transcript = messages
+        .map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
+        .join('\n\n')
+
+      const result = await session.acpClient.prompt({
+        sessionId: session.acpSessionId,
+        prompt: [
+          {
+            type: 'resource',
+            resource: {
+              uri: 'acp-frontend://session-handoff',
+              mimeType: 'text/plain',
+              text:
+                `[Context from a previous conversation being continued here]\n\n${transcript}\n\n` +
+                `[End of previous conversation. Please acknowledge you have the context and are ready to continue.]`,
+            },
+          },
+        ] satisfies ContentBlock[],
+      })
+
+      session.lastPromptResponse = result
+      emit(translator.onRunFinish())
+    } catch (err: unknown) {
+      emit(translator.onRunError(err instanceof Error ? err.message : String(err)))
+    } finally {
+      session.forwardUpdate = null
+      session.pendingEvents = []
+    }
+  }
+
   closeSession(sessionId: string): void {
     const session = this.sessions.get(sessionId)
     void session?.acpClient.close()
