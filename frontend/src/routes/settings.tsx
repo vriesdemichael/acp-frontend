@@ -293,33 +293,8 @@ function BackendCard({ backend, busy, testing, onSave, onTest }: BackendCardProp
         ) : null}
       </div>
 
-      <div className="mt-5 grid gap-3 md:grid-cols-2">
-        <EndpointColumn
-          title={
-            backend.endpointSupport.source === 'connection'
-              ? 'Reported By Connection'
-              : 'Known Implemented'
-          }
-          items={backend.endpointSupport.implemented}
-          tone="ready"
-        />
-        <EndpointColumn title="Unknown" items={backend.endpointSupport.unknown} tone="unknown" />
-      </div>
-
       <div className="mt-3">
-        <EndpointColumn
-          title={`History Support (${backend.historySupport.source})`}
-          items={backend.historySupport.supported}
-          tone={backend.historySupport.supported.length > 0 ? 'ready' : 'unknown'}
-        />
-      </div>
-
-      <div className="mt-3">
-        <HistorySourcesPanel sources={backend.historySupport.discoveredSources} />
-      </div>
-
-      <div className="mt-3">
-        <HistoryDiscoverySummary summaries={backend.historySupport.discoverySummary ?? []} />
+        <HistorySourcesGrouped sources={backend.historySupport.discoveredSources} />
       </div>
 
       <div className="mt-5 flex items-center justify-between gap-3 border-t border-white/10 pt-4">
@@ -361,117 +336,43 @@ function BackendCard({ backend, busy, testing, onSave, onTest }: BackendCardProp
   )
 }
 
-function HistorySourcesPanel({ sources }: { sources: HistorySourceDescriptor[] }) {
-  return (
-    <div className="rounded-xl border border-white/10 bg-slate-950 px-3 py-3 text-slate-300">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-          History Sources
-        </p>
-        <span className="text-[11px] text-slate-500">{sources.length} found</span>
-      </div>
+function HistorySourcesGrouped({ sources }: { sources: HistorySourceDescriptor[] }) {
+  if (sources.length === 0) {
+    return <p className="text-[11px] text-slate-500">No history sources discovered.</p>
+  }
 
-      {sources.length === 0 ? (
-        <p className="mt-3 text-[11px] text-slate-500">No discovered history sources.</p>
-      ) : (
-        <div className="mt-3 grid gap-3">
-          {sources.map((source) => (
-            <article
-              key={source.id}
-              className="rounded-lg border border-white/10 bg-slate-900/70 p-3"
-            >
-              <div className="flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-[0.12em] text-slate-500">
-                <span>{source.kind}</span>
-                <span>•</span>
-                <span>{source.platform}</span>
-                <span>•</span>
-                <span>{source.access}</span>
-                <span>•</span>
-                <span>{source.signal}</span>
-              </div>
-              <p className="mt-2 break-all font-mono text-xs text-slate-200">{source.path}</p>
-              <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-slate-500">
-                <span>{source.discoveredBy === 'auto' ? 'Auto-discovered' : 'Manual'}</span>
-                {source.sessionCount !== undefined ? (
-                  <span>{source.sessionCount} sessions</span>
-                ) : null}
-                {source.lastModifiedMs ? (
-                  <span>Updated {new Date(source.lastModifiedMs).toLocaleString()}</span>
-                ) : null}
-              </div>
-            </article>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function HistoryDiscoverySummary({
-  summaries,
-}: {
-  summaries: Array<{
-    family: string
-    readable: number
-    missing: number
-    invalid: number
-    containsHistory: number
-  }>
-}) {
-  if (summaries.length === 0) {
-    return null
+  const byKind = new Map<string, { readable: number; sessions: number }>()
+  for (const source of sources) {
+    const entry = byKind.get(source.kind) ?? { readable: 0, sessions: 0 }
+    if (source.access === 'readable') entry.readable += 1
+    if (source.sessionCount !== undefined) entry.sessions += source.sessionCount
+    byKind.set(source.kind, entry)
   }
 
   return (
-    <div className="rounded-xl border border-white/10 bg-slate-950 px-3 py-3 text-slate-300">
+    <div className="rounded-xl border border-white/10 bg-slate-950 px-3 py-3">
       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-        Discovery Summary
+        History Sources
       </p>
-      <div className="mt-3 grid gap-2 md:grid-cols-2">
-        {summaries.map((summary) => (
+      <div className="mt-3 grid gap-1">
+        {Array.from(byKind.entries()).map(([kind, stats]) => (
           <div
-            key={summary.family}
-            className="rounded-lg border border-white/10 bg-slate-900/70 p-3"
+            key={kind}
+            className="flex items-center justify-between gap-3 rounded-lg px-2 py-1.5 text-[11px]"
           >
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-200">
-              {summary.family}
-            </p>
-            <p className="mt-2 text-[11px] text-slate-400">
-              {summary.readable} readable - {summary.containsHistory} with history -{' '}
-              {summary.missing} missing - {summary.invalid} invalid
-            </p>
+            <span className="font-mono text-slate-300">{kind}</span>
+            <div className="flex items-center gap-2">
+              {stats.sessions > 0 ? (
+                <span className="rounded-md border border-white/10 bg-slate-900 px-2 py-0.5 text-[10px] text-slate-300">
+                  {stats.sessions} sessions
+                </span>
+              ) : null}
+              <span className="rounded-md border border-white/10 bg-slate-900 px-2 py-0.5 text-[10px] text-slate-500">
+                {stats.readable} readable
+              </span>
+            </div>
           </div>
         ))}
-      </div>
-    </div>
-  )
-}
-
-interface EndpointColumnProps {
-  title: string
-  items: string[]
-  tone: 'ready' | 'unknown'
-}
-
-function EndpointColumn({ title, items, tone }: EndpointColumnProps) {
-  const toneClassName =
-    tone === 'ready'
-      ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-100'
-      : 'border-white/10 bg-slate-950 text-slate-300'
-
-  return (
-    <div className={`rounded-xl border px-3 py-3 ${toneClassName}`}>
-      <p className="text-[11px] font-semibold uppercase tracking-[0.18em]">{title}</p>
-      <div className="mt-3 flex flex-wrap gap-2">
-        {items.length === 0 ? (
-          <span className="text-[11px] opacity-80">None</span>
-        ) : (
-          items.map((item) => (
-            <span key={item} className="rounded-md border border-current/15 px-2 py-1 text-[11px]">
-              {item}
-            </span>
-          ))
-        )}
       </div>
     </div>
   )
