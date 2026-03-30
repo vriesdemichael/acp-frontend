@@ -47,7 +47,9 @@ export function ChatHeader({
       : ready
         ? 'Ready'
         : 'Connecting'
-  const statusDetail = errorMessage ?? (thinking ? 'Reply in progress' : 'Stream healthy')
+  const statusDetail =
+    errorMessage ??
+    (!ready ? 'Connecting to server' : thinking ? 'Reply in progress' : 'Stream healthy')
   const headerTitle = title?.trim() || 'Chat Workspace'
   const compactSubtitle = project ? project.name : activeAgentName
 
@@ -105,7 +107,7 @@ export function ChatHeader({
               <StatusPill
                 label={statusLabel}
                 detail={thinking ? 'Reply in progress' : undefined}
-                tone="ready"
+                tone={ready ? (thinking ? 'ready' : 'ready') : 'neutral'}
                 compact
               />
             )}
