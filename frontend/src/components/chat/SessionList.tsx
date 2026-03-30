@@ -195,11 +195,28 @@ export function SessionList({
                             <p className="min-w-0 flex-1 truncate text-sm font-medium text-slate-100">
                               {session.title}
                             </p>
-                            {active ? (
-                              <span className="rounded-full border border-teal-500/25 bg-teal-500/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-teal-200">
-                                Active
-                              </span>
-                            ) : null}
+                            <div className="flex shrink-0 items-center gap-1.5">
+                              {session.source === 'history' ? (
+                                <span
+                                  title="Read-only history session"
+                                  className="rounded-full border border-slate-600/40 bg-slate-800/60 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400"
+                                >
+                                  History
+                                </span>
+                              ) : (
+                                <span
+                                  title="Active live session"
+                                  className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-300"
+                                >
+                                  Live
+                                </span>
+                              )}
+                              {active ? (
+                                <span className="rounded-full border border-teal-500/25 bg-teal-500/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-teal-200">
+                                  Active
+                                </span>
+                              ) : null}
+                            </div>
                           </div>
 
                           <div className="mt-3 flex items-center gap-1.5">

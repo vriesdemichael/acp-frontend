@@ -70,6 +70,36 @@ export function sessionsRoutes(registry: AgentRegistry): Hono {
     return c.json({ diff })
   })
 
+  app.post('/sessions/:id/resume', async (c) => {
+    const sessionId = c.req.param('id')
+    const body = await parseJsonBody<{ agentId?: string; projectId?: string }>(c)
+    const agentId = body.agentId?.trim()
+
+    if (!agentId) {
+      return c.json({ error: 'agentId is required' }, 400)
+    }
+
+    // Resolve project: prefer explicit body projectId, fall back to source session's project
+    const sourceSession = registry.getSession(sessionId)
+    const effectiveProjectId = body.projectId?.trim() ?? sourceSession?.project?.id
+    const projectResult = resolveProject(effectiveProjectId)
+
+    if (projectResult.error) {
+      return c.json({ error: projectResult.error }, { status: projectResult.status })
+    }
+
+    try {
+      const newSessionId = await registry.createSession(
+        agentId,
+        projectResult.project,
+        loadMcpServers()
+      )
+      return c.json(registry.getSession(newSessionId), 201)
+    } catch (error) {
+      return buildErrorResponse(c, error)
+    }
+  })
+
   app.post('/sessions/:id/message', async (c) => {
     const sessionId = c.req.param('id')
     const body = await parseJsonBody<{ message?: string; agentId?: string }>(c)

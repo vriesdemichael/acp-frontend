@@ -81,6 +81,7 @@ export class AgentRegistry {
       name: agent.name,
       status: this.toAgentStatus(agent),
       command: agent.command,
+      canResume: this.toAgentStatus(agent) === 'active',
     }))
   }
 
@@ -90,6 +91,7 @@ export class AgentRegistry {
       name: agent.name,
       status: this.toAgentStatus(agent),
       command: agent.command,
+      canResume: this.toAgentStatus(agent) === 'active',
       detectedCommand: agent.detectedCommand,
       args: agent.args,
       defaultArgs: agent.args,

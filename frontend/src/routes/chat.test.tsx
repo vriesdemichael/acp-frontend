@@ -941,4 +941,271 @@ describe('ChatPage', () => {
     expect(within(sessionPanel).getByText('Gemini discovery notes')).toBeDefined()
     expect(within(sessionPanel).getByText('Claude backlog')).toBeDefined()
   })
+
+  it('shows the delegation panel instead of the composer when viewing a history session', async () => {
+    const HISTORY_SESSION_ID = 'history-session-abc'
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation((url: string) => {
+        if (url === '/api/agents') {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve([
+                {
+                  id: 'copilot',
+                  name: 'GitHub Copilot',
+                  status: 'active',
+                  command: 'copilot',
+                  canResume: true,
+                },
+              ]),
+          } as Response)
+        }
+
+        if (url === '/api/projects') {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve([
+                {
+                  id: 'acp-frontend',
+                  name: 'ACP Frontend',
+                  path: '/home/vries/projects/acp-frontend',
+                  status: 'available',
+                },
+              ]),
+          } as Response)
+        }
+
+        if (url === '/api/projects/acp-frontend/tree') {
+          return Promise.resolve({ ok: true, json: () => Promise.resolve([]) } as Response)
+        }
+
+        if (url === '/api/sessions') {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve([
+                {
+                  id: HISTORY_SESSION_ID,
+                  title: 'Old Copilot chat',
+                  updatedAt: '2026-03-28T10:00:00.000Z',
+                  agentId: 'copilot',
+                  source: 'history',
+                  project: {
+                    id: 'acp-frontend',
+                    name: 'ACP Frontend',
+                    path: '/home/vries/projects/acp-frontend',
+                  },
+                },
+              ]),
+          } as Response)
+        }
+
+        if (
+          url === `/api/sessions/${HISTORY_SESSION_ID}` ||
+          url.startsWith(`/api/sessions/${HISTORY_SESSION_ID}?`)
+        ) {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                id: HISTORY_SESSION_ID,
+                title: 'Old Copilot chat',
+                updatedAt: '2026-03-28T10:00:00.000Z',
+                agentId: 'copilot',
+                source: 'history',
+                project: {
+                  id: 'acp-frontend',
+                  name: 'ACP Frontend',
+                  path: '/home/vries/projects/acp-frontend',
+                },
+                messages: [{ id: 'msg-1', role: 'assistant', content: 'Previous reply' }],
+              }),
+          } as Response)
+        }
+
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+      })
+    )
+
+    renderChatPage(`/chat?session=${HISTORY_SESSION_ID}&project=acp-frontend`)
+
+    // Delegation panel should appear instead of the regular composer
+    await waitFor(() => expect(screen.getByTestId('history-session-panel')).toBeDefined())
+    expect(screen.queryByTestId('chat-composer')).toBeNull()
+
+    // The active agent should be listed as a resume target
+    expect(screen.getByTestId('resume-agent-copilot')).toBeDefined()
+    expect(screen.getAllByText('GitHub Copilot').length).toBeGreaterThan(0)
+  })
+
+  it('calls the resume endpoint and navigates to the new session when Continue is clicked', async () => {
+    const HISTORY_SESSION_ID = 'history-session-abc'
+    const NEW_SESSION_ID = 'new-live-session-xyz'
+    const fetchMock = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
+      if (url === '/api/agents') {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve([
+              {
+                id: 'copilot',
+                name: 'GitHub Copilot',
+                status: 'active',
+                command: 'copilot',
+                canResume: true,
+              },
+            ]),
+        } as Response)
+      }
+
+      if (url === '/api/projects') {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve([
+              {
+                id: 'acp-frontend',
+                name: 'ACP Frontend',
+                path: '/home/vries/projects/acp-frontend',
+                status: 'available',
+              },
+            ]),
+        } as Response)
+      }
+
+      if (url === '/api/projects/acp-frontend/tree') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve([]) } as Response)
+      }
+
+      if (url === '/api/sessions') {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve([
+              {
+                id: HISTORY_SESSION_ID,
+                title: 'Old Copilot chat',
+                updatedAt: '2026-03-28T10:00:00.000Z',
+                agentId: 'copilot',
+                source: 'history',
+                project: {
+                  id: 'acp-frontend',
+                  name: 'ACP Frontend',
+                  path: '/home/vries/projects/acp-frontend',
+                },
+              },
+              {
+                id: NEW_SESSION_ID,
+                title: 'Continued chat',
+                updatedAt: '2026-03-30T10:00:00.000Z',
+                agentId: 'copilot',
+                source: 'live',
+                project: {
+                  id: 'acp-frontend',
+                  name: 'ACP Frontend',
+                  path: '/home/vries/projects/acp-frontend',
+                },
+              },
+            ]),
+        } as Response)
+      }
+
+      if (
+        url === `/api/sessions/${HISTORY_SESSION_ID}` ||
+        url.startsWith(`/api/sessions/${HISTORY_SESSION_ID}?`)
+      ) {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              id: HISTORY_SESSION_ID,
+              title: 'Old Copilot chat',
+              updatedAt: '2026-03-28T10:00:00.000Z',
+              agentId: 'copilot',
+              source: 'history',
+              project: {
+                id: 'acp-frontend',
+                name: 'ACP Frontend',
+                path: '/home/vries/projects/acp-frontend',
+              },
+              messages: [],
+            }),
+        } as Response)
+      }
+
+      if (url === `/api/sessions/${HISTORY_SESSION_ID}/resume` && opts?.method === 'POST') {
+        return Promise.resolve({
+          ok: true,
+          status: 201,
+          json: () =>
+            Promise.resolve({
+              id: NEW_SESSION_ID,
+              title: 'Continued chat',
+              updatedAt: '2026-03-30T10:00:00.000Z',
+              agentId: 'copilot',
+              source: 'live',
+              project: {
+                id: 'acp-frontend',
+                name: 'ACP Frontend',
+                path: '/home/vries/projects/acp-frontend',
+              },
+              messages: [],
+            }),
+        } as Response)
+      }
+
+      if (
+        url === `/api/sessions/${NEW_SESSION_ID}` ||
+        url.startsWith(`/api/sessions/${NEW_SESSION_ID}?`)
+      ) {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              id: NEW_SESSION_ID,
+              title: 'Continued chat',
+              updatedAt: '2026-03-30T10:00:00.000Z',
+              agentId: 'copilot',
+              source: 'live',
+              project: {
+                id: 'acp-frontend',
+                name: 'ACP Frontend',
+                path: '/home/vries/projects/acp-frontend',
+              },
+              messages: [],
+            }),
+        } as Response)
+      }
+
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    renderChatPage(`/chat?session=${HISTORY_SESSION_ID}&project=acp-frontend`)
+
+    // Wait for the delegation panel to appear
+    await waitFor(() => expect(screen.getByTestId('history-session-panel')).toBeDefined())
+
+    // Click the Continue button for GitHub Copilot
+    const continueButton = screen.getByTestId('resume-agent-copilot')
+    fireEvent.click(continueButton)
+
+    // After resume, the regular composer should appear (live session)
+    await waitFor(() => expect(screen.getByTestId('chat-composer')).toBeDefined())
+    expect(screen.queryByTestId('history-session-panel')).toBeNull()
+
+    // Verify the resume endpoint was called with the right payload
+    const resumeCall = fetchMock.mock.calls.find(
+      (args: unknown[]) =>
+        args[0] === `/api/sessions/${HISTORY_SESSION_ID}/resume` &&
+        (args[1] as RequestInit | undefined)?.method === 'POST'
+    )
+    expect(resumeCall).toBeDefined()
+    expect(JSON.parse((resumeCall![1] as RequestInit).body as string)).toMatchObject({
+      agentId: 'copilot',
+    })
+  })
 })

@@ -69,6 +69,7 @@ export function ChatPage() {
     activeAgents,
     availableProjects,
     creatingSession,
+    currentSession,
     errorMessage,
     historyLoading,
     loading,
@@ -76,6 +77,7 @@ export function ChatPage() {
     projects,
     ready,
     removeProject,
+    resumeSession,
     selectedProject,
     selectProject,
     selectSession,
@@ -99,6 +101,7 @@ export function ChatPage() {
   const [workspaceView, setWorkspaceView] = useState<WorkspaceView>('chat')
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [projectManagerOpen, setProjectManagerOpen] = useState(false)
+  const [resuming, setResuming] = useState(false)
   const [tree, setTree] = useState<ProjectTreeEntry[]>([])
   const [treePath, setTreePath] = useState<string | null>(null)
   const [treeLoading, setTreeLoading] = useState(false)
@@ -116,6 +119,8 @@ export function ChatPage() {
     () => sessions.find((session) => session.id === activeSessionId) ?? null,
     [activeSessionId, sessions]
   )
+  const isHistorySession = currentSession?.source === 'history'
+  const resumableAgents = useMemo(() => agents.filter((agent) => agent.canResume), [agents])
   const activeAgentName = useMemo(() => {
     const agent = agents.find((candidate) => candidate.id === activeSession?.agentId)
     return agent?.name ?? 'the agent'
@@ -235,6 +240,15 @@ export function ChatPage() {
       void loadDiff()
     }
   }, [loadDiff, workspaceView])
+
+  const handleResume = async (agentId: string) => {
+    setResuming(true)
+    try {
+      await resumeSession(agentId)
+    } finally {
+      setResuming(false)
+    }
+  }
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -465,6 +479,10 @@ export function ChatPage() {
               onSubmit={handleSubmit}
               disabled={!ready}
               canSubmit={ready && input.trim().length > 0}
+              isHistorySession={isHistorySession}
+              resumableAgents={resumableAgents}
+              onResume={handleResume}
+              resuming={resuming}
               helperText={
                 ready
                   ? 'The composer stays available while you inspect files or diff so the conversation never loses context.'

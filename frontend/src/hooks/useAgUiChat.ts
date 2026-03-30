@@ -30,6 +30,8 @@ export interface AgentSummary {
   name: string
   status: 'active' | 'disabled' | 'detected' | 'unavailable'
   command: string | null
+  /** True when the agent is active and can accept a resume/continuation request. */
+  canResume: boolean
 }
 
 export interface HistorySourceDescriptor {
@@ -154,10 +156,11 @@ export function useAgUiChat({
   const ready = useMemo(
     () =>
       currentSessionId !== null &&
+      currentSession?.source === 'live' &&
       currentSessionAgent?.status === 'active' &&
       selectedProject?.status === 'available' &&
       !creatingSession,
-    [creatingSession, currentSessionId, currentSessionAgent, selectedProject]
+    [creatingSession, currentSessionId, currentSession, currentSessionAgent, selectedProject]
   )
 
   const fetchJson = useCallback(async <T>(url: string, init?: RequestInit): Promise<T> => {
@@ -652,6 +655,39 @@ export function useAgUiChat({
     [createSession]
   )
 
+  const resumeSession = useCallback(
+    async (agentId: string) => {
+      if (!currentSessionId) return
+      setErrorMessage(null)
+      setCreatingSession(true)
+      try {
+        const session = await fetchJson<SessionDetails>(
+          `/api/sessions/${encodeURIComponent(currentSessionId)}/resume`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ agentId }),
+          }
+        )
+        activeSessionRef.current = session.id
+        setCurrentSessionId(session.id)
+        setMessages(session.messages)
+        setCurrentProjectId(session.project?.id ?? null)
+        onSessionCreated(session.id)
+        if (session.project?.id !== projectId) {
+          onProjectSelected(session.project?.id ?? null)
+        }
+        void refreshSessions()
+      } catch (error) {
+        console.error('[useAgUiChat] session resume failed:', error)
+        setErrorMessage('Unable to continue this conversation right now. Try again in a moment.')
+      } finally {
+        setCreatingSession(false)
+      }
+    },
+    [currentSessionId, fetchJson, onProjectSelected, onSessionCreated, projectId, refreshSessions]
+  )
+
   const addProject = useCallback(
     async (name: string, path: string) => {
       const project = await fetchJson<ProjectSummary>('/api/projects', {
@@ -720,8 +756,10 @@ export function useAgUiChat({
     selectSession,
     sendMessage,
     sessionId: currentSessionId,
+    currentSession,
     sessions,
     startNewSession,
+    resumeSession,
     streamReconnecting,
     thinking,
     availableProjects,
