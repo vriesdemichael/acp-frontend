@@ -8,6 +8,8 @@ export interface AgentSummary {
   name: string
   status: AgentStatus
   command: string | null
+  /** True when the agent is active and can accept a resume/continuation request. */
+  canResume: boolean
 }
 
 export type HistoryCapability =

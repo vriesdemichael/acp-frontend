@@ -19,9 +19,27 @@ const meta = {
   component: SessionList,
   args: {
     agents: [
-      { id: 'copilot', name: 'GitHub Copilot', status: 'active', command: 'copilot' },
-      { id: 'gemini-cli', name: 'Gemini CLI', status: 'active', command: 'gemini' },
-      { id: 'claude-code', name: 'Claude Code', status: 'unavailable', command: null },
+      {
+        id: 'copilot',
+        name: 'GitHub Copilot',
+        status: 'active',
+        command: 'copilot',
+        canResume: true,
+      },
+      {
+        id: 'gemini-cli',
+        name: 'Gemini CLI',
+        status: 'active',
+        command: 'gemini',
+        canResume: true,
+      },
+      {
+        id: 'claude-code',
+        name: 'Claude Code',
+        status: 'unavailable',
+        command: null,
+        canResume: false,
+      },
     ],
     sessions: denseSessions,
     activeSessionId: 'session-1',

@@ -1,4 +1,5 @@
 import type { FormEvent } from 'react'
+import type { AgentSummary } from '../../hooks/useAgUiChat.js'
 
 interface ChatComposerProps {
   value: string
@@ -7,6 +8,14 @@ interface ChatComposerProps {
   disabled: boolean
   canSubmit: boolean
   helperText?: string
+  /** When true, renders a read-only history session delegation panel instead of the input. */
+  isHistorySession?: boolean
+  /** Agents the user can delegate/resume this history session to. */
+  resumableAgents?: AgentSummary[]
+  /** Called when the user picks an agent to continue with. */
+  onResume?: (agentId: string) => void
+  /** True while a resume operation is in flight. */
+  resuming?: boolean
 }
 
 export function ChatComposer({
@@ -16,7 +25,48 @@ export function ChatComposer({
   disabled,
   canSubmit,
   helperText,
+  isHistorySession = false,
+  resumableAgents = [],
+  onResume,
+  resuming = false,
 }: ChatComposerProps) {
+  if (isHistorySession) {
+    return (
+      <div
+        data-testid="history-session-panel"
+        className="border-t border-white/8 bg-[linear-gradient(180deg,rgba(10,14,22,0.96),rgba(5,8,14,0.98))] px-4 py-4 backdrop-blur sm:px-5 lg:px-8"
+      >
+        <div className="mx-auto max-w-5xl">
+          <p className="mb-3 text-sm text-slate-400">
+            This is a read-only history session. Continue the conversation with an active agent:
+          </p>
+
+          {resumableAgents.length === 0 ? (
+            <p className="text-sm text-slate-500">
+              No active agents available. Start an adapter and reload to continue.
+            </p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {resumableAgents.map((agent) => (
+                <button
+                  key={agent.id}
+                  type="button"
+                  disabled={resuming}
+                  onClick={() => onResume?.(agent.id)}
+                  data-testid={`resume-agent-${agent.id}`}
+                  className="inline-flex items-center gap-2 rounded-[1.2rem] border border-white/10 bg-slate-900/90 px-4 py-2.5 text-sm font-medium text-slate-100 transition hover:border-teal-500/40 hover:bg-teal-500/10 hover:text-teal-100 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {agent.name}
+                  <span className="text-slate-400">Continue &rarr;</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <form
       onSubmit={onSubmit}

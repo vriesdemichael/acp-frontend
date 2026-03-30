@@ -37,9 +37,27 @@ function ChatLayoutStory(props: { mobileDrawer?: boolean; surface?: Surface; thi
             <div className="flex min-h-0 w-full flex-col">
               <SessionList
                 agents={[
-                  { id: 'copilot', name: 'GitHub Copilot', status: 'active', command: 'copilot' },
-                  { id: 'gemini-cli', name: 'Gemini CLI', status: 'active', command: 'gemini' },
-                  { id: 'claude-code', name: 'Claude Code', status: 'unavailable', command: null },
+                  {
+                    id: 'copilot',
+                    name: 'GitHub Copilot',
+                    status: 'active',
+                    command: 'copilot',
+                    canResume: true,
+                  },
+                  {
+                    id: 'gemini-cli',
+                    name: 'Gemini CLI',
+                    status: 'active',
+                    command: 'gemini',
+                    canResume: true,
+                  },
+                  {
+                    id: 'claude-code',
+                    name: 'Claude Code',
+                    status: 'unavailable',
+                    command: null,
+                    canResume: false,
+                  },
                 ]}
                 sessions={[
                   {
@@ -310,8 +328,20 @@ index 1234567..89abcde 100644
           <div className="min-h-0 flex-1 overflow-y-auto">
             <SessionList
               agents={[
-                { id: 'copilot', name: 'GitHub Copilot', status: 'active', command: 'copilot' },
-                { id: 'gemini-cli', name: 'Gemini CLI', status: 'active', command: 'gemini' },
+                {
+                  id: 'copilot',
+                  name: 'GitHub Copilot',
+                  status: 'active',
+                  command: 'copilot',
+                  canResume: true,
+                },
+                {
+                  id: 'gemini-cli',
+                  name: 'Gemini CLI',
+                  status: 'active',
+                  command: 'gemini',
+                  canResume: true,
+                },
               ]}
               sessions={[
                 {

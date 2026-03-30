@@ -186,4 +186,106 @@ describe('sessions routes', () => {
 
     expect(res.status).toBe(409)
   })
+
+  describe('POST /sessions/:id/resume', () => {
+    const newSession = {
+      id: 'new-session-id',
+      title: 'New chat',
+      updatedAt: '2026-03-30T10:00:00.000Z',
+      agentId: 'copilot',
+      project: { id: 'repo-1', name: 'ACP Frontend', path: '/work/acp-frontend' },
+      source: 'live' as const,
+      messages: [],
+    }
+
+    it('creates a new live session on the target agent and returns 201', async () => {
+      const registry = createRegistryStub({
+        getSession: vi.fn((id: string) => {
+          if (id === 'new-session-id') return newSession
+          return null
+        }),
+        createSession: vi.fn(async () => 'new-session-id'),
+      })
+      const app = new Hono().route('/api', sessionsRoutes(registry))
+
+      const res = await app.request('/api/sessions/history-session-1/resume', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ agentId: 'copilot', projectId: 'repo-1' }),
+      })
+
+      expect(res.status).toBe(201)
+      expect(vi.mocked(registry.createSession)).toHaveBeenCalledWith(
+        'copilot',
+        { id: 'repo-1', name: 'ACP Frontend', path: '/work/acp-frontend' },
+        []
+      )
+      await expect(res.json()).resolves.toMatchObject({ id: 'new-session-id', source: 'live' })
+    })
+
+    it('inherits the source session project when projectId is omitted', async () => {
+      const registry = createRegistryStub({
+        getSession: vi.fn((id: string) => {
+          if (id === 'history-session-1') {
+            return {
+              id: 'history-session-1',
+              title: 'Old chat',
+              updatedAt: '2026-03-29T10:00:00.000Z',
+              agentId: 'gemini-cli',
+              project: { id: 'repo-1', name: 'ACP Frontend', path: '/work/acp-frontend' },
+              source: 'history' as const,
+              messages: [],
+            }
+          }
+          if (id === 'new-session-id') return newSession
+          return null
+        }),
+        createSession: vi.fn(async () => 'new-session-id'),
+      })
+      const app = new Hono().route('/api', sessionsRoutes(registry))
+
+      const res = await app.request('/api/sessions/history-session-1/resume', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ agentId: 'copilot' }),
+      })
+
+      expect(res.status).toBe(201)
+      expect(vi.mocked(registry.createSession)).toHaveBeenCalledWith(
+        'copilot',
+        { id: 'repo-1', name: 'ACP Frontend', path: '/work/acp-frontend' },
+        []
+      )
+    })
+
+    it('returns 400 when agentId is missing', async () => {
+      const registry = createRegistryStub()
+      const app = new Hono().route('/api', sessionsRoutes(registry))
+
+      const res = await app.request('/api/sessions/history-session-1/resume', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+
+      expect(res.status).toBe(400)
+    })
+
+    it('returns 503 when the target agent is unavailable', async () => {
+      const registry = createRegistryStub({
+        createSession: vi.fn(async () => {
+          throw new RegistryError('agent_unavailable', 'Agent unavailable: copilot')
+        }),
+      })
+      const app = new Hono().route('/api', sessionsRoutes(registry))
+
+      const res = await app.request('/api/sessions/history-session-1/resume', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ agentId: 'copilot', projectId: 'repo-1' }),
+      })
+
+      expect(res.status).toBe(503)
+    })
+  })
 })
