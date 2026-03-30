@@ -291,19 +291,14 @@ describe('app router', () => {
 
     await waitFor(() => expect(screen.getByText('ACP Backends')).toBeDefined())
     expect(screen.getByDisplayValue('GitHub Copilot VS Code (Host)')).toBeDefined()
-    expect(screen.getByText('Reported By Connection')).toBeDefined()
     expect(screen.getByText('Add Backend')).toBeDefined()
     expect(
       screen.getByDisplayValue('/mnt/c/Users/vries/AppData/Roaming/Code/User/workspaceStorage')
     ).toBeDefined()
     expect(screen.getByText('History Sources')).toBeDefined()
-    expect(screen.getByText('Discovery Summary')).toBeDefined()
-    expect(screen.getByText('vscode')).toBeDefined()
-    expect(
-      screen.getByText(
-        '/mnt/c/Users/vries/AppData/Roaming/Code/User/workspaceStorage/x/state.vscdb'
-      )
-    ).toBeDefined()
+    expect(screen.getByText('vscode_workspace_db')).toBeDefined()
+    expect(screen.getByText('vscode_chat_sessions')).toBeDefined()
+    expect(screen.getByText('42 sessions')).toBeDefined()
     expect(screen.getByRole('link', { name: 'Back To Chat' })).toBeDefined()
     expect(screen.getByRole('button', { name: 'Test' })).toBeDefined()
   })
