@@ -29,7 +29,9 @@ test.describe('chat layout story stabilization', () => {
     const drawer = preview.getByTestId('chat-session-drawer')
     await expect(drawer.getByRole('heading', { name: 'Chats' })).toBeVisible({ timeout: 15_000 })
     await expect(
-      drawer.getByText('Recent conversations for the current workspace, sorted by activity.')
+      drawer.getByText(
+        'Grouped by project so you can scan workstreams without losing repo context.'
+      )
     ).toBeVisible()
   })
 })

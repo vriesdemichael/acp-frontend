@@ -145,7 +145,7 @@ export function getHistoryPatchDiff(input: {
 }): string | null {
   for (const provider of HISTORY_SESSION_PROVIDERS) {
     const diff = provider.getPatchDiff?.(input)
-    if (diff) {
+    if (diff !== null && diff !== undefined) {
       return diff
     }
   }

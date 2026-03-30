@@ -119,9 +119,11 @@ function migrateLegacyCopilotBackends(
   }
 
   // Merge legacy backends into a single copilot record
-  const cliBackend = legacyBackends.find(
-    (b) => b.commandCandidates.length > 0 || b.command !== null
-  )
+  // Prefer a backend with an explicit command (i.e., the CLI backend the user configured)
+  // over a history-only record that only has commandCandidates but no resolved command.
+  const cliBackend =
+    legacyBackends.find((b) => b.command !== null) ??
+    legacyBackends.find((b) => b.commandCandidates.length > 0)
   const allHints = Array.from(
     new Set(legacyBackends.flatMap((b) => b.historyPathHints ?? []).filter(Boolean))
   )
