@@ -9,19 +9,26 @@ function createRegistryStub(): AgentRegistry {
     listAgents: vi.fn(() => []),
     listBackends: vi.fn(() => [
       {
-        id: 'copilot',
-        name: 'GitHub Copilot',
+        id: 'copilot-vscode-host',
+        name: 'GitHub Copilot VS Code (Host)',
         status: 'active',
-        command: 'copilot',
-        detectedCommand: 'copilot',
-        args: ['--acp'],
-        defaultArgs: ['--acp'],
+        command: null,
+        detectedCommand: null,
+        args: [],
+        defaultArgs: [],
+        historyPathHints: ['/mnt/c/Users/vries/AppData/Roaming/Code/User/workspaceStorage'],
         enabled: true,
         usesCustomCommand: false,
         endpointSupport: {
           source: 'connection',
           implemented: ['session/new'],
           unknown: ['session/list'],
+        },
+        historySupport: {
+          source: 'derived',
+          supported: ['text', 'markdown'],
+          discoveredSources: [],
+          discoverySummary: [],
         },
         lastTestResult: null,
       },
@@ -34,6 +41,7 @@ function createRegistryStub(): AgentRegistry {
       detectedCommand: 'custom-wrapper',
       args: ['--acp'],
       defaultArgs: ['--acp'],
+      historyPathHints: [],
       enabled: true,
       usesCustomCommand: true,
       endpointSupport: {
@@ -41,16 +49,24 @@ function createRegistryStub(): AgentRegistry {
         implemented: [],
         unknown: ['session/new'],
       },
+      historySupport: {
+        source: 'none',
+        supported: [],
+        discoveredSources: [],
+        discoverySummary: [],
+      },
       lastTestResult: null,
     })),
     updateBackend: vi.fn(() => ({
-      id: 'copilot',
-      name: 'GitHub Copilot',
+      id: 'copilot-vscode-host',
+      name: 'GitHub Copilot VS Code (Host)',
       status: 'disabled',
-      command: 'copilot-wrapper',
-      detectedCommand: 'copilot',
-      args: ['--stdio'],
-      defaultArgs: ['--acp'],
+      command: null,
+      detectedCommand: null,
+      args: [],
+      defaultArgs: [],
+      historyPathHints: ['/tmp/copilot-hints'],
+      cliHistoryPathHints: ['/tmp/cli-hints'],
       enabled: false,
       usesCustomCommand: true,
       endpointSupport: {
@@ -58,22 +74,35 @@ function createRegistryStub(): AgentRegistry {
         implemented: [],
         unknown: ['session/new'],
       },
+      historySupport: {
+        source: 'derived',
+        supported: ['text', 'markdown'],
+        discoveredSources: [],
+        discoverySummary: [],
+      },
       lastTestResult: null,
     })),
     testBackend: vi.fn(async () => ({
-      id: 'copilot',
-      name: 'GitHub Copilot',
+      id: 'copilot-vscode-host',
+      name: 'GitHub Copilot VS Code (Host)',
       status: 'active',
-      command: 'copilot',
-      detectedCommand: 'copilot',
-      args: ['--acp'],
-      defaultArgs: ['--acp'],
+      command: null,
+      detectedCommand: null,
+      args: [],
+      defaultArgs: [],
+      historyPathHints: [],
       enabled: true,
       usesCustomCommand: false,
       endpointSupport: {
         source: 'connection',
         implemented: ['session/new', 'session/list'],
         unknown: [],
+      },
+      historySupport: {
+        source: 'derived',
+        supported: ['text', 'markdown'],
+        discoveredSources: [],
+        discoverySummary: [],
       },
       lastTestResult: {
         ok: true,
@@ -98,22 +127,33 @@ describe('agents routes', () => {
     expect(res.status).toBe(200)
 
     const body = (await res.json()) as Array<{ id: string; enabled: boolean }>
-    expect(body[0]).toMatchObject({ id: 'copilot', enabled: true })
+    expect(body[0]).toMatchObject({ id: 'copilot-vscode-host', enabled: true })
   })
 
   it('updates a backend config', async () => {
     const registry = createRegistryStub()
     const app = new Hono().route('/api', agentsRoutes(registry))
 
-    const res = await app.request('/api/backends/copilot', {
+    const res = await app.request('/api/backends/copilot-vscode-host', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ enabled: false, command: 'copilot-wrapper', args: ['--stdio'] }),
+      body: JSON.stringify({
+        enabled: false,
+        command: 'copilot-wrapper',
+        args: ['--stdio'],
+        historyPathHints: ['/tmp/copilot-hints'],
+        cliHistoryPathHints: ['/tmp/cli-hints'],
+      }),
     })
 
     expect(res.status).toBe(200)
     const body = (await res.json()) as { enabled: boolean; command: string }
-    expect(body).toMatchObject({ enabled: false, command: 'copilot-wrapper' })
+    expect(body).toMatchObject({
+      enabled: false,
+      command: null,
+      historyPathHints: ['/tmp/copilot-hints'],
+      cliHistoryPathHints: ['/tmp/cli-hints'],
+    })
   })
 
   it('creates a custom backend config', async () => {
@@ -135,7 +175,7 @@ describe('agents routes', () => {
     const registry = createRegistryStub()
     const app = new Hono().route('/api', agentsRoutes(registry))
 
-    const res = await app.request('/api/backends/copilot/test', {
+    const res = await app.request('/api/backends/copilot-vscode-host/test', {
       method: 'POST',
     })
 

@@ -1,4 +1,5 @@
 import { Hono, type Context } from 'hono'
+import { getHistoryPatchDiff } from '../history/index.js'
 import { loadMcpServers } from '../mcp.js'
 import type { AgentRegistry } from '../agents/registry.js'
 import { isRegistryError } from '../agents/registry.js'
@@ -35,12 +36,38 @@ export function sessionsRoutes(registry: AgentRegistry): Hono {
   })
 
   app.get('/sessions/:id', (c) => {
-    const session = registry.getSession(c.req.param('id'))
+    const agentId = c.req.query('agentId')?.trim() || undefined
+    const session = registry.getSession(c.req.param('id'), agentId)
     if (!session) {
       return c.json({ error: 'Session not found' }, 404)
     }
 
     return c.json(session)
+  })
+
+  app.post('/sessions/:id/patch-diff', async (c) => {
+    const body = await parseJsonBody<{ fromHash?: string; toHash?: string; files?: string[] }>(c)
+    const fromHash = body.fromHash?.trim()
+    const toHash = body.toHash?.trim()
+
+    if (!fromHash || !toHash) {
+      return c.json({ error: 'fromHash and toHash are required' }, 400)
+    }
+
+    const diff = getHistoryPatchDiff({
+      sessionId: c.req.param('id'),
+      fromHash,
+      toHash,
+      files: Array.isArray(body.files)
+        ? body.files.filter((file): file is string => typeof file === 'string')
+        : undefined,
+    })
+
+    if (diff === null) {
+      return c.json({ error: 'Patch diff not found' }, 404)
+    }
+
+    return c.json({ diff })
   })
 
   app.post('/sessions/:id/message', async (c) => {

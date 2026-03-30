@@ -5,6 +5,8 @@ import type {
   AgentSummary,
   BackendSummary,
   BackendTestResult,
+  HistorySourceDescriptor,
+  HistorySupport,
   RegistryErrorCode,
   SessionAdapter,
   SessionDetails,
@@ -23,7 +25,12 @@ import { StdioAcpProcess } from '../adapters/shared/process.js'
 import { deriveEndpointSupport } from '../adapters/shared/capabilities.js'
 import type { SessionProjectContext } from './types.js'
 import { listProjects, toSessionProjectContext } from '../projects/service.js'
-import { listHistorySessions, mergeSessions, getHistorySession } from '../history/index.js'
+import {
+  getHistorySourceDescriptors,
+  listHistorySessions,
+  mergeSessions,
+  getHistorySession,
+} from '../history/index.js'
 import { FakeSessionAdapter } from '../testing/fakeAdapter.js'
 
 interface RegisteredAgent {
@@ -33,6 +40,8 @@ interface RegisteredAgent {
   detectedCommand: string | null
   args: string[]
   defaultArgs: string[]
+  historyPathHints: string[]
+  cliHistoryPathHints: string[]
   enabled: boolean
   usesCustomCommand: boolean
   adapter?: SessionAdapter
@@ -84,12 +93,15 @@ export class AgentRegistry {
       detectedCommand: agent.detectedCommand,
       args: agent.args,
       defaultArgs: agent.args,
+      historyPathHints: agent.historyPathHints,
+      cliHistoryPathHints: agent.cliHistoryPathHints,
       enabled: agent.enabled,
       usesCustomCommand: agent.usesCustomCommand,
       endpointSupport:
         this.capabilityResults.get(agent.id) ??
         agent.adapter?.getEndpointSupport() ??
         UNKNOWN_ENDPOINT_SUPPORT,
+      historySupport: getHistorySupport(agent.id),
       lastTestResult: agent.lastTestResult,
     }))
   }
@@ -115,7 +127,14 @@ export class AgentRegistry {
 
   updateBackend(
     agentId: string,
-    input: { enabled?: boolean; command?: string | null; args?: string[]; name?: string }
+    input: {
+      enabled?: boolean
+      command?: string | null
+      args?: string[]
+      name?: string
+      historyPathHints?: string[]
+      cliHistoryPathHints?: string[]
+    }
   ): BackendSummary {
     const config = readBackendConfig()
     const index = config.findIndex((backend) => backend.id === agentId)
@@ -131,6 +150,12 @@ export class AgentRegistry {
       enabled: input.enabled ?? current.enabled,
       command: normalizeCommand(input.command ?? current.command),
       args: Array.isArray(input.args) ? input.args.filter(Boolean) : current.args,
+      historyPathHints: Array.isArray(input.historyPathHints)
+        ? input.historyPathHints.filter(Boolean)
+        : current.historyPathHints,
+      cliHistoryPathHints: Array.isArray(input.cliHistoryPathHints)
+        ? input.cliHistoryPathHints.filter(Boolean)
+        : current.cliHistoryPathHints,
     }
 
     writeBackendConfig(config)
@@ -204,19 +229,35 @@ export class AgentRegistry {
     const liveSessions = this.agents.flatMap((agent) => agent.adapter?.listSessions() ?? [])
 
     const knownProjects = listProjects().map(toSessionProjectContext)
-    const historySessions = listHistorySessions(knownProjects)
+    const historySessions = listHistorySessions(
+      knownProjects,
+      this.agents.map((agent) => ({
+        id: agent.id,
+        historyPathHints: agent.historyPathHints,
+        cliHistoryPathHints: agent.cliHistoryPathHints,
+      }))
+    )
 
     return mergeSessions(liveSessions, historySessions)
   }
 
-  getSession(sessionId: string): SessionDetails | null {
+  getSession(sessionId: string, agentId?: string): SessionDetails | null {
     for (const agent of this.agents) {
       const session = agent.adapter?.getSession(sessionId)
       if (session) return session
     }
 
     const knownProjects = listProjects().map(toSessionProjectContext)
-    return getHistorySession(sessionId, knownProjects)
+    return getHistorySession(
+      sessionId,
+      knownProjects,
+      this.agents.map((agent) => ({
+        id: agent.id,
+        historyPathHints: agent.historyPathHints,
+        cliHistoryPathHints: agent.cliHistoryPathHints,
+      })),
+      agentId
+    )
   }
 
   async sendMessage(sessionId: string, text: string, agentId?: string): Promise<void> {
@@ -291,6 +332,8 @@ export class AgentRegistry {
       detectedCommand,
       args: backend.args,
       defaultArgs: backend.args,
+      historyPathHints: backend.historyPathHints ?? [],
+      cliHistoryPathHints: backend.cliHistoryPathHints ?? [],
       enabled: backend.enabled,
       usesCustomCommand,
       adapter,
@@ -334,6 +377,100 @@ export class AgentRegistry {
 
     return null
   }
+}
+
+function getHistorySupport(agentId: string): HistorySupport {
+  const backend = readBackendConfig().find((entry) => entry.id === agentId)
+  const discoveredSources = getHistorySourceDescriptors(
+    agentId,
+    backend?.historyPathHints ?? [],
+    backend?.cliHistoryPathHints ?? []
+  )
+  const discoverySummary = summarizeDiscoveredSources(discoveredSources)
+
+  switch (agentId) {
+    case 'opencode':
+      return {
+        source: 'native',
+        supported: [
+          'text',
+          'markdown',
+          'reasoning',
+          'tool_calls',
+          'skills',
+          'subagents',
+          'attachments',
+          'rich_media',
+          'file_operations',
+          'patches',
+          'compaction',
+        ],
+        discoveredSources,
+        discoverySummary,
+      }
+    case 'copilot':
+      return {
+        source: 'derived',
+        supported: ['text', 'markdown', 'reasoning', 'tool_calls', 'truncation'],
+        discoveredSources,
+        discoverySummary,
+      }
+    case 'gemini-cli':
+      return {
+        source: 'derived',
+        supported: ['text', 'markdown'],
+        discoveredSources,
+        discoverySummary,
+      }
+    default:
+      return {
+        source: 'none',
+        supported: [],
+        discoveredSources,
+        discoverySummary,
+      }
+  }
+}
+
+function summarizeDiscoveredSources(sources: HistorySourceDescriptor[]) {
+  const families = new Map<
+    string,
+    {
+      family: string
+      readable: number
+      missing: number
+      invalid: number
+      containsHistory: number
+    }
+  >()
+
+  for (const source of sources) {
+    const family = source.kind.startsWith('vscode_')
+      ? 'vscode'
+      : source.kind.startsWith('cli_')
+        ? 'cli'
+        : source.kind.startsWith('gemini_')
+          ? 'gemini'
+          : source.kind.startsWith('opencode_')
+            ? 'opencode'
+            : 'other'
+    const summary = families.get(family) ?? {
+      family,
+      readable: 0,
+      missing: 0,
+      invalid: 0,
+      containsHistory: 0,
+    }
+
+    if (source.access === 'readable') summary.readable += 1
+    if (source.access === 'missing') summary.missing += 1
+    if (source.access === 'invalid' || source.access === 'permission_error') summary.invalid += 1
+    if (source.signal === 'contains_history') summary.containsHistory += 1
+
+    families.set(family, summary)
+  }
+
+  return Array.from(families.values())
 }
 
 export function isRegistryError(error: unknown, code?: RegistryErrorCode): error is RegistryError {
