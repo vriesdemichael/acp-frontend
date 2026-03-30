@@ -7,6 +7,22 @@ export interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
   structuredBlocks?: StructuredBlock[]
+  turnInfo?: {
+    providerId?: string
+    modelId?: string
+    mode?: string
+    startedAtMs?: number
+    completedAtMs?: number
+    durationMs?: number
+    modifiedFiles?: string[]
+    patches?: Array<{
+      hash: string
+      nextHash?: string
+      files: string[]
+      additions?: number
+      deletions?: number
+    }>
+  }
 }
 
 export interface AgentSummary {
@@ -14,6 +30,28 @@ export interface AgentSummary {
   name: string
   status: 'active' | 'disabled' | 'detected' | 'unavailable'
   command: string | null
+}
+
+export interface HistorySourceDescriptor {
+  id: string
+  backendId: string
+  providerId: string
+  kind:
+    | 'cli_session_dir'
+    | 'cli_history_dir'
+    | 'vscode_workspace_db'
+    | 'vscode_chat_sessions'
+    | 'vscode_chat_editing_sessions'
+    | 'vscode_extension_resources'
+    | 'gemini_tmp_dir'
+    | 'opencode_db'
+  path: string
+  platform: 'linux' | 'mounted_host' | 'windows' | 'unknown'
+  access: 'readable' | 'missing' | 'permission_error' | 'invalid'
+  signal: 'contains_history' | 'empty' | 'unknown'
+  discoveredBy: 'auto' | 'manual'
+  lastModifiedMs?: number
+  sessionCount?: number
 }
 
 export interface ProjectSummary {
@@ -35,6 +73,7 @@ export interface SessionSummary {
   updatedAt: string
   agentId: string
   project: SessionProjectContext | null
+  source: 'live' | 'history'
 }
 
 interface ProjectPathSuggestion {
@@ -68,10 +107,17 @@ export function useAgUiChat({
   const [agents, setAgents] = useState<AgentSummary[]>([])
   const [projects, setProjects] = useState<ProjectSummary[]>([])
   const [sessions, setSessions] = useState<SessionSummary[]>([])
+  const sessionsRef = useRef<SessionSummary[]>([])
+  const setSessionsAndRef = useCallback((nextSessions: SessionSummary[]) => {
+    sessionsRef.current = nextSessions
+    setSessions(nextSessions)
+  }, [])
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [thinking, setThinking] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [historyLoadingSessionId, setHistoryLoadingSessionId] = useState<string | null>(null)
+  const [streamReconnecting, setStreamReconnecting] = useState(false)
   const [creatingSession, setCreatingSession] = useState(false)
   const activeSessionRef = useRef<string | null>(sessionId)
   const routeSessionRef = useRef<string | null>(sessionId)
@@ -126,7 +172,7 @@ export function useAgUiChat({
   const refreshSessions = useCallback(async () => {
     try {
       const nextSessions = await fetchJson<SessionSummary[]>('/api/sessions')
-      setSessions(nextSessions)
+      setSessionsAndRef(nextSessions)
       return nextSessions
     } catch (error) {
       console.error('[useAgUiChat] session list failed:', error)
@@ -136,7 +182,7 @@ export function useAgUiChat({
       )
       return []
     }
-  }, [fetchJson])
+  }, [fetchJson, setSessionsAndRef])
 
   const refreshProjects = useCallback(async () => {
     try {
@@ -155,9 +201,14 @@ export function useAgUiChat({
 
   const loadSession = useCallback(
     async (nextSessionId: string, syncRoute = true) => {
+      setHistoryLoadingSessionId(nextSessionId)
       try {
+        const knownSession = sessionsRef.current.find((s) => s.id === nextSessionId)
+        const agentParam = knownSession?.agentId
+          ? `?agentId=${encodeURIComponent(knownSession.agentId)}`
+          : ''
         const session = await fetchJson<SessionDetails>(
-          `/api/sessions/${encodeURIComponent(nextSessionId)}`
+          `/api/sessions/${encodeURIComponent(nextSessionId)}${agentParam}`
         )
 
         if (activeSessionRef.current !== nextSessionId) {
@@ -185,6 +236,8 @@ export function useAgUiChat({
           'Unable to load that session right now. Pick another one or create a new chat.'
         )
         return null
+      } finally {
+        setHistoryLoadingSessionId((current) => (current === nextSessionId ? null : current))
       }
     },
     [fetchJson, onProjectSelected, onSessionSelected, projectId, sessionId]
@@ -288,7 +341,7 @@ export function useAgUiChat({
 
         setAgents(nextAgents)
         setProjects(nextProjects)
-        setSessions(nextSessions)
+        setSessionsAndRef(nextSessions)
 
         const nextActiveAgents = nextAgents.filter((candidate) => candidate.status === 'active')
         const nextActiveAgentIds = new Set(nextActiveAgents.map((agent) => agent.id))
@@ -375,12 +428,22 @@ export function useAgUiChat({
   }, [])
 
   useEffect(() => {
-    if (!currentSessionId) return
+    if (!currentSessionId || currentSession?.source !== 'live') {
+      setStreamReconnecting(false)
+      return
+    }
 
     activeSessionRef.current = currentSessionId
+    setStreamReconnecting(false)
     const sse = new EventSource(`/api/stream?sessionId=${encodeURIComponent(currentSessionId)}`)
 
+    sse.onopen = () => {
+      if (activeSessionRef.current !== currentSessionId) return
+      setStreamReconnecting(false)
+    }
+
     sse.addEventListener(EventType.RUN_STARTED, () => {
+      setStreamReconnecting(false)
       setThinking(true)
     })
 
@@ -391,12 +454,13 @@ export function useAgUiChat({
       setMessages((current) =>
         current.some((message) => message.id === messageId)
           ? current
-          : [...current, { id: messageId, role: 'assistant', content: '' }]
+          : [...current, { id: messageId, role: 'assistant', content: '', structuredBlocks: [] }]
       )
     })
 
     sse.addEventListener(EventType.TEXT_MESSAGE_CONTENT, (event: MessageEvent<string>) => {
       if (activeSessionRef.current !== currentSessionId) return
+      setStreamReconnecting(false)
 
       const { messageId, delta } = JSON.parse(event.data) as { messageId: string; delta: string }
 
@@ -411,7 +475,72 @@ export function useAgUiChat({
 
         return found
           ? nextMessages
-          : [...nextMessages, { id: messageId, role: 'assistant', content: delta }]
+          : [
+              ...nextMessages,
+              { id: messageId, role: 'assistant', content: delta, structuredBlocks: [] },
+            ]
+      })
+    })
+
+    sse.addEventListener(EventType.CUSTOM, (event: MessageEvent<string>) => {
+      if (activeSessionRef.current !== currentSessionId) return
+      setStreamReconnecting(false)
+
+      const customEvent = JSON.parse(event.data) as {
+        name?: string
+        value?: Record<string, unknown>
+      }
+
+      if (customEvent.name !== 'a2ui:tool_call') {
+        return
+      }
+
+      const payload = customEvent.value ?? {}
+      const callId = typeof payload['callId'] === 'string' ? payload['callId'] : null
+      const toolName = typeof payload['toolName'] === 'string' ? payload['toolName'] : null
+      const done = payload['done'] === true
+      if (!callId || !toolName) {
+        return
+      }
+
+      setMessages((current) => {
+        const nextMessages = [...current]
+        const lastAssistantIndex = [...nextMessages]
+          .reverse()
+          .findIndex((message) => message.role === 'assistant')
+        const targetIndex =
+          lastAssistantIndex === -1 ? -1 : nextMessages.length - 1 - lastAssistantIndex
+
+        const fallbackMessage = {
+          id: `assistant-tool-${callId}`,
+          role: 'assistant' as const,
+          content: '',
+          structuredBlocks: [] as StructuredBlock[],
+        }
+
+        const targetMessage = targetIndex >= 0 ? nextMessages[targetIndex] : fallbackMessage
+
+        const existingBlocks = targetMessage.structuredBlocks ?? []
+        const nextBlock: StructuredBlock = {
+          kind: 'tool_call',
+          payload: {
+            callId,
+            toolName,
+            args: payload['args'],
+            result: typeof payload['result'] === 'string' ? payload['result'] : undefined,
+            done,
+          },
+        }
+
+        const mergedBlocks = upsertStructuredBlock(existingBlocks, nextBlock)
+        const mergedMessage = { ...targetMessage, structuredBlocks: mergedBlocks }
+
+        if (targetIndex >= 0) {
+          nextMessages[targetIndex] = mergedMessage
+          return nextMessages
+        }
+
+        return [...nextMessages, mergedMessage]
       })
     })
 
@@ -427,13 +556,13 @@ export function useAgUiChat({
     sse.onerror = () => {
       if (activeSessionRef.current !== currentSessionId) return
       setThinking(false)
-      setErrorMessage((current) => current ?? 'The live chat stream disconnected unexpectedly.')
+      setStreamReconnecting(true)
     }
 
     return () => {
       sse.close()
     }
-  }, [currentSessionId, refreshSessions])
+  }, [currentSession?.source, currentSessionId, refreshSessions])
 
   const sendMessage = useCallback(
     async (text: string) => {
@@ -581,6 +710,7 @@ export function useAgUiChat({
     agents,
     creatingSession,
     errorMessage,
+    historyLoading: historyLoadingSessionId !== null,
     loading,
     messages,
     projects,
@@ -592,11 +722,44 @@ export function useAgUiChat({
     sessionId: currentSessionId,
     sessions,
     startNewSession,
+    streamReconnecting,
     thinking,
     availableProjects,
     addProject,
     removeProject: removeProjectById,
     suggestProjectPaths,
+  }
+}
+
+function upsertStructuredBlock(
+  blocks: StructuredBlock[],
+  nextBlock: StructuredBlock
+): StructuredBlock[] {
+  const nextId = readStructuredBlockId(nextBlock)
+  if (!nextId) {
+    return [...blocks, nextBlock]
+  }
+
+  const existingIndex = blocks.findIndex((block) => readStructuredBlockId(block) === nextId)
+  if (existingIndex === -1) {
+    return [...blocks, nextBlock]
+  }
+
+  return blocks.map((block, index) => (index === existingIndex ? nextBlock : block))
+}
+
+function readStructuredBlockId(block: StructuredBlock): string | null {
+  switch (block.kind) {
+    case 'tool_call':
+      return block.payload.callId
+    case 'skill_invocation':
+      return block.payload.callId
+    case 'subagent_invocation':
+      return block.payload.callId
+    case 'reasoning':
+      return block.payload.text
+    default:
+      return null
   }
 }
 

@@ -47,6 +47,7 @@ function ChatLayoutStory(props: { mobileDrawer?: boolean; surface?: Surface; thi
                     title: 'Agentic Coding Presentation Outline',
                     updatedAt: '2026-03-18T09:00:00.000Z',
                     agentId: 'copilot',
+                    source: 'history' as const,
                     project: {
                       id: 'acp-frontend',
                       name: 'ACP Frontend',
@@ -58,6 +59,7 @@ function ChatLayoutStory(props: { mobileDrawer?: boolean; surface?: Surface; thi
                     title: 'CLI-Integrated Code Assistant Alternatives',
                     updatedAt: '2026-03-18T08:10:00.000Z',
                     agentId: 'copilot',
+                    source: 'history' as const,
                     project: {
                       id: 'acp-frontend',
                       name: 'ACP Frontend',
@@ -69,6 +71,7 @@ function ChatLayoutStory(props: { mobileDrawer?: boolean; surface?: Surface; thi
                     title: 'Gemini follow-up on grouped session discovery',
                     updatedAt: '2026-03-16T11:18:00.000Z',
                     agentId: 'gemini-cli',
+                    source: 'history' as const,
                     project: {
                       id: 'docs-site',
                       name: 'Docs Site',
@@ -316,6 +319,7 @@ index 1234567..89abcde 100644
                   title: 'Agentic Coding Presentation Outline',
                   updatedAt: '2026-03-18T09:00:00.000Z',
                   agentId: 'copilot',
+                  source: 'history' as const,
                   project: {
                     id: 'acp-frontend',
                     name: 'ACP Frontend',

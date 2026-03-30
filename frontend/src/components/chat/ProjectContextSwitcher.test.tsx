@@ -136,6 +136,40 @@ describe('ProjectContextSwitcher', () => {
     ).toBe('/tmp/project-draft')
   })
 
+  it('shows the add project form in a compact modal on small viewports', async () => {
+    window.innerWidth = 390
+    window.dispatchEvent(new Event('resize'))
+
+    renderSwitcher()
+
+    fireEvent.click(screen.getByRole('button', { name: /Open/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /Add Project/i }))
+
+    await waitFor(() => expect(screen.getByTestId('mobile-add-project-modal')).toBeDefined())
+    expect(screen.getByRole('form', { name: /Add project form/i })).toBeDefined()
+  })
+
+  it('renders a scrollable path suggestion list', async () => {
+    const onSuggestProjectPaths = vi.fn().mockResolvedValue(
+      Array.from({ length: 12 }, (_, index) => ({
+        name: `project-${index}`,
+        path: `/work/project-${index}`,
+      }))
+    )
+
+    renderSwitcher({ onSuggestProjectPaths })
+
+    fireEvent.click(screen.getByRole('button', { name: /Open/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /Add Project/i }))
+    fireEvent.change(screen.getByRole('combobox', { name: /Project path/i }), {
+      target: { value: '/work' },
+    })
+
+    const listbox = await screen.findByRole('listbox', { name: /Path suggestions/i })
+    expect(listbox.className).toContain('max-h-72')
+    expect(listbox.className).toContain('overflow-y-auto')
+  }, 10000)
+
   it('closes the manager view', async () => {
     renderSwitcher()
 

@@ -35,4 +35,21 @@ test.describe('chat empty-state onboarding', () => {
       : page.getByLabel('Open project manager')
     await expect(projectManagerButton).toBeVisible()
   })
+
+  test('keeps the composer visible on mobile without page scrolling', async ({
+    page,
+  }, testInfo) => {
+    test.skip(!testInfo.project.name.includes('mobile'), 'mobile-only assertion')
+
+    await gotoChat(page, '/chat?project=acp-frontend')
+
+    const initialWindowScroll = await page.evaluate(() => window.scrollY)
+    const composerBox = await page.getByTestId('chat-composer').boundingBox()
+    const viewport = page.viewportSize()
+
+    expect(initialWindowScroll).toBe(0)
+    expect(composerBox).not.toBeNull()
+    expect(viewport).not.toBeNull()
+    expect(composerBox!.y + composerBox!.height).toBeLessThanOrEqual(viewport!.height)
+  })
 })
