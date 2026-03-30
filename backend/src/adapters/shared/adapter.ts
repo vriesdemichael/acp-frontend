@@ -18,6 +18,7 @@ import type {
   SessionSummary,
 } from '../../agents/types.js'
 import { deriveEndpointSupport } from './capabilities.js'
+import { buildHandoffPrompt } from './handoff.js'
 import type { GenericProcessHandlers, GenericSessionState } from './types.js'
 import type { StdioAcpProcess } from './process.js'
 
@@ -149,24 +150,9 @@ export class GenericAcpAdapter implements SessionAdapter {
         emit(translator.onSessionUpdate(notification.update))
       }
 
-      const transcript = messages
-        .map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
-        .join('\n\n')
-
       const result = await session.acpClient.prompt({
         sessionId: session.acpSessionId,
-        prompt: [
-          {
-            type: 'resource',
-            resource: {
-              uri: 'acp-frontend://session-handoff',
-              mimeType: 'text/plain',
-              text:
-                `[Context from a previous conversation being continued here]\n\n${transcript}\n\n` +
-                `[End of previous conversation. Please acknowledge you have the context and are ready to continue.]`,
-            },
-          },
-        ] satisfies ContentBlock[],
+        prompt: buildHandoffPrompt(messages),
       })
 
       session.lastPromptResponse = result

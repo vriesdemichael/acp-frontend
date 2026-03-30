@@ -37,17 +37,30 @@ export function ChatComposer({
 }: ChatComposerProps) {
   const [switchOpen, setSwitchOpen] = useState(false)
   const switchRef = useRef<HTMLDivElement>(null)
+  const firstMenuItemRef = useRef<HTMLButtonElement>(null)
 
-  // Close the popover when clicking outside
+  // Close the popover when clicking outside or pressing Escape
   useEffect(() => {
     if (!switchOpen) return
-    const handler = (e: MouseEvent) => {
+    const onMouse = (e: MouseEvent) => {
       if (switchRef.current && !switchRef.current.contains(e.target as Node)) {
         setSwitchOpen(false)
       }
     }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setSwitchOpen(false)
+    }
+    document.addEventListener('mousedown', onMouse)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onMouse)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [switchOpen])
+
+  // Move focus to the first menu item when the popover opens
+  useEffect(() => {
+    if (switchOpen) firstMenuItemRef.current?.focus()
   }, [switchOpen])
 
   if (isHistorySession) {
@@ -88,7 +101,7 @@ export function ChatComposer({
     )
   }
 
-  const canSwitch = resumableAgents.length > 0 && !resuming
+  const canSwitch = resumableAgents.length > 0 && !resuming && !disabled
 
   return (
     <form
@@ -115,6 +128,8 @@ export function ChatComposer({
               type="button"
               data-testid="switch-agent-button"
               disabled={!canSwitch}
+              aria-haspopup="menu"
+              aria-expanded={switchOpen}
               onClick={() => setSwitchOpen((o) => !o)}
               title="Continue in a different agent"
               className="inline-flex h-[3.2rem] items-center gap-1.5 rounded-[1.2rem] border border-white/10 bg-slate-900/90 px-3.5 text-sm text-slate-400 transition hover:border-white/20 hover:text-slate-200 disabled:cursor-not-allowed disabled:opacity-40"
@@ -144,15 +159,18 @@ export function ChatComposer({
             {switchOpen && (
               <div
                 data-testid="switch-agent-popover"
+                role="menu"
                 className="absolute bottom-full right-0 mb-2 min-w-[13rem] rounded-2xl border border-white/10 bg-slate-900 py-1.5 shadow-2xl"
               >
                 <p className="px-3.5 pb-1.5 pt-1 text-[11px] font-medium uppercase tracking-wider text-slate-500">
                   Continue in…
                 </p>
-                {resumableAgents.map((agent) => (
+                {resumableAgents.map((agent, idx) => (
                   <button
                     key={agent.id}
+                    ref={idx === 0 ? firstMenuItemRef : undefined}
                     type="button"
+                    role="menuitem"
                     data-testid={`switch-agent-${agent.id}`}
                     onClick={() => {
                       setSwitchOpen(false)

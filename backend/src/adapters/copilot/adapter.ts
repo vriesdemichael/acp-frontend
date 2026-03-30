@@ -17,6 +17,7 @@ import type {
   SessionSummary,
 } from '../../agents/types.js'
 import { deriveEndpointSupport } from '../shared/capabilities.js'
+import { buildHandoffPrompt } from '../shared/handoff.js'
 import type { CopilotProcess } from './process.js'
 import type { SessionState } from './types.js'
 
@@ -142,24 +143,9 @@ export class CopilotAdapter implements SessionAdapter {
         emit(translator.onSessionUpdate(notification.update))
       }
 
-      const transcript = messages
-        .map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
-        .join('\n\n')
-
       const result = await session.acpClient.prompt({
         sessionId: session.acpSessionId,
-        prompt: [
-          {
-            type: 'resource',
-            resource: {
-              uri: 'acp-frontend://session-handoff',
-              mimeType: 'text/plain',
-              text:
-                `[Context from a previous conversation being continued here]\n\n${transcript}\n\n` +
-                `[End of previous conversation. Please acknowledge you have the context and are ready to continue.]`,
-            },
-          },
-        ] satisfies ContentBlock[],
+        prompt: buildHandoffPrompt(messages),
       })
 
       session.lastPromptResponse = result

@@ -685,6 +685,8 @@ export function useAgUiChat({
     async (agentId: string) => {
       if (!currentSessionId) return
       setErrorMessage(null)
+      setThinking(false)
+      setStreamReconnecting(false)
       setCreatingSession(true)
 
       // Snapshot messages before the async call — we'll prepend them to the new session
