@@ -261,7 +261,7 @@ export function useAgUiChat({
         setHistoryLoadingSessionId((current) => (current === nextSessionId ? null : current))
       }
     },
-    [fetchJson, onProjectSelected, onSessionSelected, projectId, sessionId]
+    [fetchJson, onProjectSelected, onSessionSelected, projectId, sessionId, setMessages]
   )
 
   useEffect(() => {
@@ -288,7 +288,7 @@ export function useAgUiChat({
     setErrorMessage(null)
     setThinking(false)
     void loadSession(sessionId, false)
-  }, [loadSession, sessionId])
+  }, [loadSession, sessionId, setMessages])
 
   const createSession = useCallback(
     async (agentId: string, nextProjectId?: string) => {
@@ -336,7 +336,15 @@ export function useAgUiChat({
         setCreatingSession(false)
       }
     },
-    [currentProjectId, fetchJson, onProjectSelected, onSessionCreated, projectId, refreshSessions]
+    [
+      currentProjectId,
+      fetchJson,
+      onProjectSelected,
+      onSessionCreated,
+      projectId,
+      refreshSessions,
+      setMessages,
+    ]
   )
 
   // Keep refs in sync so the one-shot bootstrap effect always calls the latest
@@ -583,7 +591,7 @@ export function useAgUiChat({
     return () => {
       sse.close()
     }
-  }, [currentSession?.source, currentSessionId, refreshSessions])
+  }, [currentSession?.source, currentSessionId, refreshSessions, setMessages])
 
   const sendMessage = useCallback(
     async (text: string) => {
@@ -620,7 +628,7 @@ export function useAgUiChat({
         throw error
       }
     },
-    [currentSessionId, refreshSessions, sessions]
+    [currentSessionId, refreshSessions, sessions, setMessages]
   )
 
   const selectSession = useCallback(
@@ -662,7 +670,7 @@ export function useAgUiChat({
       setCurrentSessionId(null)
       await createSession(firstActive.id, nextProjectId)
     },
-    [agents, createSession, currentProjectId, onProjectSelected, projects]
+    [agents, createSession, currentProjectId, onProjectSelected, projects, setMessages]
   )
 
   const startNewSession = useCallback(
@@ -723,6 +731,7 @@ export function useAgUiChat({
       onSessionCreated,
       projectId,
       refreshSessions,
+      setMessages,
     ]
   )
 
@@ -767,7 +776,7 @@ export function useAgUiChat({
         onProjectSelected(fallbackProject?.id ?? null)
       }
     },
-    [currentProjectId, onProjectSelected, onSessionCleared, refreshProjects]
+    [currentProjectId, onProjectSelected, onSessionCleared, refreshProjects, setMessages]
   )
 
   const suggestProjectPaths = useCallback(
