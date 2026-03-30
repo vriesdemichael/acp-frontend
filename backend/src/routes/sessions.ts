@@ -72,16 +72,28 @@ export function sessionsRoutes(registry: AgentRegistry): Hono {
 
   app.post('/sessions/:id/resume', async (c) => {
     const sessionId = c.req.param('id')
-    const body = await parseJsonBody<{ agentId?: string; projectId?: string }>(c)
+    const body = await parseJsonBody<{
+      agentId?: string
+      sourceAgentId?: string
+      projectId?: string
+    }>(c)
     const agentId = body.agentId?.trim()
 
     if (!agentId) {
       return c.json({ error: 'agentId is required' }, 400)
     }
 
+    // Resolve the source session using sourceAgentId to avoid cross-provider collisions,
+    // mirroring the GET /sessions/:id?agentId=... behaviour.
+    const sourceAgentId = body.sourceAgentId?.trim() || undefined
+    const sourceSession = registry.getSession(sessionId, sourceAgentId)
+
+    if (!sourceSession) {
+      return c.json({ error: 'Source session not found' }, 404)
+    }
+
     // Resolve project: prefer explicit body projectId, fall back to source session's project
-    const sourceSession = registry.getSession(sessionId)
-    const effectiveProjectId = body.projectId?.trim() ?? sourceSession?.project?.id
+    const effectiveProjectId = body.projectId?.trim() ?? sourceSession.project?.id
     const projectResult = resolveProject(effectiveProjectId)
 
     if (projectResult.error) {

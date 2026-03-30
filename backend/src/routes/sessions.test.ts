@@ -188,6 +188,16 @@ describe('sessions routes', () => {
   })
 
   describe('POST /sessions/:id/resume', () => {
+    const historySession = {
+      id: 'history-session-1',
+      title: 'Old chat',
+      updatedAt: '2026-03-29T10:00:00.000Z',
+      agentId: 'gemini-cli',
+      project: { id: 'repo-1', name: 'ACP Frontend', path: '/work/acp-frontend' },
+      source: 'history' as const,
+      messages: [],
+    }
+
     const newSession = {
       id: 'new-session-id',
       title: 'New chat',
@@ -198,12 +208,17 @@ describe('sessions routes', () => {
       messages: [],
     }
 
+    function makeGetSession() {
+      return vi.fn((id: string) => {
+        if (id === 'history-session-1') return historySession
+        if (id === 'new-session-id') return newSession
+        return null
+      })
+    }
+
     it('creates a new live session on the target agent and returns 201', async () => {
       const registry = createRegistryStub({
-        getSession: vi.fn((id: string) => {
-          if (id === 'new-session-id') return newSession
-          return null
-        }),
+        getSession: makeGetSession(),
         createSession: vi.fn(async () => 'new-session-id'),
       })
       const app = new Hono().route('/api', sessionsRoutes(registry))
@@ -211,7 +226,11 @@ describe('sessions routes', () => {
       const res = await app.request('/api/sessions/history-session-1/resume', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ agentId: 'copilot', projectId: 'repo-1' }),
+        body: JSON.stringify({
+          agentId: 'copilot',
+          sourceAgentId: 'gemini-cli',
+          projectId: 'repo-1',
+        }),
       })
 
       expect(res.status).toBe(201)
@@ -225,21 +244,7 @@ describe('sessions routes', () => {
 
     it('inherits the source session project when projectId is omitted', async () => {
       const registry = createRegistryStub({
-        getSession: vi.fn((id: string) => {
-          if (id === 'history-session-1') {
-            return {
-              id: 'history-session-1',
-              title: 'Old chat',
-              updatedAt: '2026-03-29T10:00:00.000Z',
-              agentId: 'gemini-cli',
-              project: { id: 'repo-1', name: 'ACP Frontend', path: '/work/acp-frontend' },
-              source: 'history' as const,
-              messages: [],
-            }
-          }
-          if (id === 'new-session-id') return newSession
-          return null
-        }),
+        getSession: makeGetSession(),
         createSession: vi.fn(async () => 'new-session-id'),
       })
       const app = new Hono().route('/api', sessionsRoutes(registry))
@@ -247,7 +252,7 @@ describe('sessions routes', () => {
       const res = await app.request('/api/sessions/history-session-1/resume', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ agentId: 'copilot' }),
+        body: JSON.stringify({ agentId: 'copilot', sourceAgentId: 'gemini-cli' }),
       })
 
       expect(res.status).toBe(201)
@@ -256,6 +261,38 @@ describe('sessions routes', () => {
         { id: 'repo-1', name: 'ACP Frontend', path: '/work/acp-frontend' },
         []
       )
+    })
+
+    it('uses sourceAgentId to disambiguate cross-provider lookups', async () => {
+      const getSessionSpy = makeGetSession()
+      const registry = createRegistryStub({
+        getSession: getSessionSpy,
+        createSession: vi.fn(async () => 'new-session-id'),
+      })
+      const app = new Hono().route('/api', sessionsRoutes(registry))
+
+      await app.request('/api/sessions/history-session-1/resume', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ agentId: 'copilot', sourceAgentId: 'gemini-cli' }),
+      })
+
+      expect(getSessionSpy).toHaveBeenCalledWith('history-session-1', 'gemini-cli')
+    })
+
+    it('returns 404 when the source session cannot be found', async () => {
+      const registry = createRegistryStub({
+        getSession: vi.fn(() => null),
+      })
+      const app = new Hono().route('/api', sessionsRoutes(registry))
+
+      const res = await app.request('/api/sessions/unknown-session/resume', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ agentId: 'copilot' }),
+      })
+
+      expect(res.status).toBe(404)
     })
 
     it('returns 400 when agentId is missing', async () => {
@@ -273,6 +310,7 @@ describe('sessions routes', () => {
 
     it('returns 503 when the target agent is unavailable', async () => {
       const registry = createRegistryStub({
+        getSession: makeGetSession(),
         createSession: vi.fn(async () => {
           throw new RegistryError('agent_unavailable', 'Agent unavailable: copilot')
         }),
@@ -282,7 +320,11 @@ describe('sessions routes', () => {
       const res = await app.request('/api/sessions/history-session-1/resume', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ agentId: 'copilot', projectId: 'repo-1' }),
+        body: JSON.stringify({
+          agentId: 'copilot',
+          sourceAgentId: 'gemini-cli',
+          projectId: 'repo-1',
+        }),
       })
 
       expect(res.status).toBe(503)
