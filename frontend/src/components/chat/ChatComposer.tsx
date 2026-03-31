@@ -15,10 +15,25 @@ interface ChatComposerProps {
   helperText?: string
   /** When true, renders a read-only history session delegation panel instead of the input. */
   isHistorySession?: boolean
-  /** Agents the user can delegate/resume this history session to. */
-  resumableAgents?: ResumableAgent[]
-  /** Called when the user picks an agent to continue with. */
+  /** True while the history session messages are being fetched. */
+  historyLoading?: boolean
+  /**
+   * The agent that supports native session/load for this history session (same
+   * agent + canLoad). Rendered as the primary "Resume" action. Undefined when
+   * no agent supports load.
+   */
+  resumeAgent?: ResumableAgent
+  /** Agents that can receive a handoff fork (all active agents except resumeAgent). */
+  forkAgents?: ResumableAgent[]
+  /** Called when the user picks the primary resume agent (session/load path). */
   onResume?: (agentId: string) => void
+  /** Called when the user picks a fork agent (handoff path). */
+  onFork?: (agentId: string) => void
+  /**
+   * @deprecated Use resumeAgent + forkAgents instead for history sessions.
+   * Still used for the live-session switch-agent popover.
+   */
+  resumableAgents?: ResumableAgent[]
   /** True while a resume/switch operation is in flight. */
   resuming?: boolean
 }
@@ -31,8 +46,12 @@ export function ChatComposer({
   canSubmit,
   helperText,
   isHistorySession = false,
-  resumableAgents = [],
+  historyLoading = false,
+  resumeAgent,
+  forkAgents = [],
   onResume,
+  onFork,
+  resumableAgents = [],
   resuming = false,
 }: ChatComposerProps) {
   const [switchOpen, setSwitchOpen] = useState(false)
@@ -63,6 +82,8 @@ export function ChatComposer({
     if (switchOpen) firstMenuItemRef.current?.focus()
   }, [switchOpen])
 
+  const hasAnyAction = resumeAgent != null || forkAgents.length > 0
+
   if (isHistorySession) {
     return (
       <div
@@ -70,31 +91,56 @@ export function ChatComposer({
         className="border-t border-white/8 bg-[linear-gradient(180deg,rgba(10,14,22,0.96),rgba(5,8,14,0.98))] px-4 py-4 backdrop-blur sm:px-5 lg:px-8"
       >
         <div className="mx-auto max-w-5xl">
-          <p className="mb-3 text-sm text-slate-400">
-            This is a read-only history session. Continue the conversation with an active agent:
-          </p>
-
-          {resumableAgents.length === 0 ? (
-            <p className="text-sm text-slate-500">
-              No active agents available. Enable and start an agent in Settings to import this
-              conversation.
-            </p>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              {resumableAgents.map((agent) => (
-                <button
-                  key={agent.id}
-                  type="button"
-                  disabled={resuming}
-                  onClick={() => onResume?.(agent.id)}
-                  data-testid={`resume-agent-${agent.id}`}
-                  className="inline-flex items-center gap-2 rounded-[1.2rem] border border-white/10 bg-slate-900/90 px-4 py-2.5 text-sm font-medium text-slate-100 transition hover:border-teal-500/40 hover:bg-teal-500/10 hover:text-teal-100 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {agent.name}
-                  <span className="text-slate-400">Continue &rarr;</span>
-                </button>
-              ))}
+          {historyLoading ? (
+            <div className="flex items-center gap-3 text-sm text-slate-500">
+              <span className="inline-flex h-2 w-2 animate-pulse rounded-full bg-slate-600" />
+              <span>Loading session history…</span>
             </div>
+          ) : (
+            <>
+              <p className="mb-3 text-sm text-slate-400">
+                This is a read-only history session. Continue the conversation with an active agent:
+              </p>
+
+              {!hasAnyAction ? (
+                <p className="text-sm text-slate-500">
+                  No active agents available. Enable and start an agent in Settings to import this
+                  conversation.
+                </p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {/* Primary action: native session/load — same agent, supports resume */}
+                  {resumeAgent != null && (
+                    <button
+                      key={resumeAgent.id}
+                      type="button"
+                      disabled={resuming}
+                      onClick={() => onResume?.(resumeAgent.id)}
+                      data-testid={`resume-agent-${resumeAgent.id}`}
+                      className="inline-flex items-center gap-2 rounded-[1.2rem] border border-teal-500/40 bg-teal-500/15 px-4 py-2.5 text-sm font-semibold text-teal-100 transition hover:border-teal-400/60 hover:bg-teal-500/25 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {resumeAgent.name}
+                      <span>Resume &rarr;</span>
+                    </button>
+                  )}
+
+                  {/* Secondary actions: handoff/fork — other active agents */}
+                  {forkAgents.map((agent) => (
+                    <button
+                      key={agent.id}
+                      type="button"
+                      disabled={resuming}
+                      onClick={() => onFork?.(agent.id)}
+                      data-testid={`fork-agent-${agent.id}`}
+                      className="inline-flex items-center gap-2 rounded-[1.2rem] border border-white/10 bg-slate-900/90 px-4 py-2.5 text-sm font-medium text-slate-300 transition hover:border-white/20 hover:bg-slate-800/80 hover:text-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {agent.name}
+                      <span className="text-slate-400">Fork as new session &rarr;</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>

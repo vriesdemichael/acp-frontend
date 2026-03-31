@@ -1036,8 +1036,8 @@ describe('ChatPage', () => {
     await waitFor(() => expect(screen.getByTestId('history-session-panel')).toBeDefined())
     expect(screen.queryByTestId('chat-composer')).toBeNull()
 
-    // The active agent should be listed as a resume target
-    expect(screen.getByTestId('resume-agent-copilot')).toBeDefined()
+    // The active agent should be listed as a fork target (copilot does not support session/load)
+    expect(screen.getByTestId('fork-agent-copilot')).toBeDefined()
     expect(screen.getAllByText('GitHub Copilot').length).toBeGreaterThan(0)
   })
 
@@ -1189,8 +1189,8 @@ describe('ChatPage', () => {
     // Wait for the delegation panel to appear
     await waitFor(() => expect(screen.getByTestId('history-session-panel')).toBeDefined())
 
-    // Click the Continue button for GitHub Copilot
-    const continueButton = screen.getByTestId('resume-agent-copilot')
+    // Click the Fork button for GitHub Copilot (copilot does not support session/load)
+    const continueButton = screen.getByTestId('fork-agent-copilot')
     fireEvent.click(continueButton)
 
     // After resume, the regular composer should appear (live session)

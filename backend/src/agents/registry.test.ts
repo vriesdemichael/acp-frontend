@@ -24,6 +24,7 @@ vi.mock('../history/index.js', () => ({
   getHistorySourceDescriptors: getHistorySourceDescriptorsMock,
   listHistorySessions: listHistorySessionsMock,
   mergeSessions: mergeSessionsMock,
+  HISTORY_AGENT_IDS: new Set(['gemini-cli', 'copilot', 'opencode']),
 }))
 
 vi.mock('./config.js', () => ({

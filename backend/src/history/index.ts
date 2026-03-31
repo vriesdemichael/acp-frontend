@@ -66,6 +66,11 @@ const HISTORY_SESSION_PROVIDERS: HistorySessionProvider[] = [
   },
 ]
 
+/** Agent IDs that have a registered history provider and can serve past sessions. */
+export const HISTORY_AGENT_IDS: ReadonlySet<string> = new Set(
+  HISTORY_SESSION_PROVIDERS.map((p) => p.id)
+)
+
 export function getHistorySourceDescriptors(
   agentId: string,
   historyPathHints: string[] = [],

@@ -106,20 +106,21 @@ export function ChatTranscript({
     >
       <div className="mx-auto flex min-h-full min-w-0 w-full max-w-5xl flex-col gap-6">
         {loading && !errorMessage && (
-          <section className="rounded-[1.75rem] border border-amber-500/20 bg-amber-500/10 px-5 py-6 text-sm text-amber-100 shadow-sm">
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-amber-700">
+          <section className="relative overflow-hidden rounded-[1.75rem] border border-amber-500/20 bg-amber-500/10 px-5 py-6 text-sm text-amber-100 shadow-sm">
+            <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(110deg,transparent,rgba(251,191,36,0.12),transparent)] animate-pulse" />
+            <p className="relative text-xs font-semibold uppercase tracking-[0.24em] text-amber-700">
               Loading
             </p>
-            <h2 className="mt-3 font-[family:var(--font-display)] text-3xl text-slate-50">
+            <h2 className="relative mt-3 font-[family:var(--font-display)] text-3xl text-slate-50">
               Opening your workspace
             </h2>
-            <p className="mt-3 max-w-xl leading-6 text-slate-300">
-              Creating a fresh agent session and preparing the stream.
+            <p className="relative mt-3 max-w-xl leading-6 text-slate-300">
+              Fetching agents, projects, and your most recent session.
             </p>
           </section>
         )}
 
-        {historyLoading && hasSession && !loading && !errorMessage ? (
+        {historyLoading && hasSession && !errorMessage ? (
           <section
             data-testid="history-loading-banner"
             className="sticky top-3 z-10 mx-auto w-full max-w-3xl overflow-hidden rounded-full border border-sky-500/18 bg-slate-950/90 px-4 py-3 text-sm text-sky-100 shadow-[0_10px_30px_rgba(15,23,42,0.35)] backdrop-blur relative"

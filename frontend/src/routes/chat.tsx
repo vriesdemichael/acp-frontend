@@ -130,6 +130,18 @@ export function ChatPage() {
       ),
     [agents, currentSession?.agentId, isHistorySession]
   )
+
+  // Primary resume agent: same agent as the history session AND supports session/load.
+  const resumeAgent = useMemo(() => {
+    if (!isHistorySession) return undefined
+    return resumableAgents.find((agent) => agent.id === currentSession?.agentId && agent.canLoad)
+  }, [isHistorySession, resumableAgents, currentSession?.agentId])
+
+  // Fork agents: all resumable agents except the primary resume agent.
+  const forkAgents = useMemo(() => {
+    if (!isHistorySession) return []
+    return resumableAgents.filter((agent) => agent.id !== resumeAgent?.id)
+  }, [isHistorySession, resumableAgents, resumeAgent])
   const activeAgentName = useMemo(() => {
     const agent = agents.find((candidate) => candidate.id === activeSession?.agentId)
     return agent?.name ?? 'the agent'
@@ -503,8 +515,11 @@ export function ChatPage() {
               canSubmit={ready && input.trim().length > 0}
               isHistorySession={isHistorySession}
               historyLoading={historyLoading}
-              resumableAgents={resumableAgents}
+              resumeAgent={resumeAgent}
+              forkAgents={forkAgents}
               onResume={handleResume}
+              onFork={handleResume}
+              resumableAgents={resumableAgents}
               resuming={resuming}
               helperText={
                 ready
