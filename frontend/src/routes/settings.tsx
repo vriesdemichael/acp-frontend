@@ -6,6 +6,33 @@ import {
   type HistorySourceDescriptor,
 } from '../hooks/useBackendSettings.js'
 
+// Map each path-hint textarea to the source kinds that feed it so we can
+// derive a meaningful placeholder from auto-discovered paths.
+const VSCODE_ROOT_KINDS: HistorySourceDescriptor['kind'][] = [
+  'vscode_workspace_db',
+  'vscode_chat_sessions',
+  'vscode_chat_editing_sessions',
+  'vscode_extension_resources',
+]
+const CLI_DIR_KINDS: HistorySourceDescriptor['kind'][] = ['cli_session_dir', 'cli_history_dir']
+
+/** Extract unique parent directory paths for a set of source kinds. */
+function autoDiscoveredRoots(
+  sources: HistorySourceDescriptor[],
+  kinds: HistorySourceDescriptor['kind'][]
+): string[] {
+  const kindSet = new Set<string>(kinds)
+  const paths = sources
+    .filter((s) => kindSet.has(s.kind) && s.discoveredBy === 'auto')
+    .map((s) => {
+      // For workspace-db style sources the configured root is the *parent* of
+      // the discovered path (e.g. /foo/workspaceStorage/abc → /foo/workspaceStorage).
+      const parts = s.path.split('/')
+      return parts.slice(0, -1).join('/') || s.path
+    })
+  return [...new Set(paths)]
+}
+
 export function SettingsPage() {
   const {
     backends,
@@ -83,40 +110,6 @@ export function SettingsPage() {
               instead of guessing.
             </p>
 
-            <section className="mt-6 rounded-2xl border border-white/10 bg-slate-950/40 p-5">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
-                Add Backend
-              </p>
-              <div className="mt-4 grid gap-4 md:grid-cols-[1.2fr_1fr_1fr_auto]">
-                <input
-                  value={newName}
-                  onChange={(event) => setNewName(event.target.value)}
-                  placeholder="My ACP Wrapper"
-                  className="rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-teal-500"
-                />
-                <input
-                  value={newCommand}
-                  onChange={(event) => setNewCommand(event.target.value)}
-                  placeholder="my-acp-wrapper"
-                  className="rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-teal-500"
-                />
-                <input
-                  value={newArgs}
-                  onChange={(event) => setNewArgs(event.target.value)}
-                  placeholder="--acp"
-                  className="rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-teal-500"
-                />
-                <button
-                  type="button"
-                  onClick={() => void handleAddBackend()}
-                  disabled={!newName.trim() || !newCommand.trim()}
-                  className="rounded-lg border border-white/10 bg-slate-950 px-4 py-2 text-sm font-semibold text-slate-50 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:text-slate-500"
-                >
-                  Add
-                </button>
-              </div>
-            </section>
-
             {loading ? (
               <div className="mt-8 rounded-xl border border-dashed border-white/10 bg-slate-900/70 p-6 text-sm text-slate-400">
                 Loading backend settings...
@@ -135,6 +128,55 @@ export function SettingsPage() {
                 ))}
               </div>
             )}
+
+            <details className="mt-6 group">
+              <summary className="flex cursor-pointer list-none items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 hover:text-slate-300">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 16 16"
+                  fill="currentColor"
+                  className="size-3 transition-transform group-open:rotate-90"
+                  aria-hidden="true"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M6.22 4.22a.75.75 0 0 1 1.06 0l3.25 3.25a.75.75 0 0 1 0 1.06l-3.25 3.25a.75.75 0 0 1-1.06-1.06L9.19 8 6.22 5.03a.75.75 0 0 1 0-1.06Z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                Add Backend
+              </summary>
+              <div className="mt-4 rounded-2xl border border-white/10 bg-slate-950/40 p-5">
+                <div className="grid gap-4 md:grid-cols-[1.2fr_1fr_1fr_auto]">
+                  <input
+                    value={newName}
+                    onChange={(event) => setNewName(event.target.value)}
+                    placeholder="My ACP Wrapper"
+                    className="rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-teal-500"
+                  />
+                  <input
+                    value={newCommand}
+                    onChange={(event) => setNewCommand(event.target.value)}
+                    placeholder="my-acp-wrapper"
+                    className="rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-teal-500"
+                  />
+                  <input
+                    value={newArgs}
+                    onChange={(event) => setNewArgs(event.target.value)}
+                    placeholder="--acp"
+                    className="rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-teal-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void handleAddBackend()}
+                    disabled={!newName.trim() || !newCommand.trim()}
+                    className="rounded-lg border border-white/10 bg-slate-950 px-4 py-2 text-sm font-semibold text-slate-50 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:text-slate-500"
+                  >
+                    Add
+                  </button>
+                </div>
+              </div>
+            </details>
           </section>
 
           <section className="mt-8 rounded-2xl border border-white/10 bg-slate-900/60 p-5">
@@ -188,6 +230,20 @@ function BackendCard({ backend, busy, testing, onSave, onTest }: BackendCardProp
     : 'Not detected'
 
   const isCopilot = backend.id === 'copilot'
+
+  // Build placeholder text from auto-discovered paths so the textarea doesn't
+  // look empty when the backend has already found the right directories.
+  const vscodeAutoRoots = isCopilot
+    ? autoDiscoveredRoots(backend.historySupport.discoveredSources, VSCODE_ROOT_KINDS)
+    : []
+  const cliAutoRoots = isCopilot
+    ? autoDiscoveredRoots(backend.historySupport.discoveredSources, CLI_DIR_KINDS)
+    : []
+
+  const vscodeRootsPlaceholder =
+    vscodeAutoRoots.length > 0 ? vscodeAutoRoots.join('\n') : 'One path per line'
+  const cliRootsPlaceholder =
+    cliAutoRoots.length > 0 ? cliAutoRoots.join('\n') : 'One path per line'
 
   const handleSave = async () => {
     await onSave(backend.id, {
@@ -258,7 +314,7 @@ function BackendCard({ backend, busy, testing, onSave, onTest }: BackendCardProp
           <textarea
             value={historyPathHints}
             onChange={(event) => setHistoryPathHints(event.target.value)}
-            placeholder="One path per line"
+            placeholder={vscodeRootsPlaceholder}
             rows={4}
             className="mt-2 w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-teal-500"
           />
@@ -277,7 +333,7 @@ function BackendCard({ backend, busy, testing, onSave, onTest }: BackendCardProp
             <textarea
               value={cliHistoryPathHints}
               onChange={(event) => setCliHistoryPathHints(event.target.value)}
-              placeholder="One path per line"
+              placeholder={cliRootsPlaceholder}
               rows={4}
               className="mt-2 w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-teal-500"
             />
