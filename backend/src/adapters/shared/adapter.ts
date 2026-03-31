@@ -93,6 +93,63 @@ export class GenericAcpAdapter implements SessionAdapter {
     return sessionId
   }
 
+  /**
+   * Load an existing session from the agent using the ACP `session/load` method.
+   * The `acpSessionId` is the original session ID known to the agent (e.g. the
+   * opencode DB UUID). Returns our internal frontend session ID.
+   */
+  async loadSession(
+    acpSessionId: string,
+    project: SessionProjectContext | null,
+    mcpServers: McpServer[] = []
+  ): Promise<string> {
+    const sessionId = randomUUID()
+
+    const proc = this.createProcess({
+      onExit: (code) => {
+        this.sessions.delete(sessionId)
+        for (const ev of new StreamTranslator(sessionId, 'subprocess-exit').onRunError(
+          `${this.agentName} process exited with code ${String(code)}`
+        )) {
+          this.events.emit(sessionId, ev)
+        }
+      },
+      onSessionUpdate: (notification) => {
+        this.handleSessionNotification(sessionId, notification)
+      },
+    })
+
+    const client = await proc.start()
+    const initializeResponse = await client.initialize()
+    this.lastKnownEndpointSupport = deriveEndpointSupport(initializeResponse)
+
+    await client.loadSession({
+      sessionId: acpSessionId,
+      cwd: project?.path ?? process.cwd(),
+      mcpServers,
+    })
+
+    this.sessions.set(sessionId, {
+      id: sessionId,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      title: 'Loaded session',
+      project,
+      agentProcess: proc,
+      acpClient: client,
+      acpSessionId,
+      initializeResponse,
+      mcpServers,
+      firstMessageSent: false,
+      pendingEvents: [],
+      lastPromptResponse: null,
+      forwardUpdate: null,
+      messages: [],
+    })
+
+    return sessionId
+  }
+
   async sendMessage(sessionId: string, text: string): Promise<void> {
     const session = this.sessions.get(sessionId)
     if (!session) {

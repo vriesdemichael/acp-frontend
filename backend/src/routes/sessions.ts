@@ -119,6 +119,49 @@ export function sessionsRoutes(registry: AgentRegistry): Hono {
     }
   })
 
+  /**
+   * POST /sessions/:id/load
+   *
+   * Loads a history session as a live session using the ACP `session/load`
+   * capability. `:id` must be the original agent-side session ID (e.g. the
+   * opencode DB UUID). Body: `{ agentId, projectId? }`.
+   *
+   * Returns 201 with the new live SessionDetails on success.
+   * Returns 503 when the agent does not support `session/load`.
+   */
+  app.post('/sessions/:id/load', async (c) => {
+    const acpSessionId = c.req.param('id')
+    const body = await parseJsonBody<{ agentId?: string; projectId?: string }>(c)
+    const agentId = body.agentId?.trim()
+
+    if (!agentId) {
+      return c.json({ error: 'agentId is required' }, 400)
+    }
+
+    // Resolve the source session to pick up its project if no projectId was provided.
+    const sourceAgentId = agentId
+    const sourceSession = registry.getSession(acpSessionId, sourceAgentId)
+    const effectiveProjectId = body.projectId?.trim() ?? sourceSession?.project?.id
+    const projectResult = resolveProject(effectiveProjectId)
+
+    if (projectResult.error) {
+      return c.json({ error: projectResult.error }, { status: projectResult.status })
+    }
+
+    try {
+      const newSessionId = await registry.loadHistorySession(
+        acpSessionId,
+        agentId,
+        projectResult.project,
+        loadMcpServers()
+      )
+
+      return c.json(registry.getSession(newSessionId), 201)
+    } catch (error) {
+      return buildErrorResponse(c, error)
+    }
+  })
+
   app.post('/sessions/:id/message', async (c) => {
     const sessionId = c.req.param('id')
     const body = await parseJsonBody<{ message?: string; agentId?: string }>(c)

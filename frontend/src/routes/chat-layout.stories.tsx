@@ -43,6 +43,7 @@ function ChatLayoutStory(props: { mobileDrawer?: boolean; surface?: Surface; thi
                     status: 'active',
                     command: 'copilot',
                     canResume: true,
+                    canLoad: false,
                   },
                   {
                     id: 'gemini-cli',
@@ -50,6 +51,7 @@ function ChatLayoutStory(props: { mobileDrawer?: boolean; surface?: Surface; thi
                     status: 'active',
                     command: 'gemini',
                     canResume: true,
+                    canLoad: false,
                   },
                   {
                     id: 'claude-code',
@@ -57,6 +59,7 @@ function ChatLayoutStory(props: { mobileDrawer?: boolean; surface?: Surface; thi
                     status: 'unavailable',
                     command: null,
                     canResume: false,
+                    canLoad: false,
                   },
                 ]}
                 sessions={[
@@ -334,6 +337,7 @@ index 1234567..89abcde 100644
                   status: 'active',
                   command: 'copilot',
                   canResume: true,
+                  canLoad: false,
                 },
                 {
                   id: 'gemini-cli',
@@ -341,6 +345,7 @@ index 1234567..89abcde 100644
                   status: 'active',
                   command: 'gemini',
                   canResume: true,
+                  canLoad: false,
                 },
               ]}
               sessions={[

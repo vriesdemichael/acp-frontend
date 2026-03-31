@@ -30,6 +30,7 @@ import {
   listHistorySessions,
   mergeSessions,
   getHistorySession,
+  HISTORY_AGENT_IDS,
 } from '../history/index.js'
 import { FakeSessionAdapter } from '../testing/fakeAdapter.js'
 
@@ -84,7 +85,10 @@ export class AgentRegistry {
         name: agent.name,
         status,
         command: agent.command,
-        canResume: status === 'active',
+        // canResume requires a live adapter — history-only agents are active for
+        // session browsing but cannot accept a handoff without their binary.
+        canResume: agent.adapter !== undefined,
+        canLoad: agent.adapter?.loadSession !== undefined,
       }
     })
   }
@@ -101,7 +105,8 @@ export class AgentRegistry {
         name: agent.name,
         status,
         command: agent.command,
-        canResume: status === 'active',
+        canResume: agent.adapter !== undefined,
+        canLoad: agent.adapter?.loadSession !== undefined,
         detectedCommand: agent.detectedCommand,
         args: agent.args,
         defaultArgs: agent.args,
@@ -233,6 +238,26 @@ export class AgentRegistry {
     mcpServers: McpServer[]
   ): Promise<string> {
     return this.requireAdapter(agentId).newSession(project, mcpServers)
+  }
+
+  /**
+   * Load an existing history session as a live session via ACP `session/load`.
+   * The `acpSessionId` is the original session ID stored in the agent's DB
+   * (e.g. the opencode SQLite UUID).  Returns the new internal frontend session ID.
+   */
+  async loadHistorySession(
+    acpSessionId: string,
+    agentId: string,
+    project: SessionProjectContext | null,
+    mcpServers: McpServer[]
+  ): Promise<string> {
+    const adapter = this.requireAdapter(agentId)
+
+    if (!adapter.loadSession) {
+      throw new RegistryError('agent_unavailable', `Agent ${agentId} does not support session/load`)
+    }
+
+    return adapter.loadSession(acpSessionId, project, mcpServers)
   }
 
   listSessions(): SessionSummary[] {
@@ -373,6 +398,9 @@ export class AgentRegistry {
   private toAgentStatus(agent: RegisteredAgent): AgentSummary['status'] {
     if (!agent.enabled) return 'disabled'
     if (agent.adapter) return 'active'
+    // Agents with a history provider are treated as active even without a live
+    // adapter — they can serve past sessions for browsing and handoff.
+    if (HISTORY_AGENT_IDS.has(agent.id)) return 'active'
     if (agent.command) return 'detected'
     return 'unavailable'
   }
