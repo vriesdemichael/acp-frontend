@@ -28,6 +28,8 @@ import {
   type ResumeSessionRequest,
   type ResumeSessionResponse,
   type SessionNotification,
+  type SetSessionModelRequest,
+  type SetSessionModelResponse,
   type TerminalOutputRequest,
   type TerminalOutputResponse,
   type WaitForTerminalExitRequest,
@@ -43,6 +45,7 @@ export interface AcpSessionClient {
   newSession(params: NewSessionRequest): Promise<NewSessionResponse>
   loadSession(params: LoadSessionRequest): Promise<LoadSessionResponse>
   unstable_resumeSession(params: ResumeSessionRequest): Promise<ResumeSessionResponse>
+  unstable_setSessionModel(params: SetSessionModelRequest): Promise<SetSessionModelResponse>
   prompt(params: PromptRequest): Promise<PromptResponse>
   close(): Promise<void>
   readonly info: InitializeResponse | null
@@ -144,6 +147,17 @@ export class StdioAcpProcess {
         }
 
         return this.connection.unstable_resumeSession(params)
+      },
+      unstable_setSessionModel: async (params) => {
+        if (!this.connection) {
+          throw new Error('StdioAcpProcess: connection not initialized')
+        }
+
+        if (!this.connection.unstable_setSessionModel) {
+          throw new Error('StdioAcpProcess: agent does not support session/set_model')
+        }
+
+        return this.connection.unstable_setSessionModel(params)
       },
       prompt: async (params) => {
         if (!this.connection) {

@@ -188,6 +188,31 @@ export function sessionsRoutes(registry: AgentRegistry): Hono {
     return c.json({ closed: true })
   })
 
+  /**
+   * POST /sessions/:id/model
+   *
+   * Switches the active model for a live session via ACP `session/set_model`.
+   * Body: `{ modelId }`.
+   *
+   * Returns 200 `{ ok: true }` on success.
+   * Returns 503 when the agent does not support model selection.
+   */
+  app.post('/sessions/:id/model', async (c) => {
+    const body = await parseJsonBody<{ modelId?: string }>(c)
+    const modelId = body.modelId?.trim()
+
+    if (!modelId) {
+      return c.json({ error: 'modelId is required' }, 400)
+    }
+
+    try {
+      await registry.setSessionModel(c.req.param('id'), modelId)
+      return c.json({ ok: true })
+    } catch (error) {
+      return buildErrorResponse(c, error)
+    }
+  })
+
   app.post('/testing/reset-sessions', (c) => {
     if (process.env['ACP_FAKE_BACKEND'] !== '1') {
       return c.json({ error: 'Not found' }, 404)

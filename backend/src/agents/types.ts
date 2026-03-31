@@ -21,6 +21,23 @@ export interface AgentSummary {
   canLoad: boolean
 }
 
+/** A selectable model advertised by an agent via ACP `session/new` or `session/load`. */
+export interface ModelInfo {
+  modelId: string
+  name: string
+  description?: string | null
+}
+
+/**
+ * Current model selection state for a live session.
+ * Populated from the ACP `NewSessionResponse` / `LoadSessionResponse` `models` field.
+ * Null when the agent does not advertise model selection.
+ */
+export interface ModelState {
+  availableModels: ModelInfo[]
+  currentModelId: string
+}
+
 export type HistoryCapability =
   | 'text'
   | 'markdown'
@@ -250,6 +267,8 @@ export interface SessionSummary {
 
 export interface SessionDetails extends SessionSummary {
   messages: SessionMessage[]
+  /** Current model selection state; null when the agent does not support model selection. */
+  modelState: ModelState | null
 }
 
 export interface SessionProjectContext {
@@ -285,6 +304,11 @@ export interface SessionAdapter {
   closeSession(sessionId: string): void
   listSessions(): SessionSummary[]
   getSession(sessionId: string): SessionDetails | null
+  /**
+   * Switch the model for an active session via ACP `session/set_model`.
+   * Optional — only implemented by adapters whose agent advertises model selection.
+   */
+  setSessionModel?(sessionId: string, modelId: string): Promise<void>
 }
 
 export type RegistryErrorCode =

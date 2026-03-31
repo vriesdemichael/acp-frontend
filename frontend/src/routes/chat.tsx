@@ -75,6 +75,7 @@ export function ChatPage() {
     loading,
     loadHistorySession,
     messages,
+    modelState,
     projects,
     ready,
     removeProject,
@@ -85,6 +86,7 @@ export function ChatPage() {
     sendMessage,
     sessionId: activeSessionId,
     sessions,
+    setSessionModel,
     startNewSession,
     streamReconnecting,
     suggestProjectPaths,
@@ -523,6 +525,8 @@ export function ChatPage() {
               onFork={handleResume}
               resumableAgents={resumableAgents}
               resuming={resuming}
+              modelState={modelState}
+              onModelChange={setSessionModel}
               helperText={
                 ready
                   ? 'The composer stays available while you inspect files or diff so the conversation never loses context.'

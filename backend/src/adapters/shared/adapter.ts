@@ -11,6 +11,8 @@ import type { ContentBlock, McpServer, SessionNotification } from '@agentclientp
 import { StreamTranslator } from '../../agui/index.js'
 import type {
   BackendEndpointSupport,
+  ModelInfo,
+  ModelState,
   SessionAdapter,
   SessionDetails,
   SessionMessage,
@@ -88,6 +90,7 @@ export class GenericAcpAdapter implements SessionAdapter {
       lastPromptResponse: null,
       forwardUpdate: null,
       messages: [],
+      modelState: toModelState(createdSession.models),
     })
 
     return sessionId
@@ -123,7 +126,7 @@ export class GenericAcpAdapter implements SessionAdapter {
     const initializeResponse = await client.initialize()
     this.lastKnownEndpointSupport = deriveEndpointSupport(initializeResponse)
 
-    await client.loadSession({
+    const loadedSession = await client.loadSession({
       sessionId: acpSessionId,
       cwd: project?.path ?? process.cwd(),
       mcpServers,
@@ -145,6 +148,7 @@ export class GenericAcpAdapter implements SessionAdapter {
       lastPromptResponse: null,
       forwardUpdate: null,
       messages: [],
+      modelState: toModelState(loadedSession.models),
     })
 
     return sessionId
@@ -243,6 +247,19 @@ export class GenericAcpAdapter implements SessionAdapter {
     return {
       ...this.toSessionSummary(session),
       messages: session.messages.map((message) => ({ ...message })),
+      modelState: session.modelState,
+    }
+  }
+
+  async setSessionModel(sessionId: string, modelId: string): Promise<void> {
+    const session = this.sessions.get(sessionId)
+    if (!session) throw new Error(`Session not found: ${sessionId}`)
+    await session.acpClient.unstable_setSessionModel({
+      sessionId: session.acpSessionId,
+      modelId,
+    })
+    if (session.modelState) {
+      session.modelState = { ...session.modelState, currentModelId: modelId }
     }
   }
 
@@ -398,4 +415,26 @@ function deriveSessionTitle(text: string): string {
   const compactText = text.trim().replace(/\s+/g, ' ')
   if (compactText.length <= 48) return compactText
   return `${compactText.slice(0, 45).trimEnd()}...`
+}
+
+function toModelState(
+  models:
+    | {
+        availableModels: Array<{ modelId: string; name: string; description?: string | null }>
+        currentModelId: string
+      }
+    | null
+    | undefined
+): ModelState | null {
+  if (!models) return null
+  return {
+    availableModels: models.availableModels.map(
+      (m): ModelInfo => ({
+        modelId: m.modelId,
+        name: m.name,
+        description: m.description,
+      })
+    ),
+    currentModelId: models.currentModelId,
+  }
 }

@@ -6,6 +6,7 @@ import type {
 } from '@agentclientprotocol/sdk'
 import type {
   BackendEndpointSupport,
+  ModelState,
   SessionMessage,
   SessionProjectContext,
 } from '../../agents/types.js'
@@ -27,6 +28,8 @@ export interface GenericSessionState {
   lastPromptResponse: PromptResponse | null
   forwardUpdate: ((notification: SessionNotification) => void) | null
   messages: SessionMessage[]
+  /** Current model state for this session, if the agent supports model selection. */
+  modelState: ModelState | null
 }
 
 export interface GenericAcpCapabilityProbeResult {

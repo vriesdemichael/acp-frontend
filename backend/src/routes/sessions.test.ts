@@ -140,6 +140,7 @@ describe('sessions routes', () => {
         },
         source: 'live' as const,
         messages: [],
+        modelState: null,
       })),
     })
     const app = new Hono().route('/api', sessionsRoutes(registry))
@@ -200,6 +201,7 @@ describe('sessions routes', () => {
         { id: 'msg-1', role: 'user' as const, content: 'Hello' },
         { id: 'msg-2', role: 'assistant' as const, content: 'Hi there' },
       ],
+      modelState: null,
     }
 
     const historySessionEmpty = {
@@ -215,6 +217,7 @@ describe('sessions routes', () => {
       project: { id: 'repo-1', name: 'ACP Frontend', path: '/work/acp-frontend' },
       source: 'live' as const,
       messages: [],
+      modelState: null,
     }
 
     function makeGetSession(session = historySession) {

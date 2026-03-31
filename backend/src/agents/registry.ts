@@ -372,6 +372,23 @@ export class AgentRegistry {
     return true
   }
 
+  async setSessionModel(sessionId: string, modelId: string): Promise<void> {
+    const adapter = this.findAdapterForSession(sessionId)
+
+    if (!adapter) {
+      throw new RegistryError('session_not_found', `Session not found: ${sessionId}`)
+    }
+
+    if (!adapter.setSessionModel) {
+      throw new RegistryError(
+        'agent_unavailable',
+        `Agent ${adapter.agentId} does not support model selection`
+      )
+    }
+
+    await adapter.setSessionModel(sessionId, modelId)
+  }
+
   resetSessions(): void {
     for (const agent of this.agents) {
       if (agent.adapter instanceof FakeSessionAdapter) {

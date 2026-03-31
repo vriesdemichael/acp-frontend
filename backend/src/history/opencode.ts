@@ -249,6 +249,7 @@ export function getOpenCodeSession(
     project,
     source: 'history',
     messages: materializedMessages,
+    modelState: null,
   }
 }
 

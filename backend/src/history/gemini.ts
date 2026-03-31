@@ -240,6 +240,7 @@ export function getGeminiSession(
         project,
         source: 'history',
         messages,
+        modelState: null,
       }
     }
   }
