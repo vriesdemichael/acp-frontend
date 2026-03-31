@@ -48,3 +48,92 @@ export const Disabled: Story = {
     helperText: 'Choose a project context and start a new session before sending a message.',
   },
 }
+
+// History-session panel stories (rendered directly, not via ComposerStory wrapper)
+export const HistorySessionWithResumeAndFork: StoryObj<typeof ChatComposer> = {
+  render: () => (
+    <div className="max-w-5xl rounded-[2rem] border border-white/10 bg-slate-950/75 shadow-[0_18px_60px_rgba(2,6,23,0.25)]">
+      <ChatComposer
+        value=""
+        onChange={() => {}}
+        onSubmit={(e) => e.preventDefault()}
+        disabled={false}
+        canSubmit={false}
+        isHistorySession
+        resumeAgent={{ id: 'opencode', name: 'opencode' }}
+        forkAgents={[
+          { id: 'copilot', name: 'GitHub Copilot' },
+          { id: 'gemini', name: 'Gemini CLI' },
+        ]}
+        onResume={(id) => console.log('resume', id)}
+        onFork={(id) => console.log('fork', id)}
+      />
+    </div>
+  ),
+}
+
+export const HistorySessionResumeOnly: StoryObj<typeof ChatComposer> = {
+  render: () => (
+    <div className="max-w-5xl rounded-[2rem] border border-white/10 bg-slate-950/75 shadow-[0_18px_60px_rgba(2,6,23,0.25)]">
+      <ChatComposer
+        value=""
+        onChange={() => {}}
+        onSubmit={(e) => e.preventDefault()}
+        disabled={false}
+        canSubmit={false}
+        isHistorySession
+        resumeAgent={{ id: 'opencode', name: 'opencode' }}
+        forkAgents={[]}
+        onResume={(id) => console.log('resume', id)}
+      />
+    </div>
+  ),
+}
+
+export const HistorySessionForkOnly: StoryObj<typeof ChatComposer> = {
+  render: () => (
+    <div className="max-w-5xl rounded-[2rem] border border-white/10 bg-slate-950/75 shadow-[0_18px_60px_rgba(2,6,23,0.25)]">
+      <ChatComposer
+        value=""
+        onChange={() => {}}
+        onSubmit={(e) => e.preventDefault()}
+        disabled={false}
+        canSubmit={false}
+        isHistorySession
+        forkAgents={[{ id: 'copilot', name: 'GitHub Copilot' }]}
+        onFork={(id) => console.log('fork', id)}
+      />
+    </div>
+  ),
+}
+
+export const HistorySessionNoAgents: StoryObj<typeof ChatComposer> = {
+  render: () => (
+    <div className="max-w-5xl rounded-[2rem] border border-white/10 bg-slate-950/75 shadow-[0_18px_60px_rgba(2,6,23,0.25)]">
+      <ChatComposer
+        value=""
+        onChange={() => {}}
+        onSubmit={(e) => e.preventDefault()}
+        disabled={false}
+        canSubmit={false}
+        isHistorySession
+      />
+    </div>
+  ),
+}
+
+export const HistorySessionLoading: StoryObj<typeof ChatComposer> = {
+  render: () => (
+    <div className="max-w-5xl rounded-[2rem] border border-white/10 bg-slate-950/75 shadow-[0_18px_60px_rgba(2,6,23,0.25)]">
+      <ChatComposer
+        value=""
+        onChange={() => {}}
+        onSubmit={(e) => e.preventDefault()}
+        disabled={false}
+        canSubmit={false}
+        isHistorySession
+        historyLoading
+      />
+    </div>
+  ),
+}

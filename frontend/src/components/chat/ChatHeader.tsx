@@ -17,9 +17,11 @@ interface ChatHeaderProps {
   errorMessage: string | null
   ready: boolean
   thinking: boolean
+  isHistorySession?: boolean
 }
 
-function formatSessionLabel(sessionId: string | null, ready: boolean) {
+function formatSessionLabel(sessionId: string | null, ready: boolean, isHistorySession: boolean) {
+  if (isHistorySession) return 'Read-only'
   if (!ready) return 'Starting'
   if (!sessionId) return 'Unavailable'
   return sessionId.slice(0, 8)
@@ -34,6 +36,7 @@ export function ChatHeader({
   errorMessage,
   ready,
   thinking,
+  isHistorySession = false,
 }: ChatHeaderProps) {
   const headerLink = renderLink ?? defaultHeaderLink
   const [isCompactViewport, setIsCompactViewport] = useState(() =>
@@ -44,12 +47,20 @@ export function ChatHeader({
     ? 'Needs attention'
     : thinking
       ? 'Thinking'
-      : ready
-        ? 'Ready'
-        : 'Connecting'
+      : isHistorySession
+        ? 'History'
+        : ready
+          ? 'Ready'
+          : 'Connecting'
   const statusDetail =
     errorMessage ??
-    (!ready ? 'Connecting to server' : thinking ? 'Reply in progress' : 'Stream healthy')
+    (isHistorySession
+      ? 'Read-only session'
+      : !ready
+        ? 'Connecting to server'
+        : thinking
+          ? 'Reply in progress'
+          : 'Stream healthy')
   const headerTitle = title?.trim() || 'Chat Workspace'
   const compactSubtitle = project ? project.name : activeAgentName
 
@@ -170,7 +181,7 @@ export function ChatHeader({
                 tone={errorMessage ? 'error' : 'ready'}
               />
               <StatusPill
-                label={`Session ${formatSessionLabel(sessionId, ready)}`}
+                label={`Session ${formatSessionLabel(sessionId, ready, isHistorySession)}`}
                 tone="neutral"
               />
             </div>

@@ -7,6 +7,7 @@ interface SessionListProps {
   selectedProjectId?: string | null
   activeSessionId: string | null
   creatingSession: boolean
+  loading?: boolean
   onCreate: (agentId: string) => void | Promise<void>
   onSelect: (sessionId: string) => void | Promise<void>
 }
@@ -17,6 +18,7 @@ export function SessionList({
   selectedProjectId = null,
   activeSessionId,
   creatingSession,
+  loading = false,
   onCreate,
   onSelect,
 }: SessionListProps) {
@@ -124,11 +126,25 @@ export function SessionList({
         ) : null}
 
         {projectGroups.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-white/10 bg-slate-900/55 p-4 text-sm text-slate-400">
-            {activeAgents.length === 0
-              ? 'No backends are ready yet. Start an adapter and reload to continue.'
-              : 'No chats yet.'}
-          </div>
+          loading ? (
+            <div className="flex flex-col gap-2" aria-label="Loading sessions" aria-busy="true">
+              {[...Array(4)].map((_, i) => (
+                <div
+                  key={i}
+                  className="animate-pulse rounded-2xl border border-white/8 bg-slate-900/55 px-3.5 py-3.5"
+                >
+                  <div className="mb-2 h-2.5 w-24 rounded-full bg-slate-700/60" />
+                  <div className="h-4 w-40 rounded-full bg-slate-700/40" />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-dashed border-white/10 bg-slate-900/55 p-4 text-sm text-slate-400">
+              {activeAgents.length === 0
+                ? 'No backends are ready yet. Start an adapter and reload to continue.'
+                : 'No chats yet.'}
+            </div>
+          )
         ) : (
           projectGroups.map((group) => {
             const collapsed = collapsedProjects.includes(group.id)
