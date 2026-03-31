@@ -13,6 +13,12 @@ export interface AgentSummary {
    * conversation handoff. Any active agent qualifies — no ACP capability negotiation required.
    */
   canResume: boolean
+  /**
+   * True when the agent is active and supports ACP `session/load`, allowing a
+   * history session to be resumed as the *original* live session rather than
+   * creating a new one with a handoff transcript.
+   */
+  canLoad: boolean
 }
 
 export type HistoryCapability =
@@ -259,6 +265,16 @@ export interface SessionAdapter {
   getEndpointSupport(): BackendEndpointSupport
   ownsSession(sessionId: string): boolean
   newSession(project: SessionProjectContext | null, mcpServers?: McpServer[]): Promise<string>
+  /**
+   * Load an existing session by its original agent-side session ID (e.g. opencode DB UUID).
+   * Returns the new internal frontend session ID. Only available on adapters that wrap an
+   * ACP agent that advertises the `loadSession` capability.
+   */
+  loadSession?(
+    acpSessionId: string,
+    project: SessionProjectContext | null,
+    mcpServers?: McpServer[]
+  ): Promise<string>
   sendMessage(sessionId: string, text: string): Promise<void>
   /**
    * Send a structured handoff prompt containing prior conversation history.

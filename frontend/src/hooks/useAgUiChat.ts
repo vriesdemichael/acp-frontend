@@ -32,6 +32,8 @@ export interface AgentSummary {
   command: string | null
   /** True when the agent is active and can accept a resume/continuation request. */
   canResume: boolean
+  /** True when the agent supports ACP session/load (resume as the original session). */
+  canLoad: boolean
 }
 
 export interface HistorySourceDescriptor {
@@ -408,6 +410,9 @@ export function useAgUiChat({
         if (preferredSession) {
           activeSessionRef.current = preferredSession.id
           setCurrentSessionId(preferredSession.id)
+          // End the amber loading banner now — loadSession will show the
+          // history-shimmer pill for the session-fetch phase.
+          setLoading(false)
           await loadSessionRef.current!(
             preferredSession.id,
             sessionId !== preferredSession.id || preferredSession.project?.id !== projectId
@@ -737,6 +742,56 @@ export function useAgUiChat({
     ]
   )
 
+  /**
+   * Load a history session as a live session via ACP `session/load`.
+   * This resumes the *original* session in the agent rather than creating a
+   * new session with a handoff.  Only supported by agents that advertise the
+   * `loadSession` capability (e.g. opencode).
+   */
+  const loadHistorySession = useCallback(
+    async (agentId: string) => {
+      if (!currentSessionId) return
+      setErrorMessage(null)
+      setThinking(false)
+      setStreamReconnecting(false)
+      setCreatingSession(true)
+
+      try {
+        const session = await fetchJson<SessionDetails>(
+          `/api/sessions/${encodeURIComponent(currentSessionId)}/load`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ agentId }),
+          }
+        )
+        activeSessionRef.current = session.id
+        setCurrentSessionId(session.id)
+        setMessages(session.messages)
+        setCurrentProjectId(session.project?.id ?? null)
+        onSessionCreated(session.id)
+        if (session.project?.id !== projectId) {
+          onProjectSelected(session.project?.id ?? null)
+        }
+        void refreshSessions()
+      } catch (error) {
+        console.error('[useAgUiChat] session load failed:', error)
+        setErrorMessage('Unable to load this session right now. Try again in a moment.')
+      } finally {
+        setCreatingSession(false)
+      }
+    },
+    [
+      currentSessionId,
+      fetchJson,
+      onProjectSelected,
+      onSessionCreated,
+      projectId,
+      refreshSessions,
+      setMessages,
+    ]
+  )
+
   const addProject = useCallback(
     async (name: string, path: string) => {
       const project = await fetchJson<ProjectSummary>('/api/projects', {
@@ -809,6 +864,7 @@ export function useAgUiChat({
     sessions,
     startNewSession,
     resumeSession,
+    loadHistorySession,
     streamReconnecting,
     thinking,
     availableProjects,

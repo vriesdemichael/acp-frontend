@@ -73,6 +73,7 @@ export function ChatPage() {
     errorMessage,
     historyLoading,
     loading,
+    loadHistorySession,
     messages,
     projects,
     ready,
@@ -252,7 +253,18 @@ export function ChatPage() {
   const handleResume = async (agentId: string) => {
     setResuming(true)
     try {
-      await resumeSession(agentId)
+      // When the user picks the same agent that originally created this history
+      // session and that agent supports ACP session/load, use it to resume the
+      // real session instead of creating a new one with a handoff transcript.
+      const isSameAgent = agentId === currentSession?.agentId
+      const sessionAgent = agents.find((a) => a.id === agentId)
+      const supportsLoad = isSameAgent && (sessionAgent?.canLoad ?? false)
+
+      if (isHistorySession && supportsLoad) {
+        await loadHistorySession(agentId)
+      } else {
+        await resumeSession(agentId)
+      }
     } finally {
       setResuming(false)
     }
@@ -313,6 +325,7 @@ export function ChatPage() {
           ready={ready}
           thinking={thinking}
           title={activeSession?.title ?? null}
+          isHistorySession={isHistorySession}
         />
 
         <div className="flex items-center justify-between border-b border-white/8 bg-slate-950/78 px-4 py-3 lg:hidden">
@@ -359,6 +372,7 @@ export function ChatPage() {
                 selectedProjectId={selectedProject?.id ?? null}
                 activeSessionId={activeSessionId}
                 creatingSession={creatingSession}
+                loading={loading}
                 onCreate={startNewSession}
                 onSelect={handleSessionSelect}
               />
@@ -488,6 +502,7 @@ export function ChatPage() {
               disabled={!ready}
               canSubmit={ready && input.trim().length > 0}
               isHistorySession={isHistorySession}
+              historyLoading={historyLoading}
               resumableAgents={resumableAgents}
               onResume={handleResume}
               resuming={resuming}
@@ -537,6 +552,7 @@ export function ChatPage() {
                 selectedProjectId={selectedProject?.id ?? null}
                 activeSessionId={activeSessionId}
                 creatingSession={creatingSession}
+                loading={loading}
                 onCreate={async (agentId) => {
                   setDrawerOpen(false)
                   await startNewSession(agentId)

@@ -25,6 +25,7 @@ const meta = {
         status: 'active',
         command: 'copilot',
         canResume: true,
+        canLoad: false,
       },
       {
         id: 'gemini-cli',
@@ -32,6 +33,7 @@ const meta = {
         status: 'active',
         command: 'gemini',
         canResume: true,
+        canLoad: false,
       },
       {
         id: 'claude-code',
@@ -39,6 +41,7 @@ const meta = {
         status: 'unavailable',
         command: null,
         canResume: false,
+        canLoad: false,
       },
     ],
     sessions: denseSessions,
