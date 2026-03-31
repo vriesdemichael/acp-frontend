@@ -287,10 +287,12 @@ export function ChatPage() {
     const text = input.trim()
     if (!text || !ready) return
 
+    // Clear the input immediately so it doesn't stay populated for the
+    // entire duration of the agent's response.
+    setInput('')
+    setWorkspaceView('chat')
     try {
       await sendMessage(text)
-      setInput('')
-      setWorkspaceView('chat')
     } catch {
       // Error state is already surfaced by the hook.
     }
