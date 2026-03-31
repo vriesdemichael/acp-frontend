@@ -756,6 +756,10 @@ export function useAgUiChat({
       setStreamReconnecting(false)
       setCreatingSession(true)
 
+      // Snapshot messages before the async call — we'll prepend them to the
+      // loaded session so the transcript shows the full prior conversation.
+      const priorMessages = messagesRef.current
+
       try {
         const session = await fetchJson<SessionDetails>(
           `/api/sessions/${encodeURIComponent(currentSessionId)}/load`,
@@ -767,7 +771,8 @@ export function useAgUiChat({
         )
         activeSessionRef.current = session.id
         setCurrentSessionId(session.id)
-        setMessages(session.messages)
+        // Prepend the history messages so the transcript is continuous.
+        setMessages([...priorMessages, ...session.messages])
         setCurrentProjectId(session.project?.id ?? null)
         onSessionCreated(session.id)
         if (session.project?.id !== projectId) {
