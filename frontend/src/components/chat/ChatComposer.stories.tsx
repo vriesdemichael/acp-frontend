@@ -1,14 +1,21 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { useState } from 'react'
 import { ChatComposer } from './ChatComposer.js'
+import type { ModelState } from '../../hooks/useAgUiChat.js'
 
 function ComposerStory(props: {
   disabled: boolean
   canSubmit: boolean
   initialValue?: string
   helperText?: string
+  modelState?: ModelState | null
 }) {
   const [value, setValue] = useState(props.initialValue ?? '')
+  const [modelState, setModelState] = useState<ModelState | null>(props.modelState ?? null)
+
+  const handleModelChange = (modelId: string) => {
+    setModelState((prev) => (prev ? { ...prev, currentModelId: modelId } : prev))
+  }
 
   return (
     <div className="max-w-5xl rounded-[2rem] border border-white/10 bg-slate-950/75 shadow-[0_18px_60px_rgba(2,6,23,0.25)]">
@@ -19,6 +26,8 @@ function ComposerStory(props: {
         disabled={props.disabled}
         canSubmit={props.canSubmit}
         helperText={props.helperText}
+        modelState={modelState}
+        onModelChange={handleModelChange}
       />
     </div>
   )
@@ -136,4 +145,34 @@ export const HistorySessionLoading: StoryObj<typeof ChatComposer> = {
       />
     </div>
   ),
+}
+
+export const WithModelSelector: Story = {
+  args: {
+    disabled: false,
+    canSubmit: true,
+    initialValue: 'Summarise the latest changes in one paragraph.',
+    helperText: undefined,
+    modelState: {
+      availableModels: [
+        { modelId: 'gpt-4o', name: 'GPT-4o' },
+        { modelId: 'gpt-4o-mini', name: 'GPT-4o mini' },
+        { modelId: 'o3', name: 'o3' },
+      ],
+      currentModelId: 'gpt-4o',
+    },
+  },
+}
+
+export const WithSingleModel: Story = {
+  args: {
+    disabled: false,
+    canSubmit: true,
+    initialValue: 'Say hello in one short sentence.',
+    helperText: undefined,
+    modelState: {
+      availableModels: [{ modelId: 'gpt-4o', name: 'GPT-4o' }],
+      currentModelId: 'gpt-4o',
+    },
+  },
 }

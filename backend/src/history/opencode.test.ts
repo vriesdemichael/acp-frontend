@@ -104,7 +104,8 @@ describe('readOpenCodeSessions', () => {
       agentId: 'opencode',
       project: knownProjects[0],
       source: 'history',
-      messages: [{ id: 'msg-1', role: 'assistant', content: 'Done' }],
+      modelState: null,
+      messages: [{ id: 'msg-1', role: 'assistant', content: 'Done', turnInfo: undefined }],
     })
   })
 
@@ -233,9 +234,15 @@ describe('getOpenCodeSession', () => {
       agentId: 'opencode',
       project: knownProjects[0],
       source: 'history',
+      modelState: null,
       messages: [
-        { id: 'msg-1', role: 'user', content: 'What is wrong?' },
-        { id: 'msg-2', role: 'assistant', content: 'The issue is in line 42.' },
+        { id: 'msg-1', role: 'user', content: 'What is wrong?', turnInfo: undefined },
+        {
+          id: 'msg-2',
+          role: 'assistant',
+          content: 'The issue is in line 42.',
+          turnInfo: undefined,
+        },
       ],
     })
   })
@@ -263,7 +270,8 @@ describe('getOpenCodeSession', () => {
       agentId: 'opencode',
       project: knownProjects[0],
       source: 'history',
-      messages: [{ id: 'msg-1', role: 'assistant', content: 'Done' }],
+      modelState: null,
+      messages: [{ id: 'msg-1', role: 'assistant', content: 'Done', turnInfo: undefined }],
     })
   })
 
@@ -318,11 +326,13 @@ describe('getOpenCodeSession', () => {
       agentId: 'opencode',
       project: knownProjects[0],
       source: 'history',
+      modelState: null,
       messages: [
         {
           id: 'msg-1',
           role: 'assistant',
           content: 'Final answer in markdown.',
+          turnInfo: undefined,
           structuredBlocks: [
             {
               kind: 'reasoning',
@@ -388,11 +398,13 @@ describe('getOpenCodeSession', () => {
       agentId: 'opencode',
       project: knownProjects[0],
       source: 'history',
+      modelState: null,
       messages: [
         {
           id: 'msg-1',
           role: 'user',
           content: '',
+          turnInfo: undefined,
           structuredBlocks: [
             {
               kind: 'attachment',
@@ -432,11 +444,13 @@ describe('getOpenCodeSession', () => {
       agentId: 'opencode',
       project: knownProjects[0],
       source: 'history',
+      modelState: null,
       messages: [
         {
           id: 'msg-1',
           role: 'user',
           content: '',
+          turnInfo: undefined,
           structuredBlocks: [
             {
               kind: 'compaction_notice',

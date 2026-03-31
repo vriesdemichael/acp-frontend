@@ -364,6 +364,7 @@ function getCopilotSessionForIntegration(
       project,
       source: 'history',
       messages: readSessionDescriptorMessages(descriptor),
+      modelState: null,
     }
   }
 

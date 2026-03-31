@@ -703,6 +703,7 @@ describe('getCopilotCliWslSession', () => {
       agentId: 'copilot-cli-wsl',
       project: { id: 'repo-1', name: 'ACP Frontend', path: '/work/acp-frontend' },
       source: 'history',
+      modelState: null,
       messages: [
         { id: 'msg-u-1', role: 'user', content: 'What is a hook?' },
         {

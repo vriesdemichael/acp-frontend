@@ -126,6 +126,7 @@ describe('getGeminiSession', () => {
       agentId: 'gemini-cli',
       project: { id: 'repo-1', name: 'ACP Frontend', path: '/work/acp-frontend' },
       source: 'history',
+      modelState: null,
       messages: [
         { id: 'u-1', role: 'user', content: 'Explain useEffect' },
         { id: 'a-1', role: 'assistant', content: 'useEffect runs side-effects' },

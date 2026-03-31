@@ -120,6 +120,7 @@ export class FakeSessionAdapter implements SessionAdapter {
     return {
       ...this.toSessionSummary(session),
       messages: session.messages.map((message) => ({ ...message })),
+      modelState: null,
     }
   }
 

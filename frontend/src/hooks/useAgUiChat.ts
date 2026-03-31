@@ -87,6 +87,21 @@ interface ProjectPathSuggestion {
 
 interface SessionDetails extends SessionSummary {
   messages: ChatMessage[]
+  /** Current model selection state; null when the agent does not support model selection. */
+  modelState: ModelState | null
+}
+
+/** A selectable model advertised by an agent via ACP session creation. */
+export interface ModelInfo {
+  modelId: string
+  name: string
+  description?: string | null
+}
+
+/** Current model selection state for a live session. */
+export interface ModelState {
+  availableModels: ModelInfo[]
+  currentModelId: string
 }
 
 interface UseAgUiChatOptions {
@@ -141,6 +156,7 @@ export function useAgUiChat({
   const [historyLoadingSessionId, setHistoryLoadingSessionId] = useState<string | null>(null)
   const [streamReconnecting, setStreamReconnecting] = useState(false)
   const [creatingSession, setCreatingSession] = useState(false)
+  const [modelState, setModelState] = useState<ModelState | null>(null)
   const activeSessionRef = useRef<string | null>(sessionId)
   const routeSessionRef = useRef<string | null>(sessionId)
   // Stable refs so the one-shot bootstrap effect can call the latest version of
@@ -239,6 +255,7 @@ export function useAgUiChat({
         }
 
         setMessages(session.messages)
+        setModelState(session.modelState ?? null)
 
         setCurrentSessionId(nextSessionId)
         setCurrentProjectId(session.project?.id ?? null)
@@ -790,6 +807,7 @@ export function useAgUiChat({
         ])
         // Prepend the history messages so the transcript is continuous.
         setMessages([...priorMessages, ...session.messages])
+        setModelState(session.modelState ?? null)
         setCurrentProjectId(session.project?.id ?? null)
         onSessionCreated(session.id)
         if (session.project?.id !== projectId) {
@@ -869,6 +887,19 @@ export function useAgUiChat({
     [fetchJson]
   )
 
+  const setSessionModel = useCallback(
+    async (newModelId: string) => {
+      if (!currentSessionId) return
+      await fetchJson(`/api/sessions/${encodeURIComponent(currentSessionId)}/model`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ modelId: newModelId }),
+      })
+      setModelState((prev) => (prev ? { ...prev, currentModelId: newModelId } : prev))
+    },
+    [currentSessionId, fetchJson]
+  )
+
   return {
     activeAgents,
     agents,
@@ -877,6 +908,7 @@ export function useAgUiChat({
     historyLoading: historyLoadingSessionId !== null,
     loading,
     messages,
+    modelState,
     projects,
     ready,
     selectedProject,
@@ -889,6 +921,7 @@ export function useAgUiChat({
     startNewSession,
     resumeSession,
     loadHistorySession,
+    setSessionModel,
     streamReconnecting,
     thinking,
     availableProjects,

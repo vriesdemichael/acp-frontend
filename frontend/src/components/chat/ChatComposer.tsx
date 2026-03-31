@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, type FormEvent } from 'react'
+import type { ModelState } from '../../hooks/useAgUiChat.js'
 
 /** Minimal agent shape needed for the delegation panel. */
 interface ResumableAgent {
@@ -36,6 +37,10 @@ interface ChatComposerProps {
   resumableAgents?: ResumableAgent[]
   /** True while a resume/switch operation is in flight. */
   resuming?: boolean
+  /** Model selection state; null or undefined when the agent does not support model switching. */
+  modelState?: ModelState | null
+  /** Called when the user selects a different model. */
+  onModelChange?: (modelId: string) => void
 }
 
 export function ChatComposer({
@@ -53,12 +58,18 @@ export function ChatComposer({
   onFork,
   resumableAgents = [],
   resuming = false,
+  modelState,
+  onModelChange,
 }: ChatComposerProps) {
   const [switchOpen, setSwitchOpen] = useState(false)
   const switchRef = useRef<HTMLDivElement>(null)
   const firstMenuItemRef = useRef<HTMLButtonElement>(null)
 
-  // Close the popover when clicking outside or pressing Escape
+  const [modelOpen, setModelOpen] = useState(false)
+  const modelRef = useRef<HTMLDivElement>(null)
+  const firstModelItemRef = useRef<HTMLButtonElement>(null)
+
+  // Close the switch-agent popover when clicking outside or pressing Escape
   useEffect(() => {
     if (!switchOpen) return
     const onMouse = (e: MouseEvent) => {
@@ -77,10 +88,34 @@ export function ChatComposer({
     }
   }, [switchOpen])
 
-  // Move focus to the first menu item when the popover opens
+  // Close the model popover when clicking outside or pressing Escape
+  useEffect(() => {
+    if (!modelOpen) return
+    const onMouse = (e: MouseEvent) => {
+      if (modelRef.current && !modelRef.current.contains(e.target as Node)) {
+        setModelOpen(false)
+      }
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setModelOpen(false)
+    }
+    document.addEventListener('mousedown', onMouse)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onMouse)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [modelOpen])
+
+  // Move focus to the first menu item when the switch-agent popover opens
   useEffect(() => {
     if (switchOpen) firstMenuItemRef.current?.focus()
   }, [switchOpen])
+
+  // Move focus to the first model item when the model popover opens
+  useEffect(() => {
+    if (modelOpen) firstModelItemRef.current?.focus()
+  }, [modelOpen])
 
   const hasAnyAction = resumeAgent != null || forkAgents.length > 0
 
@@ -148,6 +183,11 @@ export function ChatComposer({
   }
 
   const canSwitch = resumableAgents.length > 0 && !resuming && !disabled
+  const showModelSelector =
+    modelState != null && modelState.availableModels.length > 1 && !isHistorySession
+  const currentModel = modelState?.availableModels.find(
+    (m) => m.modelId === modelState.currentModelId
+  )
 
   return (
     <form
@@ -241,6 +281,83 @@ export function ChatComposer({
           Send
         </button>
       </div>
+
+      {/* Model selector — shown when the agent advertises multiple models */}
+      {showModelSelector && (
+        <div className="mx-auto mt-2.5 max-w-5xl">
+          <div ref={modelRef} className="relative inline-block">
+            <button
+              type="button"
+              data-testid="model-selector-button"
+              aria-haspopup="listbox"
+              aria-expanded={modelOpen}
+              onClick={() => setModelOpen((o) => !o)}
+              className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-slate-900/80 px-3 py-1 text-[11px] font-medium text-slate-400 transition hover:border-white/20 hover:text-slate-300"
+            >
+              <span className="size-1.5 rounded-full bg-teal-400/70" aria-hidden="true" />
+              {currentModel?.name ?? modelState!.currentModelId}
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 16 16"
+                fill="currentColor"
+                className="size-2.5"
+                aria-hidden="true"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M11.78 9.78a.75.75 0 0 1-1.06 0L8 7.06 5.28 9.78a.75.75 0 0 1-1.06-1.06l3.25-3.25a.75.75 0 0 1 1.06 0l3.25 3.25a.75.75 0 0 1 0 1.06Z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </button>
+
+            {modelOpen && (
+              <div
+                data-testid="model-selector-popover"
+                role="listbox"
+                aria-label="Select model"
+                className="absolute bottom-full left-0 mb-2 min-w-[16rem] rounded-2xl border border-white/10 bg-slate-900 py-1.5 shadow-2xl"
+              >
+                <p className="px-3.5 pb-1.5 pt-1 text-[11px] font-medium uppercase tracking-wider text-slate-500">
+                  Model
+                </p>
+                {modelState!.availableModels.map((model, idx) => {
+                  const isSelected = model.modelId === modelState!.currentModelId
+                  return (
+                    <button
+                      key={model.modelId}
+                      ref={idx === 0 ? firstModelItemRef : undefined}
+                      type="button"
+                      role="option"
+                      aria-selected={isSelected}
+                      data-testid={`model-option-${model.modelId}`}
+                      onClick={() => {
+                        setModelOpen(false)
+                        if (!isSelected) onModelChange?.(model.modelId)
+                      }}
+                      className="flex w-full flex-col gap-0.5 px-3.5 py-2 text-left transition hover:bg-white/5"
+                    >
+                      <span
+                        className={`text-sm font-medium ${isSelected ? 'text-teal-300' : 'text-slate-200'}`}
+                      >
+                        {isSelected && (
+                          <span className="mr-1.5 text-teal-400" aria-hidden="true">
+                            ✓
+                          </span>
+                        )}
+                        {model.name}
+                      </span>
+                      {model.description && (
+                        <span className="text-[11px] text-slate-500">{model.description}</span>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       <p className="mx-auto mt-2 max-w-5xl text-[11px] text-slate-400">
         {helperText ??
