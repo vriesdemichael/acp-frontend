@@ -65,9 +65,9 @@ export function SettingsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#05070b] px-4 py-8 text-slate-100 sm:px-6 lg:px-8">
+    <main className="min-h-screen bg-[#05070b] px-3 py-6 text-slate-100 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-6xl">
-        <div className="rounded-2xl border border-white/10 bg-slate-950/80 p-6 shadow-[0_24px_80px_rgba(2,6,23,0.45)]">
+        <div className="rounded-2xl border border-white/10 bg-slate-950/80 p-4 shadow-[0_24px_80px_rgba(2,6,23,0.45)] sm:p-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">
@@ -101,7 +101,7 @@ export function SettingsPage() {
             </div>
           ) : null}
 
-          <section className="mt-8 rounded-2xl border border-white/10 bg-slate-900/60 p-5">
+          <section className="mt-8 rounded-2xl border border-white/10 bg-slate-900/60 p-4 sm:p-5">
             <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">
               ACP Backends
             </p>
@@ -146,8 +146,8 @@ export function SettingsPage() {
                 </svg>
                 Add Backend
               </summary>
-              <div className="mt-4 rounded-2xl border border-white/10 bg-slate-950/40 p-5">
-                <div className="grid gap-4 md:grid-cols-[1.2fr_1fr_1fr_auto]">
+              <div className="mt-4 rounded-2xl border border-white/10 bg-slate-950/40 p-4 sm:p-5">
+                <div className="grid gap-3 sm:grid-cols-[1.2fr_1fr_1fr_auto]">
                   <input
                     value={newName}
                     onChange={(event) => setNewName(event.target.value)}
@@ -179,7 +179,7 @@ export function SettingsPage() {
             </details>
           </section>
 
-          <section className="mt-8 rounded-2xl border border-white/10 bg-slate-900/60 p-5">
+          <section className="mt-8 rounded-2xl border border-white/10 bg-slate-900/60 p-4 sm:p-5">
             <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">
               MCP Servers
             </p>
@@ -257,7 +257,7 @@ function BackendCard({ backend, busy, testing, onSave, onTest }: BackendCardProp
   }
 
   return (
-    <section className="rounded-2xl border border-white/10 bg-slate-900/70 p-5">
+    <section className="rounded-2xl border border-white/10 bg-slate-900/70 p-4 sm:p-5">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
           <input
@@ -315,8 +315,8 @@ function BackendCard({ backend, busy, testing, onSave, onTest }: BackendCardProp
             value={historyPathHints}
             onChange={(event) => setHistoryPathHints(event.target.value)}
             placeholder={vscodeRootsPlaceholder}
-            rows={4}
-            className="mt-2 w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-teal-500"
+            rows={Math.max(3, vscodeAutoRoots.length + 1)}
+            className="mt-2 w-full resize-y overflow-auto rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-teal-500"
           />
           <p className="mt-2 text-xs text-slate-500">
             {isCopilot
@@ -334,8 +334,8 @@ function BackendCard({ backend, busy, testing, onSave, onTest }: BackendCardProp
               value={cliHistoryPathHints}
               onChange={(event) => setCliHistoryPathHints(event.target.value)}
               placeholder={cliRootsPlaceholder}
-              rows={4}
-              className="mt-2 w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-teal-500"
+              rows={Math.max(3, cliAutoRoots.length + 1)}
+              className="mt-2 w-full resize-y overflow-auto rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-teal-500"
             />
             <p className="mt-2 text-xs text-slate-500">
               Paths to Copilot CLI session-state directories. WSL paths start with{' '}
@@ -406,7 +406,7 @@ function HistorySourcesGrouped({ sources }: { sources: HistorySourceDescriptor[]
   }
 
   return (
-    <div className="rounded-xl border border-white/10 bg-slate-950 px-3 py-3">
+    <div className="overflow-hidden rounded-xl border border-white/10 bg-slate-950 px-3 py-3">
       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
         History Sources
       </p>
@@ -414,10 +414,10 @@ function HistorySourcesGrouped({ sources }: { sources: HistorySourceDescriptor[]
         {Array.from(byKind.entries()).map(([kind, stats]) => (
           <div
             key={kind}
-            className="flex items-center justify-between gap-3 rounded-lg px-2 py-1.5 text-[11px]"
+            className="flex min-w-0 items-center justify-between gap-3 rounded-lg px-2 py-1.5 text-[11px]"
           >
-            <span className="font-mono text-slate-300">{kind}</span>
-            <div className="flex items-center gap-2">
+            <span className="min-w-0 truncate font-mono text-slate-300">{kind}</span>
+            <div className="flex shrink-0 items-center gap-2">
               {stats.sessions > 0 ? (
                 <span className="rounded-md border border-white/10 bg-slate-900 px-2 py-0.5 text-[10px] text-slate-300">
                   {stats.sessions} sessions
