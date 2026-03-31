@@ -53,6 +53,7 @@ function createRegistryStub(overrides?: Partial<AgentRegistry>): AgentRegistry {
     sendMessage: vi.fn(async () => undefined),
     sendHandoff: vi.fn(async () => undefined),
     closeSession: vi.fn(() => false),
+    setSessionModel: vi.fn(async () => undefined),
     ...overrides,
   } as unknown as AgentRegistry
 }
@@ -380,6 +381,72 @@ describe('sessions routes', () => {
       })
 
       expect(sendHandoffSpy).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('POST /sessions/:id/model', () => {
+    it('returns 200 ok when setSessionModel succeeds', async () => {
+      const setSessionModelSpy = vi.fn(async () => undefined)
+      const registry = createRegistryStub({ setSessionModel: setSessionModelSpy })
+      const app = new Hono().route('/api', sessionsRoutes(registry))
+
+      const res = await app.request('/api/sessions/live-session-1/model', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ modelId: 'gpt-4o' }),
+      })
+
+      expect(res.status).toBe(200)
+      await expect(res.json()).resolves.toEqual({ ok: true })
+      expect(setSessionModelSpy).toHaveBeenCalledWith('live-session-1', 'gpt-4o')
+    })
+
+    it('returns 400 when modelId is missing from body', async () => {
+      const registry = createRegistryStub()
+      const app = new Hono().route('/api', sessionsRoutes(registry))
+
+      const res = await app.request('/api/sessions/live-session-1/model', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+
+      expect(res.status).toBe(400)
+      await expect(res.json()).resolves.toMatchObject({ error: expect.any(String) })
+    })
+
+    it('returns 404 when session is not found', async () => {
+      const registry = createRegistryStub({
+        setSessionModel: vi.fn(async () => {
+          throw new RegistryError('session_not_found', 'Session not found')
+        }),
+      })
+      const app = new Hono().route('/api', sessionsRoutes(registry))
+
+      const res = await app.request('/api/sessions/unknown-session/model', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ modelId: 'gpt-4o' }),
+      })
+
+      expect(res.status).toBe(404)
+    })
+
+    it('returns 503 when agent is unavailable', async () => {
+      const registry = createRegistryStub({
+        setSessionModel: vi.fn(async () => {
+          throw new RegistryError('agent_unavailable', 'Agent is not running')
+        }),
+      })
+      const app = new Hono().route('/api', sessionsRoutes(registry))
+
+      const res = await app.request('/api/sessions/live-session-1/model', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ modelId: 'gpt-4o' }),
+      })
+
+      expect(res.status).toBe(503)
     })
   })
 })
