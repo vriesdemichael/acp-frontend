@@ -75,11 +75,40 @@ export class AgentRegistry {
 
   constructor(private readonly copilotAdapter: CopilotAdapter) {
     this.agents = this.buildAgents()
+    // Probe active adapters in the background so canLoad is correct on first
+    // listAgents() call without requiring an explicit testBackend() or session.
+    void this.probeActiveAdapters()
+  }
+
+  /**
+   * Quickly initialize + close each active adapter to populate capabilityResults.
+   * Errors are swallowed — this is best-effort.
+   */
+  private async probeActiveAdapters(): Promise<void> {
+    const activeAgents = this.agents.filter((a) => a.adapter && a.command)
+    await Promise.all(
+      activeAgents.map(async (agent) => {
+        if (this.capabilityResults.has(agent.id)) return
+        try {
+          await this.testBackend(agent.id)
+        } catch {
+          // Probe failed — capabilityResults remains unset; canLoad stays false.
+        }
+      })
+    )
   }
 
   listAgents(): AgentSummary[] {
     return this.agents.map((agent) => {
       const status = this.toAgentStatus(agent)
+      // Use the same endpointSupport source as listBackends() so canLoad
+      // reflects a real ACP initialize response, not just whether the method
+      // exists on the adapter class (which is true for all GenericAcpAdapter
+      // instances, including gemini-cli).
+      const endpointSupport =
+        this.capabilityResults.get(agent.id) ??
+        agent.adapter?.getEndpointSupport() ??
+        UNKNOWN_ENDPOINT_SUPPORT
       return {
         id: agent.id,
         name: agent.name,
@@ -88,7 +117,7 @@ export class AgentRegistry {
         // canResume requires a live adapter — history-only agents are active for
         // session browsing but cannot accept a handoff without their binary.
         canResume: agent.adapter !== undefined,
-        canLoad: agent.adapter?.loadSession !== undefined,
+        canLoad: endpointSupport.implemented.includes('session/load'),
       }
     })
   }
@@ -106,7 +135,7 @@ export class AgentRegistry {
         status,
         command: agent.command,
         canResume: agent.adapter !== undefined,
-        canLoad: agent.adapter?.loadSession !== undefined,
+        canLoad: endpointSupport.implemented.includes('session/load'),
         detectedCommand: agent.detectedCommand,
         args: agent.args,
         defaultArgs: agent.args,
@@ -237,7 +266,12 @@ export class AgentRegistry {
     project: SessionProjectContext | null,
     mcpServers: McpServer[]
   ): Promise<string> {
-    return this.requireAdapter(agentId).newSession(project, mcpServers)
+    const adapter = this.requireAdapter(agentId)
+    const sessionId = await adapter.newSession(project, mcpServers)
+    // Refresh capability results from the adapter's initialize response so that
+    // canLoad (and other endpoint flags) are accurate after the first session.
+    this.capabilityResults.set(agentId, adapter.getEndpointSupport())
+    return sessionId
   }
 
   /**
@@ -257,7 +291,10 @@ export class AgentRegistry {
       throw new RegistryError('agent_unavailable', `Agent ${agentId} does not support session/load`)
     }
 
-    return adapter.loadSession(acpSessionId, project, mcpServers)
+    const sessionId = await adapter.loadSession(acpSessionId, project, mcpServers)
+    // Refresh capability results from the adapter's initialize response.
+    this.capabilityResults.set(agentId, adapter.getEndpointSupport())
+    return sessionId
   }
 
   listSessions(): SessionSummary[] {
