@@ -771,6 +771,23 @@ export function useAgUiChat({
         )
         activeSessionRef.current = session.id
         setCurrentSessionId(session.id)
+        // Optimistically upsert the new live session into the sessions list so
+        // that currentSession immediately resolves to source:'live'.  Without
+        // this, there is a race: if refreshSessions resolves before React
+        // commits the setCurrentSessionId update above, currentSession would
+        // still look up the old history ID and find source:'history', sending
+        // the UI back into history mode.
+        setSessionsAndRef([
+          ...sessionsRef.current.filter((s) => s.id !== session.id),
+          {
+            id: session.id,
+            title: session.title,
+            updatedAt: session.updatedAt,
+            agentId: session.agentId,
+            project: session.project,
+            source: session.source,
+          },
+        ])
         // Prepend the history messages so the transcript is continuous.
         setMessages([...priorMessages, ...session.messages])
         setCurrentProjectId(session.project?.id ?? null)
@@ -793,7 +810,9 @@ export function useAgUiChat({
       onSessionCreated,
       projectId,
       refreshSessions,
+      sessionsRef,
       setMessages,
+      setSessionsAndRef,
     ]
   )
 
