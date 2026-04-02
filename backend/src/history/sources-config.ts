@@ -29,13 +29,30 @@ const DEFAULT_SOURCES: HistorySourceRecord[] = [
 export function readHistorySourcesConfig(): HistorySourceRecord[] {
   ensureHistorySourcesConfigExists()
   const file = readHistorySourcesConfigFile()
-  const configured = file.sources
+  return mergeWithDefaults(file.sources)
+}
 
-  if (!configured || configured.length === 0) {
-    return DEFAULT_SOURCES
+/**
+ * Merges configured sources with defaults by provider key so the API always
+ * returns a complete, stable set of providers even when `history-sources.json`
+ * was written by an older version that didn't know about a particular provider.
+ * Configured values win over defaults; unknown providers in the file are
+ * preserved at the end of the list.
+ */
+function mergeWithDefaults(sources?: HistorySourceRecord[]): HistorySourceRecord[] {
+  if (!sources || sources.length === 0) {
+    return DEFAULT_SOURCES.map(normalizeHistorySourceRecord)
   }
 
-  return configured.map(normalizeHistorySourceRecord)
+  const configuredByProvider = new Map<HistoryProvider, HistorySourceRecord>(
+    sources.map(normalizeHistorySourceRecord).map((source) => [source.provider, source] as const)
+  )
+
+  return DEFAULT_SOURCES.map(
+    (defaultSource) =>
+      configuredByProvider.get(defaultSource.provider) ??
+      normalizeHistorySourceRecord(defaultSource)
+  )
 }
 
 export function writeHistorySourcesConfig(sources: HistorySourceRecord[]): void {
@@ -121,9 +138,8 @@ function normalizeHistorySourceRecord(record: HistorySourceRecord): HistorySourc
       : [],
   }
 
-  // Only include cliPaths for copilot; include it (even empty) when present so
-  // the key is persisted.
-  if (record.provider === 'copilot' || record.cliPaths !== undefined) {
+  // Only include cliPaths for the copilot provider; ignore it for all others.
+  if (record.provider === 'copilot') {
     normalized.cliPaths = Array.isArray(record.cliPaths)
       ? record.cliPaths.filter((p): p is string => typeof p === 'string')
       : []
