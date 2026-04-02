@@ -236,7 +236,12 @@ export function useHistorySources() {
         }
 
         const updated = (await response.json()) as HistorySourceConfig
-        setSources((current) => current.map((s) => (s.provider === provider ? updated : s)))
+        setSources((current) => {
+          const exists = current.some((s) => s.provider === provider)
+          return exists
+            ? current.map((s) => (s.provider === provider ? updated : s))
+            : [...current, updated]
+        })
       } catch (error) {
         console.error('[useHistorySources] save failed:', error)
         setErrorMessage('Unable to save history source settings right now.')

@@ -74,12 +74,12 @@ export function agentsRoutes(registry: AgentRegistry): Hono {
       return c.json({ error: `Unknown provider: ${provider}` }, 404)
     }
 
-    const body = await c.req.json<{
-      paths?: string[]
-      cliPaths?: string[]
-    }>()
-
     try {
+      const body = await c.req.json<{
+        paths?: string[]
+        cliPaths?: string[]
+      }>()
+
       const updated = updateHistorySource(provider as HistoryProvider, {
         paths: body.paths,
         cliPaths: body.cliPaths,

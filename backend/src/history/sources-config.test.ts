@@ -64,9 +64,11 @@ describe('sources-config', () => {
 
       const result = readHistorySourcesConfig()
 
-      expect(result).toHaveLength(2)
+      expect(result).toHaveLength(3)
       expect(result[0]).toEqual({ provider: 'copilot', paths: ['/a/b'], cliPaths: ['/c/d'] })
       expect(result[1]).toEqual({ provider: 'gemini', paths: ['/e/f'] })
+      // opencode was not in the file — merged in from defaults with empty paths
+      expect(result[2]).toEqual({ provider: 'opencode', paths: [] })
     })
 
     it('normalizes malformed paths arrays', () => {
@@ -80,7 +82,45 @@ describe('sources-config', () => {
       )
 
       const result = readHistorySourcesConfig()
-      expect(result[0]!.paths).toEqual(['/valid'])
+      expect(result.find((s) => s.provider === 'opencode')!.paths).toEqual(['/valid'])
+    })
+
+    it('merges partial config with defaults — fills in missing providers', () => {
+      const configPath = process.env['ACP_HISTORY_SOURCES_CONFIG_PATH']!
+      writeFileSync(
+        configPath,
+        JSON.stringify({ sources: [{ provider: 'gemini', paths: ['/g'] }] }),
+        'utf8'
+      )
+
+      const result = readHistorySourcesConfig()
+
+      expect(result).toHaveLength(3)
+      expect(result.find((s) => s.provider === 'copilot')).toEqual({
+        provider: 'copilot',
+        paths: [],
+        cliPaths: [],
+      })
+      expect(result.find((s) => s.provider === 'gemini')?.paths).toEqual(['/g'])
+      expect(result.find((s) => s.provider === 'opencode')).toEqual({
+        provider: 'opencode',
+        paths: [],
+      })
+    })
+
+    it('strips cliPaths from non-copilot providers', () => {
+      const configPath = process.env['ACP_HISTORY_SOURCES_CONFIG_PATH']!
+      writeFileSync(
+        configPath,
+        JSON.stringify({
+          sources: [{ provider: 'gemini', paths: ['/g'], cliPaths: ['/should-be-dropped'] }],
+        }),
+        'utf8'
+      )
+
+      const result = readHistorySourcesConfig()
+      const gemini = result.find((s) => s.provider === 'gemini')
+      expect(gemini?.cliPaths).toBeUndefined()
     })
 
     it('returns defaults when file contains empty sources array', () => {
@@ -118,7 +158,7 @@ describe('sources-config', () => {
       writeHistorySourcesConfig([{ provider: 'opencode', paths: ['/foo'] }])
 
       const result = readHistorySourcesConfig()
-      expect(result[0]!.paths).toEqual(['/foo'])
+      expect(result.find((s) => s.provider === 'opencode')!.paths).toEqual(['/foo'])
     })
   })
 
@@ -162,7 +202,7 @@ describe('sources-config', () => {
   })
 
   describe('getHistoryHintsForProvider', () => {
-    it('returns empty arrays for unknown provider', () => {
+    it('returns empty arrays when no paths are configured for a provider', () => {
       readHistorySourcesConfig() // init defaults
 
       const result = getHistoryHintsForProvider('gemini')

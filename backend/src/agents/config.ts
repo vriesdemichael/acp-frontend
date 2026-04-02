@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { resolveConfigPath } from '../storage.js'
+import { writeHistorySourcesConfig, readHistorySourcesConfig } from '../history/sources-config.js'
 
 export interface BackendDefinitionRecord {
   id: string
@@ -11,11 +12,19 @@ export interface BackendDefinitionRecord {
   args: string[]
 }
 
-interface BackendConfigFile {
-  backends?: BackendDefinitionRecord[]
+/** Shape of a legacy backend record that may still carry path hint fields. */
+interface LegacyBackendRecord extends BackendDefinitionRecord {
+  historyPathHints?: string[]
+  cliHistoryPathHints?: string[]
 }
 
-const BACKEND_CONFIG_PATH = resolveConfigPath('backends.json', 'ACP_BACKENDS_CONFIG_PATH')
+interface BackendConfigFile {
+  backends?: LegacyBackendRecord[]
+}
+
+function getBackendConfigPath(): string {
+  return resolveConfigPath('backends.json', 'ACP_BACKENDS_CONFIG_PATH')
+}
 
 const LEGACY_COPILOT_IDS = new Set([
   'copilot-cli-wsl',
@@ -76,7 +85,72 @@ export function readBackendConfig(): BackendDefinitionRecord[] {
     return DEFAULT_BACKENDS
   }
 
+  // Migrate any legacy historyPathHints/cliHistoryPathHints out of backends.json
+  // into history-sources.json before normalization strips those fields.
+  migrateLegacyHistoryPathHints(configured)
+
   return migrateLegacyCopilotBackends(configured.map(normalizeBackendRecord))
+}
+
+/**
+ * One-time migration: if any backends in the raw config carry legacy
+ * `historyPathHints`/`cliHistoryPathHints` fields, write them into
+ * `history-sources.json` — but only when `history-sources.json` is absent
+ * or still contains only empty (default) paths, so we never overwrite a
+ * user-configured file.
+ *
+ * Provider mapping:
+ *   - `copilot-*` backends with `historyPathHints`  → copilot paths
+ *   - `copilot-cli-*` backends with `cliHistoryPathHints` → copilot cliPaths
+ *   - `gemini-cli` backend with `historyPathHints`  → gemini paths
+ */
+function migrateLegacyHistoryPathHints(backends: LegacyBackendRecord[]): void {
+  const hasAnyHints = backends.some(
+    (b) => (b.historyPathHints?.length ?? 0) > 0 || (b.cliHistoryPathHints?.length ?? 0) > 0
+  )
+  if (!hasAnyHints) return
+
+  // Check whether the current history-sources.json is still "default" (all paths empty).
+  const current = readHistorySourcesConfig()
+  const isDefault = current.every(
+    (s) => (s.paths?.length ?? 0) === 0 && (s.cliPaths?.length ?? 0) === 0
+  )
+  if (!isDefault) return
+
+  // Collect hints from legacy records.
+  const copilotPaths: string[] = []
+  const copilotCliPaths: string[] = []
+  const geminiPaths: string[] = []
+
+  for (const backend of backends) {
+    if (backend.id === 'gemini-cli' && backend.historyPathHints?.length) {
+      geminiPaths.push(...backend.historyPathHints)
+    } else if (backend.id.startsWith('copilot-')) {
+      if (backend.historyPathHints?.length) copilotPaths.push(...backend.historyPathHints)
+      if (backend.cliHistoryPathHints?.length) copilotCliPaths.push(...backend.cliHistoryPathHints)
+    }
+  }
+
+  if (!copilotPaths.length && !copilotCliPaths.length && !geminiPaths.length) return
+
+  const migrated = current.map((source) => {
+    if (source.provider === 'copilot') {
+      return {
+        ...source,
+        paths: copilotPaths.length ? copilotPaths : source.paths,
+        cliPaths: copilotCliPaths.length ? copilotCliPaths : source.cliPaths,
+      }
+    }
+    if (source.provider === 'gemini') {
+      return {
+        ...source,
+        paths: geminiPaths.length ? geminiPaths : source.paths,
+      }
+    }
+    return source
+  })
+
+  writeHistorySourcesConfig(migrated)
 }
 
 /**
@@ -125,12 +199,13 @@ function migrateLegacyCopilotBackends(
 }
 
 export function writeBackendConfig(backends: BackendDefinitionRecord[]): void {
-  const parentDir = dirname(BACKEND_CONFIG_PATH)
+  const configPath = getBackendConfigPath()
+  const parentDir = dirname(configPath)
   if (!existsSync(parentDir)) {
     mkdirSync(parentDir, { recursive: true })
   }
 
-  writeFileSync(BACKEND_CONFIG_PATH, JSON.stringify({ backends }, null, 2))
+  writeFileSync(configPath, JSON.stringify({ backends }, null, 2))
 }
 
 export function createBackendId(name: string): string {
@@ -144,19 +219,19 @@ export function createBackendId(name: string): string {
 }
 
 function readBackendConfigFile(): BackendConfigFile {
-  if (!existsSync(BACKEND_CONFIG_PATH)) {
+  if (!existsSync(getBackendConfigPath())) {
     return {}
   }
 
   try {
-    return JSON.parse(readFileSync(BACKEND_CONFIG_PATH, 'utf8')) as BackendConfigFile
+    return JSON.parse(readFileSync(getBackendConfigPath(), 'utf8')) as BackendConfigFile
   } catch {
     return {}
   }
 }
 
 function ensureBackendConfigExists(): void {
-  if (existsSync(BACKEND_CONFIG_PATH)) {
+  if (existsSync(getBackendConfigPath())) {
     return
   }
 
