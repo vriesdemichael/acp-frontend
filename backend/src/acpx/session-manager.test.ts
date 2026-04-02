@@ -96,12 +96,13 @@ describe('AcpxSessionManager', () => {
   })
 
   describe('getEndpointSupport', () => {
-    it('reports session/new, session/prompt, session/update as implemented', () => {
+    it('reports session/new, session/prompt, session/update, session/resume as implemented', () => {
       const mgr = new AcpxSessionManager('opencode', 'OpenCode', 'opencode')
       const support = mgr.getEndpointSupport()
       expect(support.implemented).toContain('session/new')
       expect(support.implemented).toContain('session/prompt')
       expect(support.implemented).toContain('session/update')
+      expect(support.implemented).toContain('session/resume')
     })
   })
 
@@ -255,6 +256,100 @@ describe('AcpxSessionManager', () => {
       expect(details.messages[0].content).toContain('[Context from a previous conversation')
       expect(details.messages[0].content).toContain('User: Hello')
       expect(details.messages[0].content).toContain('Assistant: Hi')
+    })
+  })
+
+  describe('continueSession', () => {
+    it('creates a new session using --from <acpxSessionId> and returns a UUID', async () => {
+      vi.mocked(spawn)
+        // continueSession spawn
+        .mockReturnValueOnce(
+          makeSpawnMock({ stdout: ['session-id: continued-456'] }) as ReturnType<typeof spawn>
+        )
+
+      const mgr = new AcpxSessionManager('opencode', 'OpenCode', 'opencode')
+      const sessionId = await mgr.continueSession('source-acpx-id', null)
+
+      expect(sessionId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
+    })
+
+    it('registers the continued session so ownsSession returns true', async () => {
+      vi.mocked(spawn).mockReturnValueOnce(
+        makeSpawnMock({ stdout: ['session-id: continued-456'] }) as ReturnType<typeof spawn>
+      )
+
+      const mgr = new AcpxSessionManager('opencode', 'OpenCode', 'opencode')
+      const sessionId = await mgr.continueSession('source-acpx-id', null)
+
+      expect(mgr.ownsSession(sessionId)).toBe(true)
+    })
+
+    it('passes --from flag to acpx when continuing', async () => {
+      vi.mocked(spawn).mockReturnValueOnce(
+        makeSpawnMock({ stdout: [] }) as ReturnType<typeof spawn>
+      )
+
+      const mgr = new AcpxSessionManager('opencode', 'OpenCode', 'opencode')
+      await mgr.continueSession('my-source-session-id', null)
+
+      const spawnCall = vi.mocked(spawn).mock.calls[0]!
+      expect(spawnCall[1]).toContain('--from')
+      expect(spawnCall[1]).toContain('my-source-session-id')
+    })
+
+    it('still creates a session when acpx fails (no acpxSessionId)', async () => {
+      vi.mocked(spawn).mockReturnValueOnce(
+        makeSpawnMock({ exitCode: 1 }) as ReturnType<typeof spawn>
+      )
+
+      const mgr = new AcpxSessionManager('opencode', 'OpenCode', 'opencode')
+      const sessionId = await mgr.continueSession('source-id', null)
+
+      expect(sessionId).toBeTruthy()
+      expect(mgr.ownsSession(sessionId)).toBe(true)
+    })
+
+    it('uses the project path as cwd when a project is provided', async () => {
+      vi.mocked(spawn).mockReturnValueOnce(
+        makeSpawnMock({ stdout: [] }) as ReturnType<typeof spawn>
+      )
+
+      const mgr = new AcpxSessionManager('opencode', 'OpenCode', 'opencode')
+      const project = { id: 'p1', name: 'My Project', path: '/my/project' }
+      await mgr.continueSession('source-id', project)
+
+      const spawnCall = vi.mocked(spawn).mock.calls[0]!
+      expect(spawnCall[1]).toContain('--cwd')
+      expect(spawnCall[1]).toContain('/my/project')
+    })
+  })
+
+  describe('getAgentSessionId', () => {
+    it('returns the acpx session id for a known session', async () => {
+      vi.mocked(spawn).mockReturnValueOnce(
+        makeSpawnMock({ stdout: ['session-id: acpx-xyz'] }) as ReturnType<typeof spawn>
+      )
+
+      const mgr = new AcpxSessionManager('opencode', 'OpenCode', 'opencode')
+      const sessionId = await mgr.newSession(null)
+
+      expect(mgr.getAgentSessionId(sessionId)).toBe('acpx-xyz')
+    })
+
+    it('returns null for an unknown session id', () => {
+      const mgr = new AcpxSessionManager('opencode', 'OpenCode', 'opencode')
+      expect(mgr.getAgentSessionId('unknown-id')).toBeNull()
+    })
+
+    it('returns null when acpx session creation failed and no acpxSessionId was stored', async () => {
+      vi.mocked(spawn).mockReturnValueOnce(
+        makeSpawnMock({ exitCode: 1 }) as ReturnType<typeof spawn>
+      )
+
+      const mgr = new AcpxSessionManager('opencode', 'OpenCode', 'opencode')
+      const sessionId = await mgr.newSession(null)
+
+      expect(mgr.getAgentSessionId(sessionId)).toBeNull()
     })
   })
 })

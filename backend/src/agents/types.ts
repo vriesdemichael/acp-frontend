@@ -295,6 +295,23 @@ export interface SessionAdapter {
    * ACP agent that advertises the `loadSession` capability.
    */
   loadSession?(acpSessionId: string, project: SessionProjectContext | null): Promise<string>
+  /**
+   * Continue a prior session natively using the agent's own session continuation mechanism
+   * (e.g. `acpx sessions new --from <acpx-session-id>`). Returns the new internal frontend
+   * session ID. Only available on adapters that support native session continuation.
+   * Callers should fall back to `newSession` + `sendHandoff` when this is absent.
+   */
+  continueSession?(
+    fromAcpxSessionId: string,
+    project: SessionProjectContext | null
+  ): Promise<string>
+  /**
+   * Return the underlying agent-side session ID (e.g. the acpx session ID) for a given
+   * internal frontend session ID. Used by the registry when building a `--from` reference
+   * for `continueSession`. Returns null when the session is not owned by this adapter or
+   * when no underlying session ID is available.
+   */
+  getAgentSessionId?(internalSessionId: string): string | null
   sendMessage(sessionId: string, text: string): Promise<void>
   /**
    * Send a structured handoff prompt containing prior conversation history.

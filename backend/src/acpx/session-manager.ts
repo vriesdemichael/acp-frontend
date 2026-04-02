@@ -38,8 +38,8 @@ interface AcpxSessionState {
 
 const ENDPOINT_SUPPORT: BackendEndpointSupport = {
   source: 'connection',
-  implemented: ['session/new', 'session/prompt', 'session/update'],
-  unknown: ['session/load', 'session/resume', 'session/fork'],
+  implemented: ['session/new', 'session/prompt', 'session/update', 'session/resume'],
+  unknown: ['session/load', 'session/fork'],
 }
 
 /**
@@ -78,6 +78,33 @@ export class AcpxSessionManager implements SessionAdapter {
 
     // Create an acpx session by running: acpx <agentCommand> sessions new --cwd <cwd>
     const acpxSessionId = await this.runAcpxNewSession(cwd)
+
+    this.sessions.set(sessionId, {
+      id: sessionId,
+      acpxSessionId,
+      agentCommand: this.agentCommand,
+      cwd,
+      title: 'New chat',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      project,
+      messages: [],
+      proc: null,
+    })
+
+    return sessionId
+  }
+
+  async continueSession(
+    fromAcpxSessionId: string,
+    project: SessionProjectContext | null
+  ): Promise<string> {
+    const sessionId = randomUUID()
+    const cwd = project?.path ?? process.cwd()
+
+    // Create a new acpx session that inherits context from the source session:
+    // acpx <agentCommand> sessions new --from <acpx-session-id> --cwd <cwd>
+    const acpxSessionId = await this.runAcpxContinueSession(fromAcpxSessionId, cwd)
 
     this.sessions.set(sessionId, {
       id: sessionId,
@@ -140,6 +167,11 @@ export class AcpxSessionManager implements SessionAdapter {
     await this.sendMessage(sessionId, handoffPrompt)
   }
 
+  getAgentSessionId(internalSessionId: string): string | null {
+    const session = this.sessions.get(internalSessionId)
+    return session?.acpxSessionId ?? null
+  }
+
   closeSession(sessionId: string): void {
     const session = this.sessions.get(sessionId)
     if (session?.proc && !session.proc.killed) {
@@ -189,6 +221,38 @@ export class AcpxSessionManager implements SessionAdapter {
 
       proc.on('close', () => {
         // acpx prints a session id line, e.g. "session-id: <uuid>"
+        const match = /session[- ]id:\s*(\S+)/i.exec(output) ?? /^(\S+)$/m.exec(output.trim())
+        resolve(match ? (match[1] ?? null) : null)
+      })
+
+      proc.on('error', () => resolve(null))
+    })
+  }
+
+  /**
+   * Run `acpx <agentCommand> sessions new --from <fromAcpxSessionId> --cwd <cwd>` and parse
+   * the new session id from stdout. Returns null when acpx outputs no recognisable session id.
+   */
+  private async runAcpxContinueSession(
+    fromAcpxSessionId: string,
+    cwd: string
+  ): Promise<string | null> {
+    return new Promise((resolve) => {
+      const proc = spawn(
+        'acpx',
+        [this.agentCommand, 'sessions', 'new', '--from', fromAcpxSessionId, '--cwd', cwd],
+        {
+          stdio: ['ignore', 'pipe', 'pipe'],
+          env: { ...process.env },
+        }
+      )
+
+      let output = ''
+      proc.stdout?.on('data', (chunk: Buffer) => {
+        output += chunk.toString()
+      })
+
+      proc.on('close', () => {
         const match = /session[- ]id:\s*(\S+)/i.exec(output) ?? /^(\S+)$/m.exec(output.trim())
         resolve(match ? (match[1] ?? null) : null)
       })
