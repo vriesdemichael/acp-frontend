@@ -297,12 +297,12 @@ export interface SessionAdapter {
   loadSession?(acpSessionId: string, project: SessionProjectContext | null): Promise<string>
   /**
    * Continue a prior session natively using the agent's own session continuation mechanism
-   * (e.g. `acpx sessions new --from <acpx-session-id>`). Returns the new internal frontend
+   * (e.g. `agent sessions new --from <agent-session-id>`). Returns the new internal frontend
    * session ID. Only available on adapters that support native session continuation.
    * Callers should fall back to `newSession` + `sendHandoff` when this is absent.
    */
   continueSession?(
-    fromAcpxSessionId: string,
+    fromAgentSessionId: string,
     project: SessionProjectContext | null
   ): Promise<string>
   /**

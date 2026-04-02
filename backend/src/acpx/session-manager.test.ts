@@ -286,7 +286,7 @@ describe('AcpxSessionManager', () => {
 
     it('passes --from flag to acpx when continuing', async () => {
       vi.mocked(spawn).mockReturnValueOnce(
-        makeSpawnMock({ stdout: [] }) as ReturnType<typeof spawn>
+        makeSpawnMock({ stdout: ['session-id: cont-999'] }) as ReturnType<typeof spawn>
       )
 
       const mgr = new AcpxSessionManager('opencode', 'OpenCode', 'opencode')
@@ -297,21 +297,20 @@ describe('AcpxSessionManager', () => {
       expect(spawnCall[1]).toContain('my-source-session-id')
     })
 
-    it('still creates a session when acpx fails (no acpxSessionId)', async () => {
+    it('throws when acpx fails to return a session id', async () => {
       vi.mocked(spawn).mockReturnValueOnce(
         makeSpawnMock({ exitCode: 1 }) as ReturnType<typeof spawn>
       )
 
       const mgr = new AcpxSessionManager('opencode', 'OpenCode', 'opencode')
-      const sessionId = await mgr.continueSession('source-id', null)
-
-      expect(sessionId).toBeTruthy()
-      expect(mgr.ownsSession(sessionId)).toBe(true)
+      await expect(mgr.continueSession('source-id', null)).rejects.toThrow(
+        'Native continuation is unavailable'
+      )
     })
 
     it('uses the project path as cwd when a project is provided', async () => {
       vi.mocked(spawn).mockReturnValueOnce(
-        makeSpawnMock({ stdout: [] }) as ReturnType<typeof spawn>
+        makeSpawnMock({ stdout: ['session-id: cwd-test'] }) as ReturnType<typeof spawn>
       )
 
       const mgr = new AcpxSessionManager('opencode', 'OpenCode', 'opencode')
