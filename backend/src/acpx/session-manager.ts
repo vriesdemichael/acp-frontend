@@ -96,7 +96,7 @@ export class AcpxSessionManager implements SessionAdapter {
   }
 
   async continueSession(
-    fromAcpxSessionId: string,
+    fromAgentSessionId: string,
     project: SessionProjectContext | null
   ): Promise<string> {
     const sessionId = randomUUID()
@@ -104,7 +104,14 @@ export class AcpxSessionManager implements SessionAdapter {
 
     // Create a new acpx session that inherits context from the source session:
     // acpx <agentCommand> sessions new --from <acpx-session-id> --cwd <cwd>
-    const acpxSessionId = await this.runAcpxContinueSession(fromAcpxSessionId, cwd)
+    const acpxSessionId = await this.runAcpxContinueSession(fromAgentSessionId, cwd)
+
+    if (!acpxSessionId) {
+      throw new Error(
+        `acpx failed to create a continued session from '${fromAgentSessionId}' — ` +
+          `no session id was returned. Native continuation is unavailable.`
+      )
+    }
 
     this.sessions.set(sessionId, {
       id: sessionId,
@@ -234,13 +241,13 @@ export class AcpxSessionManager implements SessionAdapter {
    * the new session id from stdout. Returns null when acpx outputs no recognisable session id.
    */
   private async runAcpxContinueSession(
-    fromAcpxSessionId: string,
+    fromAgentSessionId: string,
     cwd: string
   ): Promise<string | null> {
     return new Promise((resolve) => {
       const proc = spawn(
         'acpx',
-        [this.agentCommand, 'sessions', 'new', '--from', fromAcpxSessionId, '--cwd', cwd],
+        [this.agentCommand, 'sessions', 'new', '--from', fromAgentSessionId, '--cwd', cwd],
         {
           stdio: ['ignore', 'pipe', 'pipe'],
           env: { ...process.env },

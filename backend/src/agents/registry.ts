@@ -189,18 +189,26 @@ export class AgentRegistry {
   ): Promise<string> {
     const targetAdapter = this.requireAdapter(targetAgentId)
 
-    // Attempt native continuation when the target adapter supports it
+    // Attempt native continuation only when we can provide a valid agent-side source session ID.
     if (targetAdapter.continueSession) {
-      // For live source sessions, look up the underlying agent session ID from the source adapter.
-      // For history sessions (not owned by any adapter) fall back to the session's own id
-      // which is the original agent-side ID.
       const sourceAdapter = this.findAdapterForSession(sourceSessionId)
-      const fromId = sourceAdapter?.getAgentSessionId
-        ? sourceAdapter.getAgentSessionId(sourceSessionId)
+
+      // History sessions are not owned by a live adapter, so their session id is already the
+      // original agent-side id. Live sessions must come from the owning adapter, and only
+      // adapters that expose `getAgentSessionId` can safely provide an id for native
+      // continuation. If the source is a live session but the adapter does not implement
+      // `getAgentSessionId`, we have no reliable agent-side id and must fall back.
+      const fromId = sourceAdapter
+        ? (sourceAdapter.getAgentSessionId?.(sourceSessionId) ?? null)
         : sourceSessionId
 
       if (fromId) {
-        return await targetAdapter.continueSession(fromId, project)
+        try {
+          return await targetAdapter.continueSession(fromId, project)
+        } catch {
+          // Native continuation failed (e.g. acpx returned no session id) — fall through to
+          // the sendHandoff fallback below so the user still gets a working session.
+        }
       }
     }
 
