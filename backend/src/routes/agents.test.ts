@@ -1,23 +1,33 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { mkdirSync, rmSync } from 'node:fs'
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
 import { Hono } from 'hono'
 import { agentsRoutes } from './agents.js'
 import type { AgentRegistry } from '../agents/registry.js'
+
+function makeTempDir(): string {
+  const dir = join(tmpdir(), `acp-agents-routes-test-${Date.now()}-${Math.random()}`)
+  mkdirSync(dir, { recursive: true })
+  return dir
+}
 
 function createRegistryStub(): AgentRegistry {
   return {
     listAgents: vi.fn(() => []),
     listBackends: vi.fn(() => [
       {
-        id: 'copilot-vscode-host',
-        name: 'GitHub Copilot VS Code (Host)',
+        id: 'copilot',
+        name: 'GitHub Copilot',
         status: 'active',
         command: null,
         detectedCommand: null,
         args: [],
         defaultArgs: [],
-        historyPathHints: ['/mnt/c/Users/vries/AppData/Roaming/Code/User/workspaceStorage'],
         enabled: true,
         usesCustomCommand: false,
+        canResume: false,
+        canLoad: false,
         endpointSupport: {
           source: 'connection',
           implemented: ['session/new'],
@@ -40,9 +50,10 @@ function createRegistryStub(): AgentRegistry {
       detectedCommand: 'custom-wrapper',
       args: ['--acp'],
       defaultArgs: ['--acp'],
-      historyPathHints: [],
       enabled: true,
       usesCustomCommand: true,
+      canResume: false,
+      canLoad: false,
       endpointSupport: {
         source: 'unknown',
         implemented: [],
@@ -57,17 +68,17 @@ function createRegistryStub(): AgentRegistry {
       lastTestResult: null,
     })),
     updateBackend: vi.fn(() => ({
-      id: 'copilot-vscode-host',
-      name: 'GitHub Copilot VS Code (Host)',
+      id: 'copilot',
+      name: 'GitHub Copilot',
       status: 'disabled',
       command: null,
       detectedCommand: null,
       args: [],
       defaultArgs: [],
-      historyPathHints: ['/tmp/copilot-hints'],
-      cliHistoryPathHints: ['/tmp/cli-hints'],
       enabled: false,
       usesCustomCommand: true,
+      canResume: false,
+      canLoad: false,
       endpointSupport: {
         source: 'unknown',
         implemented: [],
@@ -90,6 +101,24 @@ function createRegistryStub(): AgentRegistry {
 }
 
 describe('agents routes', () => {
+  let tempDir: string
+  let origEnv: string | undefined
+
+  beforeEach(() => {
+    tempDir = makeTempDir()
+    origEnv = process.env['ACP_HISTORY_SOURCES_CONFIG_PATH']
+    process.env['ACP_HISTORY_SOURCES_CONFIG_PATH'] = join(tempDir, 'history-sources.json')
+  })
+
+  afterEach(() => {
+    rmSync(tempDir, { recursive: true, force: true })
+    if (origEnv === undefined) {
+      delete process.env['ACP_HISTORY_SOURCES_CONFIG_PATH']
+    } else {
+      process.env['ACP_HISTORY_SOURCES_CONFIG_PATH'] = origEnv
+    }
+  })
+
   it('returns backend settings', async () => {
     const registry = createRegistryStub()
     const app = new Hono().route('/api', agentsRoutes(registry))
@@ -98,33 +127,26 @@ describe('agents routes', () => {
     expect(res.status).toBe(200)
 
     const body = (await res.json()) as Array<{ id: string; enabled: boolean }>
-    expect(body[0]).toMatchObject({ id: 'copilot-vscode-host', enabled: true })
+    expect(body[0]).toMatchObject({ id: 'copilot', enabled: true })
   })
 
   it('updates a backend config', async () => {
     const registry = createRegistryStub()
     const app = new Hono().route('/api', agentsRoutes(registry))
 
-    const res = await app.request('/api/backends/copilot-vscode-host', {
+    const res = await app.request('/api/backends/copilot', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         enabled: false,
         command: 'copilot-wrapper',
         args: ['--stdio'],
-        historyPathHints: ['/tmp/copilot-hints'],
-        cliHistoryPathHints: ['/tmp/cli-hints'],
       }),
     })
 
     expect(res.status).toBe(200)
     const body = (await res.json()) as { enabled: boolean; command: string }
-    expect(body).toMatchObject({
-      enabled: false,
-      command: null,
-      historyPathHints: ['/tmp/copilot-hints'],
-      cliHistoryPathHints: ['/tmp/cli-hints'],
-    })
+    expect(body).toMatchObject({ enabled: false, command: null })
   })
 
   it('creates a custom backend config', async () => {
@@ -140,5 +162,66 @@ describe('agents routes', () => {
     expect(res.status).toBe(201)
     const body = (await res.json()) as { id: string; command: string }
     expect(body).toMatchObject({ id: 'custom-wrapper', command: 'custom-wrapper' })
+  })
+
+  describe('history-sources routes', () => {
+    it('GET /history-sources returns default sources', async () => {
+      const registry = createRegistryStub()
+      const app = new Hono().route('/api', agentsRoutes(registry))
+
+      const res = await app.request('/api/history-sources')
+      expect(res.status).toBe(200)
+
+      const body = (await res.json()) as Array<{ provider: string }>
+      expect(body.map((s) => s.provider)).toEqual(
+        expect.arrayContaining(['copilot', 'gemini', 'opencode'])
+      )
+    })
+
+    it('PATCH /history-sources/copilot updates copilot paths', async () => {
+      const registry = createRegistryStub()
+      const app = new Hono().route('/api', agentsRoutes(registry))
+
+      const res = await app.request('/api/history-sources/copilot', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paths: ['/a/b'], cliPaths: ['/c/d'] }),
+      })
+
+      expect(res.status).toBe(200)
+      const body = (await res.json()) as { provider: string; paths: string[]; cliPaths: string[] }
+      expect(body.provider).toBe('copilot')
+      expect(body.paths).toEqual(['/a/b'])
+      expect(body.cliPaths).toEqual(['/c/d'])
+    })
+
+    it('PATCH /history-sources/gemini updates gemini paths', async () => {
+      const registry = createRegistryStub()
+      const app = new Hono().route('/api', agentsRoutes(registry))
+
+      const res = await app.request('/api/history-sources/gemini', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paths: ['/gemini/path'] }),
+      })
+
+      expect(res.status).toBe(200)
+      const body = (await res.json()) as { provider: string; paths: string[] }
+      expect(body.provider).toBe('gemini')
+      expect(body.paths).toEqual(['/gemini/path'])
+    })
+
+    it('PATCH /history-sources/:provider returns 404 for unknown provider', async () => {
+      const registry = createRegistryStub()
+      const app = new Hono().route('/api', agentsRoutes(registry))
+
+      const res = await app.request('/api/history-sources/unknown-provider', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paths: [] }),
+      })
+
+      expect(res.status).toBe(404)
+    })
   })
 })

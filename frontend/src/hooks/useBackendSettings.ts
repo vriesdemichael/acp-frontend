@@ -65,9 +65,6 @@ export interface BackendSummary {
   detectedCommand: string | null
   args: string[]
   defaultArgs: string[]
-  historyPathHints: string[]
-  /** CLI session-state directory hints. Only used by the `copilot` backend. */
-  cliHistoryPathHints: string[]
   enabled: boolean
   usesCustomCommand: boolean
   endpointSupport: BackendEndpointSupport
@@ -79,11 +76,20 @@ export interface BackendSummary {
   } | null
 }
 
+export type HistoryProvider = 'gemini' | 'copilot' | 'opencode'
+
+export interface HistorySourceConfig {
+  provider: HistoryProvider
+  /** VS Code workspace storage roots (or generic search roots for non-Copilot providers). */
+  paths: string[]
+  /** CLI session-state directory paths. Only meaningful for `copilot`. */
+  cliPaths?: string[]
+}
+
 export function useBackendSettings() {
   const [backends, setBackends] = useState<BackendSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [savingId, setSavingId] = useState<string | null>(null)
-  const [testingId, setTestingId] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   const loadBackends = useCallback(async () => {
@@ -117,8 +123,6 @@ export function useBackendSettings() {
         command?: string | null
         args?: string[]
         name?: string
-        historyPathHints?: string[]
-        cliHistoryPathHints?: string[]
       }
     ) => {
       setSavingId(backendId)
@@ -149,32 +153,6 @@ export function useBackendSettings() {
     },
     []
   )
-
-  const testBackend = useCallback(async (backendId: string) => {
-    setTestingId(backendId)
-    setErrorMessage(null)
-
-    try {
-      const response = await fetch(`/api/backends/${encodeURIComponent(backendId)}/test`, {
-        method: 'POST',
-      })
-
-      if (!response.ok) {
-        throw new Error(`Backend test failed with status ${response.status}`)
-      }
-
-      const updated = (await response.json()) as BackendSummary
-      setBackends((current) =>
-        current.map((backend) => (backend.id === backendId ? updated : backend))
-      )
-    } catch (error) {
-      console.error('[useBackendSettings] test failed:', error)
-      setErrorMessage('Unable to test this backend right now.')
-      throw error
-    } finally {
-      setTestingId(null)
-    }
-  }, [])
 
   const addBackend = useCallback(
     async (input: { name: string; command: string; args?: string[] }) => {
@@ -209,7 +187,72 @@ export function useBackendSettings() {
     loading,
     saveBackend,
     savingId,
-    testBackend,
-    testingId,
+  }
+}
+
+export function useHistorySources() {
+  const [sources, setSources] = useState<HistorySourceConfig[]>([])
+  const [loading, setLoading] = useState(true)
+  const [savingProvider, setSavingProvider] = useState<HistoryProvider | null>(null)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+
+  const loadSources = useCallback(async () => {
+    setLoading(true)
+    setErrorMessage(null)
+
+    try {
+      const response = await fetch('/api/history-sources')
+      if (!response.ok) {
+        throw new Error(`History sources failed with status ${response.status}`)
+      }
+
+      setSources((await response.json()) as HistorySourceConfig[])
+    } catch (error) {
+      console.error('[useHistorySources] load failed:', error)
+      setErrorMessage('Unable to load history sources right now.')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void loadSources()
+  }, [loadSources])
+
+  const saveSource = useCallback(
+    async (provider: HistoryProvider, patch: { paths?: string[]; cliPaths?: string[] }) => {
+      setSavingProvider(provider)
+      setErrorMessage(null)
+
+      try {
+        const response = await fetch(`/api/history-sources/${encodeURIComponent(provider)}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(patch),
+        })
+
+        if (!response.ok) {
+          throw new Error(`History source save failed with status ${response.status}`)
+        }
+
+        const updated = (await response.json()) as HistorySourceConfig
+        setSources((current) => current.map((s) => (s.provider === provider ? updated : s)))
+      } catch (error) {
+        console.error('[useHistorySources] save failed:', error)
+        setErrorMessage('Unable to save history source settings right now.')
+        throw error
+      } finally {
+        setSavingProvider(null)
+      }
+    },
+    []
+  )
+
+  return {
+    sources,
+    loading,
+    saveSource,
+    savingProvider,
+    errorMessage,
   }
 }

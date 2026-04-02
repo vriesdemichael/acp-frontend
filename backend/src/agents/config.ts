@@ -9,13 +9,6 @@ export interface BackendDefinitionRecord {
   commandCandidates: string[]
   command: string | null
   args: string[]
-  /** VS Code workspace storage root paths to search for history. */
-  historyPathHints?: string[]
-  /**
-   * CLI session-state directory paths (WSL or Host) to search for history.
-   * Only meaningful for the `copilot` backend.
-   */
-  cliHistoryPathHints?: string[]
 }
 
 interface BackendConfigFile {
@@ -39,8 +32,6 @@ const DEFAULT_BACKENDS: BackendDefinitionRecord[] = [
     commandCandidates: ['copilot'],
     command: null,
     args: ['--acp'],
-    historyPathHints: [],
-    cliHistoryPathHints: [],
   },
   {
     id: 'claude-code',
@@ -49,7 +40,6 @@ const DEFAULT_BACKENDS: BackendDefinitionRecord[] = [
     commandCandidates: ['claude', 'claude-code'],
     command: null,
     args: ['--acp'],
-    historyPathHints: [],
   },
   {
     id: 'gemini-cli',
@@ -58,7 +48,6 @@ const DEFAULT_BACKENDS: BackendDefinitionRecord[] = [
     commandCandidates: ['gemini'],
     command: null,
     args: ['--acp'],
-    historyPathHints: [],
   },
   {
     id: 'codex',
@@ -67,7 +56,6 @@ const DEFAULT_BACKENDS: BackendDefinitionRecord[] = [
     commandCandidates: ['codex'],
     command: null,
     args: ['--acp'],
-    historyPathHints: [],
   },
   {
     id: 'opencode',
@@ -76,7 +64,6 @@ const DEFAULT_BACKENDS: BackendDefinitionRecord[] = [
     commandCandidates: ['opencode'],
     command: null,
     args: ['acp'],
-    historyPathHints: [],
   },
 ]
 
@@ -96,9 +83,8 @@ export function readBackendConfig(): BackendDefinitionRecord[] {
  * Migrate old split Copilot backend records (copilot-cli-wsl, copilot-cli-host,
  * copilot-vscode-host, copilot-vscode-wsl) into a single `copilot` backend.
  * Any user-customized command/args from the CLI backends are preserved.
- * All historyPathHints are merged into `historyPathHints` (VS Code roots).
- * Paths that look like CLI session-state directories (absolute paths containing
- * '.copilot' but not 'workspaceStorage') are also placed in `cliHistoryPathHints`.
+ * History path hints previously stored on these records are no longer part of
+ * `BackendDefinitionRecord` — they live in `history-sources.json` now.
  * Non-Copilot backends are unchanged.
  * Does not delete unknown custom user backends.
  */
@@ -118,21 +104,12 @@ function migrateLegacyCopilotBackends(
     return otherBackends
   }
 
-  // Merge legacy backends into a single copilot record
+  // Merge legacy backends into a single copilot record.
   // Prefer a backend with an explicit command (i.e., the CLI backend the user configured)
   // over a history-only record that only has commandCandidates but no resolved command.
   const cliBackend =
     legacyBackends.find((b) => b.command !== null) ??
     legacyBackends.find((b) => b.commandCandidates.length > 0)
-  const allHints = Array.from(
-    new Set(legacyBackends.flatMap((b) => b.historyPathHints ?? []).filter(Boolean))
-  )
-  // CLI-specific roots: absolute paths that look like CLI session-state dirs (contain '.copilot').
-  // Paths containing 'workspaceStorage' are VS Code workspace storage paths, not CLI dirs,
-  // so they must stay in historyPathHints only.
-  const cliHints = allHints.filter(
-    (p) => p.startsWith('/') && p.includes('.copilot') && !p.includes('workspaceStorage')
-  )
   const enabled = legacyBackends.some((b) => b.enabled)
 
   const merged: BackendDefinitionRecord = {
@@ -142,8 +119,6 @@ function migrateLegacyCopilotBackends(
     commandCandidates: cliBackend?.commandCandidates ?? ['copilot'],
     command: cliBackend?.command ?? null,
     args: cliBackend?.args ?? ['--acp'],
-    historyPathHints: allHints,
-    cliHistoryPathHints: cliHints,
   }
 
   return [merged, ...otherBackends]
@@ -192,7 +167,7 @@ function normalizeBackendRecord(record: BackendDefinitionRecord): BackendDefinit
   return {
     id: record.id,
     name: record.name,
-    enabled: record.enabled ?? true,
+    enabled: (record as { enabled?: boolean }).enabled ?? true,
     commandCandidates: Array.isArray(record.commandCandidates)
       ? record.commandCandidates.filter((value): value is string => typeof value === 'string')
       : [],
@@ -200,12 +175,6 @@ function normalizeBackendRecord(record: BackendDefinitionRecord): BackendDefinit
       typeof record.command === 'string' && record.command.trim() ? record.command.trim() : null,
     args: Array.isArray(record.args)
       ? record.args.filter((value): value is string => typeof value === 'string')
-      : [],
-    historyPathHints: Array.isArray(record.historyPathHints)
-      ? record.historyPathHints.filter((value): value is string => typeof value === 'string')
-      : [],
-    cliHistoryPathHints: Array.isArray(record.cliHistoryPathHints)
-      ? record.cliHistoryPathHints.filter((value): value is string => typeof value === 'string')
       : [],
   }
 }

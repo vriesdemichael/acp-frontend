@@ -11,6 +11,13 @@ const mergeSessionsMock = vi.fn((live, history) => [...history, ...live])
 const readBackendConfigMock = vi.fn()
 const detectAvailableCommandMock = vi.fn(() => ({ command: null }))
 const getHistorySourceDescriptorsMock = vi.fn<(...args: unknown[]) => unknown[]>(() => [])
+const getHistoryHintsForProviderMock = vi.fn(
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  (_provider: string) => ({
+    historyPathHints: [] as string[],
+    cliHistoryPathHints: [] as string[],
+  })
+)
 
 vi.mock('../projects/service.js', () => ({
   listProjects: listProjectsMock,
@@ -22,6 +29,10 @@ vi.mock('../history/index.js', () => ({
   listHistorySessions: listHistorySessionsMock,
   mergeSessions: mergeSessionsMock,
   HISTORY_AGENT_IDS: new Set(['gemini-cli', 'copilot', 'opencode']),
+}))
+
+vi.mock('../history/sources-config.js', () => ({
+  getHistoryHintsForProvider: getHistoryHintsForProviderMock,
 }))
 
 vi.mock('./config.js', () => ({
@@ -61,8 +72,6 @@ describe('AgentRegistry.listSessions', () => {
         commandCandidates: ['copilot'],
         command: 'copilot',
         args: ['--acp'],
-        historyPathHints: ['/tmp/copilot-vscode'],
-        cliHistoryPathHints: [],
       },
       {
         id: 'gemini-cli',
@@ -71,9 +80,15 @@ describe('AgentRegistry.listSessions', () => {
         commandCandidates: ['gemini'],
         command: null,
         args: ['--acp'],
-        historyPathHints: [],
       },
     ])
+
+    getHistoryHintsForProviderMock.mockImplementation((provider: string) => {
+      if (provider === 'copilot')
+        return { historyPathHints: ['/tmp/copilot-vscode'], cliHistoryPathHints: [] }
+      if (provider === 'gemini') return { historyPathHints: [], cliHistoryPathHints: [] }
+      return { historyPathHints: [], cliHistoryPathHints: [] }
+    })
 
     listProjectsMock.mockReturnValue([
       {
@@ -267,10 +282,13 @@ describe('AgentRegistry.listBackends', () => {
         commandCandidates: ['opencode'],
         command: 'opencode',
         args: ['--acp'],
-        historyPathHints: [],
       },
     ])
     listProjectsMock.mockReturnValue([])
+    getHistoryHintsForProviderMock.mockReturnValue({
+      historyPathHints: [],
+      cliHistoryPathHints: [],
+    })
   })
 
   it('reports OpenCode history compatibility support', async () => {
@@ -311,9 +329,13 @@ describe('AgentRegistry.listBackends', () => {
         commandCandidates: ['copilot'],
         command: null,
         args: ['--acp'],
-        historyPathHints: ['/mnt/c/Users/vries/AppData/Roaming/Code/User/workspaceStorage'],
       },
     ])
+
+    getHistoryHintsForProviderMock.mockReturnValue({
+      historyPathHints: ['/mnt/c/Users/vries/AppData/Roaming/Code/User/workspaceStorage'],
+      cliHistoryPathHints: [],
+    })
 
     getHistorySourceDescriptorsMock.mockReturnValue([
       {
@@ -335,7 +357,6 @@ describe('AgentRegistry.listBackends', () => {
     expect(registry.listBackends()).toEqual([
       expect.objectContaining({
         id: 'copilot',
-        historyPathHints: ['/mnt/c/Users/vries/AppData/Roaming/Code/User/workspaceStorage'],
         historySupport: {
           source: 'derived',
           supported: ['text', 'markdown', 'reasoning', 'tool_calls', 'truncation'],
