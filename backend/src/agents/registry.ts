@@ -174,6 +174,44 @@ export class AgentRegistry {
     return sessionId
   }
 
+  /**
+   * Resume a source session on the target agent. Prefers native `continueSession` (acpx
+   * `--from`) when both the source and target adapters support it, otherwise falls back to
+   * creating a blank session and injecting the prior transcript via `sendHandoff`.
+   *
+   * Returns the new internal session ID.
+   */
+  async resumeSession(
+    sourceSessionId: string,
+    sourceSession: SessionDetails,
+    targetAgentId: string,
+    project: SessionProjectContext | null
+  ): Promise<string> {
+    const targetAdapter = this.requireAdapter(targetAgentId)
+
+    // Attempt native continuation when the target adapter supports it
+    if (targetAdapter.continueSession) {
+      // For live source sessions, look up the underlying agent session ID from the source adapter.
+      // For history sessions (not owned by any adapter) fall back to the session's own id
+      // which is the original agent-side ID.
+      const sourceAdapter = this.findAdapterForSession(sourceSessionId)
+      const fromId = sourceAdapter?.getAgentSessionId
+        ? sourceAdapter.getAgentSessionId(sourceSessionId)
+        : sourceSessionId
+
+      if (fromId) {
+        return await targetAdapter.continueSession(fromId, project)
+      }
+    }
+
+    // Fallback: blank new session + transcript handoff
+    const newSessionId = await targetAdapter.newSession(project)
+    if (sourceSession.messages.length > 0) {
+      await targetAdapter.sendHandoff(newSessionId, sourceSession.messages)
+    }
+    return newSessionId
+  }
+
   listSessions(): SessionSummary[] {
     const liveSessions = this.agents.flatMap((agent) => agent.adapter?.listSessions() ?? [])
 

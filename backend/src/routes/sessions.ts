@@ -96,13 +96,12 @@ export function sessionsRoutes(registry: AgentRegistry): Hono {
     }
 
     try {
-      const newSessionId = await registry.createSession(agentId, projectResult.project)
-
-      // Forward the prior conversation to the new session via an EmbeddedResource
-      // content block so the target agent receives it as structured context.
-      if (sourceSession.messages.length > 0) {
-        await registry.sendHandoff(newSessionId, sourceSession.messages, agentId)
-      }
+      const newSessionId = await registry.resumeSession(
+        sessionId,
+        sourceSession,
+        agentId,
+        projectResult.project
+      )
 
       return c.json(registry.getSession(newSessionId), 201)
     } catch (error) {
