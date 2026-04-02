@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { streamSSE } from 'hono/streaming'
-import type { BaseEvent } from '@ag-ui/core'
+import type { BaseStreamEvent } from '../stream-events.js'
 import type { AgentRegistry } from '../agents/registry.js'
 
 export function streamRoute(registry: AgentRegistry): Hono {
@@ -22,7 +22,7 @@ export function streamRoute(registry: AgentRegistry): Hono {
         return
       }
 
-      const listener = (event: BaseEvent) => {
+      const listener = (event: BaseStreamEvent) => {
         void stream.writeSSE({
           event: event.type,
           data: JSON.stringify(event),

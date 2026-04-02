@@ -1,4 +1,3 @@
-import type { McpServer } from '@agentclientprotocol/sdk'
 import type { EventEmitter } from 'node:events'
 
 export type AgentStatus = 'active' | 'disabled' | 'detected' | 'unavailable'
@@ -283,17 +282,13 @@ export interface SessionAdapter {
   readonly events: EventEmitter
   getEndpointSupport(): BackendEndpointSupport
   ownsSession(sessionId: string): boolean
-  newSession(project: SessionProjectContext | null, mcpServers?: McpServer[]): Promise<string>
+  newSession(project: SessionProjectContext | null): Promise<string>
   /**
    * Load an existing session by its original agent-side session ID (e.g. opencode DB UUID).
    * Returns the new internal frontend session ID. Only available on adapters that wrap an
    * ACP agent that advertises the `loadSession` capability.
    */
-  loadSession?(
-    acpSessionId: string,
-    project: SessionProjectContext | null,
-    mcpServers?: McpServer[]
-  ): Promise<string>
+  loadSession?(acpSessionId: string, project: SessionProjectContext | null): Promise<string>
   sendMessage(sessionId: string, text: string): Promise<void>
   /**
    * Send a structured handoff prompt containing prior conversation history.
@@ -304,11 +299,6 @@ export interface SessionAdapter {
   closeSession(sessionId: string): void
   listSessions(): SessionSummary[]
   getSession(sessionId: string): SessionDetails | null
-  /**
-   * Switch the model for an active session via ACP `session/set_model`.
-   * Optional — only implemented by adapters whose agent advertises model selection.
-   */
-  setSessionModel?(sessionId: string, modelId: string): Promise<void>
 }
 
 export type RegistryErrorCode =

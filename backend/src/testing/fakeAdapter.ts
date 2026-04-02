@@ -1,6 +1,7 @@
 import { EventEmitter } from 'node:events'
 import { randomUUID } from 'node:crypto'
-import { EventType, type BaseEvent } from '@ag-ui/core'
+import { StreamEvent } from '../stream-events.js'
+import type { BaseStreamEvent } from '../stream-events.js'
 import type {
   BackendEndpointSupport,
   SessionAdapter,
@@ -70,12 +71,12 @@ export class FakeSessionAdapter implements SessionAdapter {
 
     const assistantMessageId = `assistant-${randomUUID()}`
     const reply = `Acknowledged: ${text}`
-    const streamEvents: BaseEvent[] = [
-      { type: EventType.RUN_STARTED, threadId: sessionId, runId: randomUUID() },
-      { type: EventType.TEXT_MESSAGE_START, messageId: assistantMessageId, role: 'assistant' },
-      { type: EventType.TEXT_MESSAGE_CONTENT, messageId: assistantMessageId, delta: reply },
-      { type: EventType.TEXT_MESSAGE_END, messageId: assistantMessageId },
-      { type: EventType.RUN_FINISHED, threadId: sessionId, runId: randomUUID() },
+    const streamEvents: BaseStreamEvent[] = [
+      { type: StreamEvent.RUN_STARTED, threadId: sessionId, runId: randomUUID() },
+      { type: StreamEvent.TEXT_MESSAGE_START, messageId: assistantMessageId, role: 'assistant' },
+      { type: StreamEvent.TEXT_MESSAGE_CONTENT, messageId: assistantMessageId, delta: reply },
+      { type: StreamEvent.TEXT_MESSAGE_END, messageId: assistantMessageId },
+      { type: StreamEvent.RUN_FINISHED, threadId: sessionId, runId: randomUUID() },
     ]
 
     session.messages.push({ id: assistantMessageId, role: 'assistant', content: reply })

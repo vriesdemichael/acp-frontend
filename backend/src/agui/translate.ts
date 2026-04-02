@@ -1,18 +1,9 @@
 import { randomUUID } from 'node:crypto'
-import {
-  EventType,
-  type BaseEvent,
-  type CustomEvent,
-  type RunErrorEvent,
-  type RunFinishedEvent,
-  type RunStartedEvent,
-  type TextMessageContentEvent,
-  type TextMessageEndEvent,
-  type TextMessageStartEvent,
-  type ToolCallResultEvent,
-  type ToolCallStartEvent,
-} from '@ag-ui/core'
+import { StreamEvent } from '../stream-events.js'
+import type { BaseStreamEvent } from '../stream-events.js'
 import type { Content, SessionUpdate, ToolCallUpdate } from '@agentclientprotocol/sdk'
+
+export type { BaseStreamEvent }
 
 export class StreamTranslator {
   private currentMessageId: string | null = null
@@ -23,39 +14,39 @@ export class StreamTranslator {
     readonly runId: string
   ) {}
 
-  onRunStart(): RunStartedEvent[] {
+  onRunStart(): BaseStreamEvent[] {
     return [
       {
-        type: EventType.RUN_STARTED,
+        type: StreamEvent.RUN_STARTED,
         threadId: this.threadId,
         runId: this.runId,
       },
     ]
   }
 
-  onSessionUpdate(update: SessionUpdate): BaseEvent[] {
+  onSessionUpdate(update: SessionUpdate): BaseStreamEvent[] {
     switch (update.sessionUpdate) {
       case 'agent_message_chunk': {
         const content = extractTextContent(update.content)
         if (content === null) return []
 
         const messageId = update.messageId ?? this.currentMessageId ?? randomUUID()
-        const events: BaseEvent[] = []
+        const events: BaseStreamEvent[] = []
 
         if (this.currentMessageId !== messageId) {
           this.currentMessageId = messageId
           events.push({
-            type: EventType.TEXT_MESSAGE_START,
+            type: StreamEvent.TEXT_MESSAGE_START,
             messageId,
             role: 'assistant',
-          } satisfies TextMessageStartEvent)
+          })
         }
 
         events.push({
-          type: EventType.TEXT_MESSAGE_CONTENT,
+          type: StreamEvent.TEXT_MESSAGE_CONTENT,
           messageId,
           delta: content,
-        } satisfies TextMessageContentEvent)
+        })
 
         return events
       }
@@ -65,20 +56,20 @@ export class StreamTranslator {
         this.toolCallNames.set(update.toolCallId, toolName)
         return [
           {
-            type: EventType.TOOL_CALL_START,
+            type: StreamEvent.TOOL_CALL_START,
             toolCallId: update.toolCallId,
             toolCallName: update.title,
             parentMessageId: this.currentMessageId ?? undefined,
-          } satisfies ToolCallStartEvent,
+          },
           {
-            type: EventType.CUSTOM,
+            type: StreamEvent.CUSTOM,
             name: 'a2ui:tool_call',
             value: {
               callId: update.toolCallId,
               toolName,
               done: false,
             },
-          } satisfies CustomEvent,
+          },
         ]
       }
 
@@ -90,14 +81,14 @@ export class StreamTranslator {
 
         return [
           {
-            type: EventType.TOOL_CALL_RESULT,
+            type: StreamEvent.TOOL_CALL_RESULT,
             toolCallId: update.toolCallId,
             messageId: this.currentMessageId ?? randomUUID(),
             content: resultText,
             role: 'tool',
-          } satisfies ToolCallResultEvent,
+          },
           {
-            type: EventType.CUSTOM,
+            type: StreamEvent.CUSTOM,
             name: 'a2ui:tool_call',
             value: {
               callId: update.toolCallId,
@@ -105,7 +96,7 @@ export class StreamTranslator {
               result: resultText,
               done: true,
             },
-          } satisfies CustomEvent,
+          },
         ]
       }
 
@@ -114,14 +105,14 @@ export class StreamTranslator {
     }
   }
 
-  onRunFinish(): BaseEvent[] {
-    const events: BaseEvent[] = []
+  onRunFinish(): BaseStreamEvent[] {
+    const events: BaseStreamEvent[] = []
 
     if (this.currentMessageId !== null) {
       events.push({
-        type: EventType.TEXT_MESSAGE_END,
+        type: StreamEvent.TEXT_MESSAGE_END,
         messageId: this.currentMessageId,
-      } satisfies TextMessageEndEvent)
+      })
       this.currentMessageId = null
     }
 
@@ -129,16 +120,16 @@ export class StreamTranslator {
     this.toolCallNames.clear()
 
     events.push({
-      type: EventType.RUN_FINISHED,
+      type: StreamEvent.RUN_FINISHED,
       threadId: this.threadId,
       runId: this.runId,
-    } satisfies RunFinishedEvent)
+    })
 
     return events
   }
 
-  onRunError(message: string): RunErrorEvent[] {
-    return [{ type: EventType.RUN_ERROR, message }]
+  onRunError(message: string): BaseStreamEvent[] {
+    return [{ type: StreamEvent.RUN_ERROR, message }]
   }
 }
 

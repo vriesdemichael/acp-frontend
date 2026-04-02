@@ -1,6 +1,3 @@
-import type { CopilotAdapter } from '../adapters/copilot/adapter.js'
-import { CopilotProcess, isCopilotAvailable } from '../adapters/copilot/process.js'
-import type { McpServer } from '@agentclientprotocol/sdk'
 import type {
   AgentSummary,
   BackendSummary,
@@ -20,9 +17,7 @@ import {
   writeBackendConfig,
   type BackendDefinitionRecord,
 } from './config.js'
-import { createGenericAcpAdapter } from '../adapters/generic/index.js'
-import { StdioAcpProcess } from '../adapters/shared/process.js'
-import { deriveEndpointSupport } from '../adapters/shared/capabilities.js'
+import { AcpxSessionManager } from '../acpx/session-manager.js'
 import type { SessionProjectContext } from './types.js'
 import { listProjects, toSessionProjectContext } from '../projects/service.js'
 import {
@@ -70,52 +65,20 @@ const UNKNOWN_ENDPOINT_SUPPORT = {
 
 export class AgentRegistry {
   private agents: RegisteredAgent[]
-  private readonly testResults = new Map<string, BackendTestResult>()
-  private readonly capabilityResults = new Map<string, BackendSummary['endpointSupport']>()
 
-  constructor(private readonly copilotAdapter: CopilotAdapter) {
+  constructor() {
     this.agents = this.buildAgents()
-    // Probe active adapters in the background so canLoad is correct on first
-    // listAgents() call without requiring an explicit testBackend() or session.
-    void this.probeActiveAdapters()
-  }
-
-  /**
-   * Quickly initialize + close each active adapter to populate capabilityResults.
-   * Errors are swallowed — this is best-effort.
-   */
-  private async probeActiveAdapters(): Promise<void> {
-    const activeAgents = this.agents.filter((a) => a.adapter && a.command)
-    await Promise.all(
-      activeAgents.map(async (agent) => {
-        if (this.capabilityResults.has(agent.id)) return
-        try {
-          await this.testBackend(agent.id)
-        } catch {
-          // Probe failed — capabilityResults remains unset; canLoad stays false.
-        }
-      })
-    )
   }
 
   listAgents(): AgentSummary[] {
     return this.agents.map((agent) => {
       const status = this.toAgentStatus(agent)
-      // Use the same endpointSupport source as listBackends() so canLoad
-      // reflects a real ACP initialize response, not just whether the method
-      // exists on the adapter class (which is true for all GenericAcpAdapter
-      // instances, including gemini-cli).
-      const endpointSupport =
-        this.capabilityResults.get(agent.id) ??
-        agent.adapter?.getEndpointSupport() ??
-        UNKNOWN_ENDPOINT_SUPPORT
+      const endpointSupport = agent.adapter?.getEndpointSupport() ?? UNKNOWN_ENDPOINT_SUPPORT
       return {
         id: agent.id,
         name: agent.name,
         status,
         command: agent.command,
-        // canResume requires a live adapter — history-only agents are active for
-        // session browsing but cannot accept a handoff without their binary.
         canResume: agent.adapter !== undefined,
         canLoad: endpointSupport.implemented.includes('session/load'),
       }
@@ -125,10 +88,7 @@ export class AgentRegistry {
   listBackends(): BackendSummary[] {
     return this.agents.map((agent) => {
       const status = this.toAgentStatus(agent)
-      const endpointSupport =
-        this.capabilityResults.get(agent.id) ??
-        agent.adapter?.getEndpointSupport() ??
-        UNKNOWN_ENDPOINT_SUPPORT
+      const endpointSupport = agent.adapter?.getEndpointSupport() ?? UNKNOWN_ENDPOINT_SUPPORT
       return {
         id: agent.id,
         name: agent.name,
@@ -207,93 +167,9 @@ export class AgentRegistry {
     return this.requireBackend(agentId)
   }
 
-  async testBackend(agentId: string): Promise<BackendSummary> {
-    const backend = this.agents.find((item) => item.id === agentId)
-    if (!backend) {
-      throw new RegistryError('unknown_backend', `Unknown backend: ${agentId}`)
-    }
-
-    if (!backend.command) {
-      throw new RegistryError('agent_unavailable', `No command configured for backend: ${agentId}`)
-    }
-
-    const testedAt = new Date().toISOString()
-
-    try {
-      const process =
-        backend.id === 'copilot' && backend.commandCandidates.includes('copilot')
-          ? new CopilotProcess({ command: backend.command, args: backend.args })
-          : new StdioAcpProcess({
-              command: backend.command,
-              args: backend.args,
-              stderrLabel: backend.id,
-            })
-
-      const info = await process.start().then(async (client) => {
-        try {
-          return await client.initialize()
-        } finally {
-          await client.close()
-        }
-      })
-
-      const endpointSupport = deriveEndpointSupport(info)
-      this.capabilityResults.set(agentId, endpointSupport)
-
-      this.testResults.set(agentId, {
-        ok: true,
-        message: 'ACP initialize succeeded.',
-        testedAt,
-      })
-
-      this.agents = this.buildAgents()
-      return this.requireBackend(agentId)
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      this.capabilityResults.delete(agentId)
-      this.testResults.set(agentId, {
-        ok: false,
-        message,
-        testedAt,
-      })
-      this.agents = this.buildAgents()
-      return this.requireBackend(agentId)
-    }
-  }
-
-  async createSession(
-    agentId: string,
-    project: SessionProjectContext | null,
-    mcpServers: McpServer[]
-  ): Promise<string> {
+  async createSession(agentId: string, project: SessionProjectContext | null): Promise<string> {
     const adapter = this.requireAdapter(agentId)
-    const sessionId = await adapter.newSession(project, mcpServers)
-    // Refresh capability results from the adapter's initialize response so that
-    // canLoad (and other endpoint flags) are accurate after the first session.
-    this.capabilityResults.set(agentId, adapter.getEndpointSupport())
-    return sessionId
-  }
-
-  /**
-   * Load an existing history session as a live session via ACP `session/load`.
-   * The `acpSessionId` is the original session ID stored in the agent's DB
-   * (e.g. the opencode SQLite UUID).  Returns the new internal frontend session ID.
-   */
-  async loadHistorySession(
-    acpSessionId: string,
-    agentId: string,
-    project: SessionProjectContext | null,
-    mcpServers: McpServer[]
-  ): Promise<string> {
-    const adapter = this.requireAdapter(agentId)
-
-    if (!adapter.loadSession) {
-      throw new RegistryError('agent_unavailable', `Agent ${agentId} does not support session/load`)
-    }
-
-    const sessionId = await adapter.loadSession(acpSessionId, project, mcpServers)
-    // Refresh capability results from the adapter's initialize response.
-    this.capabilityResults.set(agentId, adapter.getEndpointSupport())
+    const sessionId = await adapter.newSession(project)
     return sessionId
   }
 
@@ -372,23 +248,6 @@ export class AgentRegistry {
     return true
   }
 
-  async setSessionModel(sessionId: string, modelId: string): Promise<void> {
-    const adapter = this.findAdapterForSession(sessionId)
-
-    if (!adapter) {
-      throw new RegistryError('session_not_found', `Session not found: ${sessionId}`)
-    }
-
-    if (!adapter.setSessionModel) {
-      throw new RegistryError(
-        'agent_unavailable',
-        `Agent ${adapter.agentId} does not support model selection`
-      )
-    }
-
-    await adapter.setSessionModel(sessionId, modelId)
-  }
-
   resetSessions(): void {
     for (const agent of this.agents) {
       if (agent.adapter instanceof FakeSessionAdapter) {
@@ -420,15 +279,8 @@ export class AgentRegistry {
     if (backend.enabled && (effectiveCommand || useFakeBackend)) {
       if (useFakeBackend) {
         adapter = new FakeSessionAdapter(backend.id, backend.name)
-      } else if (backend.id === 'copilot' && backend.commandCandidates.includes('copilot')) {
-        adapter = isCopilotAvailable() || usesCustomCommand ? this.copilotAdapter : undefined
       } else {
-        adapter = createGenericAcpAdapter({
-          id: backend.id,
-          name: backend.name,
-          command: effectiveCommand!,
-          args: backend.args,
-        })
+        adapter = new AcpxSessionManager(backend.id, backend.name, effectiveCommand!)
       }
     }
 
@@ -448,6 +300,8 @@ export class AgentRegistry {
       lastTestResult: this.testResults.get(backend.id) ?? null,
     }
   }
+
+  private readonly testResults = new Map<string, BackendTestResult>()
 
   private toAgentStatus(agent: RegisteredAgent): AgentSummary['status'] {
     if (!agent.enabled) return 'disabled'
@@ -604,6 +458,6 @@ function uniqueBackendId(backends: BackendDefinitionRecord[], baseId: string): s
   return candidate
 }
 
-export function createAgentRegistry(copilotAdapter: CopilotAdapter): AgentRegistry {
-  return new AgentRegistry(copilotAdapter)
+export function createAgentRegistry(): AgentRegistry {
+  return new AgentRegistry()
 }

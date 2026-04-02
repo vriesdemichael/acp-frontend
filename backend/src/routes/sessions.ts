@@ -1,6 +1,5 @@
 import { Hono, type Context } from 'hono'
 import { getHistoryPatchDiff } from '../history/index.js'
-import { loadMcpServers } from '../mcp.js'
 import type { AgentRegistry } from '../agents/registry.js'
 import { isRegistryError } from '../agents/registry.js'
 import { getProjectById, toSessionProjectContext } from '../projects/service.js'
@@ -24,11 +23,7 @@ export function sessionsRoutes(registry: AgentRegistry): Hono {
     }
 
     try {
-      const sessionId = await registry.createSession(
-        agentId,
-        projectResult.project,
-        loadMcpServers()
-      )
+      const sessionId = await registry.createSession(agentId, projectResult.project)
       return c.json(registry.getSession(sessionId), 201)
     } catch (error) {
       return buildErrorResponse(c, error)
@@ -101,60 +96,13 @@ export function sessionsRoutes(registry: AgentRegistry): Hono {
     }
 
     try {
-      const newSessionId = await registry.createSession(
-        agentId,
-        projectResult.project,
-        loadMcpServers()
-      )
+      const newSessionId = await registry.createSession(agentId, projectResult.project)
 
       // Forward the prior conversation to the new session via an EmbeddedResource
       // content block so the target agent receives it as structured context.
       if (sourceSession.messages.length > 0) {
         await registry.sendHandoff(newSessionId, sourceSession.messages, agentId)
       }
-
-      return c.json(registry.getSession(newSessionId), 201)
-    } catch (error) {
-      return buildErrorResponse(c, error)
-    }
-  })
-
-  /**
-   * POST /sessions/:id/load
-   *
-   * Loads a history session as a live session using the ACP `session/load`
-   * capability. `:id` must be the original agent-side session ID (e.g. the
-   * opencode DB UUID). Body: `{ agentId, projectId? }`.
-   *
-   * Returns 201 with the new live SessionDetails on success.
-   * Returns 503 when the agent does not support `session/load`.
-   */
-  app.post('/sessions/:id/load', async (c) => {
-    const acpSessionId = c.req.param('id')
-    const body = await parseJsonBody<{ agentId?: string; projectId?: string }>(c)
-    const agentId = body.agentId?.trim()
-
-    if (!agentId) {
-      return c.json({ error: 'agentId is required' }, 400)
-    }
-
-    // Resolve the source session to pick up its project if no projectId was provided.
-    const sourceAgentId = agentId
-    const sourceSession = registry.getSession(acpSessionId, sourceAgentId)
-    const effectiveProjectId = body.projectId?.trim() ?? sourceSession?.project?.id
-    const projectResult = resolveProject(effectiveProjectId)
-
-    if (projectResult.error) {
-      return c.json({ error: projectResult.error }, { status: projectResult.status })
-    }
-
-    try {
-      const newSessionId = await registry.loadHistorySession(
-        acpSessionId,
-        agentId,
-        projectResult.project,
-        loadMcpServers()
-      )
 
       return c.json(registry.getSession(newSessionId), 201)
     } catch (error) {
@@ -186,31 +134,6 @@ export function sessionsRoutes(registry: AgentRegistry): Hono {
     }
 
     return c.json({ closed: true })
-  })
-
-  /**
-   * POST /sessions/:id/model
-   *
-   * Switches the active model for a live session via ACP `session/set_model`.
-   * Body: `{ modelId }`.
-   *
-   * Returns 200 `{ ok: true }` on success.
-   * Returns 503 when the agent does not support model selection.
-   */
-  app.post('/sessions/:id/model', async (c) => {
-    const body = await parseJsonBody<{ modelId?: string }>(c)
-    const modelId = body.modelId?.trim()
-
-    if (!modelId) {
-      return c.json({ error: 'modelId is required' }, 400)
-    }
-
-    try {
-      await registry.setSessionModel(c.req.param('id'), modelId)
-      return c.json({ ok: true })
-    } catch (error) {
-      return buildErrorResponse(c, error)
-    }
   })
 
   app.post('/testing/reset-sessions', (c) => {

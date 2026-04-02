@@ -55,21 +55,5 @@ export function agentsRoutes(registry: AgentRegistry): Hono {
     }
   })
 
-  app.post('/backends/:id/test', async (c) => {
-    const id = c.req.param('id')
-
-    try {
-      const backend = await registry.testBackend(id)
-      return c.json(backend)
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      if (message.startsWith('Unknown backend')) {
-        return c.json({ error: message }, 404)
-      }
-
-      return c.json({ error: message }, 400)
-    }
-  })
-
   return app
 }

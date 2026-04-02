@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from 'vitest'
 import { Hono } from 'hono'
 import { agentsRoutes } from './agents.js'
 import type { AgentRegistry } from '../agents/registry.js'
-import { RegistryError } from '../agents/types.js'
 
 function createRegistryStub(): AgentRegistry {
   return {
@@ -82,34 +81,6 @@ function createRegistryStub(): AgentRegistry {
       },
       lastTestResult: null,
     })),
-    testBackend: vi.fn(async () => ({
-      id: 'copilot-vscode-host',
-      name: 'GitHub Copilot VS Code (Host)',
-      status: 'active',
-      command: null,
-      detectedCommand: null,
-      args: [],
-      defaultArgs: [],
-      historyPathHints: [],
-      enabled: true,
-      usesCustomCommand: false,
-      endpointSupport: {
-        source: 'connection',
-        implemented: ['session/new', 'session/list'],
-        unknown: [],
-      },
-      historySupport: {
-        source: 'derived',
-        supported: ['text', 'markdown'],
-        discoveredSources: [],
-        discoverySummary: [],
-      },
-      lastTestResult: {
-        ok: true,
-        message: 'ACP initialize succeeded.',
-        testedAt: '2026-03-18T18:00:00.000Z',
-      },
-    })),
     listSessions: vi.fn(() => []),
     getSession: vi.fn(() => null),
     createSession: vi.fn(async () => 'session-1'),
@@ -169,36 +140,5 @@ describe('agents routes', () => {
     expect(res.status).toBe(201)
     const body = (await res.json()) as { id: string; command: string }
     expect(body).toMatchObject({ id: 'custom-wrapper', command: 'custom-wrapper' })
-  })
-
-  it('tests a backend and returns reported capabilities', async () => {
-    const registry = createRegistryStub()
-    const app = new Hono().route('/api', agentsRoutes(registry))
-
-    const res = await app.request('/api/backends/copilot-vscode-host/test', {
-      method: 'POST',
-    })
-
-    expect(res.status).toBe(200)
-    const body = (await res.json()) as {
-      endpointSupport: { source: string; implemented: string[] }
-      lastTestResult: { ok: boolean }
-    }
-    expect(body.endpointSupport).toMatchObject({ source: 'connection' })
-    expect(body.lastTestResult).toMatchObject({ ok: true })
-  })
-
-  it('returns 404 when testing an unknown backend', async () => {
-    const registry = createRegistryStub()
-    vi.mocked(registry.testBackend).mockRejectedValueOnce(
-      new RegistryError('unknown_backend', 'Unknown backend: missing')
-    )
-    const app = new Hono().route('/api', agentsRoutes(registry))
-
-    const res = await app.request('/api/backends/missing/test', {
-      method: 'POST',
-    })
-
-    expect(res.status).toBe(404)
   })
 })
