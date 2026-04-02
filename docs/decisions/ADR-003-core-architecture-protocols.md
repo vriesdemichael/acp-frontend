@@ -1,7 +1,7 @@
 ---
 number: ADR-003
 title: Core Architecture Protocols
-status: accepted
+status: superseded
 date: 2026-03-18
 ---
 
@@ -9,7 +9,7 @@ date: 2026-03-18
 
 ## Status
 
-Accepted
+Superseded by [ADR-023](ADR-023-acpx-live-session-layer.md) — the in-process ACP adapter model and AG-UI/CopilotKit usage described here are replaced by acpx subprocess delegation and local SSE event constants.
 
 ## Rationale
 

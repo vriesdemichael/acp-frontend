@@ -1,7 +1,7 @@
 ---
 number: ADR-004
 title: Supported AI Agent Integrations
-status: accepted
+status: superseded
 date: 2026-03-18
 ---
 
@@ -9,7 +9,7 @@ date: 2026-03-18
 
 ## Status
 
-Accepted
+Superseded by [ADR-023](ADR-023-acpx-live-session-layer.md) — per-agent ACP adapter implementations are replaced by acpx, which ships built-in support for all required agents (Copilot, Gemini CLI, Codex, Claude Code, opencode).
 
 ## Rationale
 

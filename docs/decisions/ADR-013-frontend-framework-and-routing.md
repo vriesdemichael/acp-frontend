@@ -1,7 +1,7 @@
 ---
 number: ADR-013
 title: Frontend Framework and Routing
-status: accepted
+status: superseded
 date: 2026-03-17
 ---
 
@@ -9,7 +9,7 @@ date: 2026-03-17
 
 ## Status
 
-Accepted — supersedes the deferred meta-framework note in ADR-002.
+Superseded by [ADR-023](ADR-023-acpx-live-session-layer.md) — React + TanStack Router is replaced by Svelte 5 with a minimal Svelte-native router.
 
 ## Rationale
 
@@ -31,12 +31,12 @@ Rationale per choice:
 
 ## Rejected Alternatives
 
-| Alternative | Reason Rejected |
-|---|---|
+| Alternative          | Reason Rejected                                                                                                                                           |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Next.js (App Router) | SSR and Server Components are unused overhead; API routes are redundant given the dedicated Node.js backend; Vercel deployment is explicitly out of scope |
-| TanStack Start | Server functions are stateless by design — incompatible with a backend that must maintain live ACP subprocess connections and SSE streams across requests |
-| Remix | Strong SSR/form focus unused here; meta-framework overhead not justified |
-| React Router (v7) | TanStack Router preferred for superior type safety; React Router is a valid fallback if compatibility issues arise |
+| TanStack Start       | Server functions are stateless by design — incompatible with a backend that must maintain live ACP subprocess connections and SSE streams across requests |
+| Remix                | Strong SSR/form focus unused here; meta-framework overhead not justified                                                                                  |
+| React Router (v7)    | TanStack Router preferred for superior type safety; React Router is a valid fallback if compatibility issues arise                                        |
 
 ## Agent Instructions
 
