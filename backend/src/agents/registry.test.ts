@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { CopilotAdapter } from '../adapters/copilot/adapter.js'
 
 const listProjectsMock = vi.fn()
 const toSessionProjectContextMock = vi.fn((project) => ({
@@ -11,8 +10,6 @@ const listHistorySessionsMock = vi.fn()
 const mergeSessionsMock = vi.fn((live, history) => [...history, ...live])
 const readBackendConfigMock = vi.fn()
 const detectAvailableCommandMock = vi.fn(() => ({ command: null }))
-const createGenericAcpAdapterMock = vi.fn()
-const isCopilotAvailableMock = vi.fn(() => false)
 const getHistorySourceDescriptorsMock = vi.fn<(...args: unknown[]) => unknown[]>(() => [])
 
 vi.mock('../projects/service.js', () => ({
@@ -37,13 +34,19 @@ vi.mock('./discovery.js', () => ({
   detectAvailableCommand: detectAvailableCommandMock,
 }))
 
-vi.mock('../adapters/generic/index.js', () => ({
-  createGenericAcpAdapter: createGenericAcpAdapterMock,
-}))
-
-vi.mock('../adapters/copilot/process.js', () => ({
-  CopilotProcess: vi.fn(),
-  isCopilotAvailable: isCopilotAvailableMock,
+vi.mock('../acpx/session-manager.js', () => ({
+  AcpxSessionManager: vi.fn().mockImplementation(function (
+    this: unknown,
+    id: string,
+    name: string
+  ) {
+    return {
+      agentId: id,
+      agentName: name,
+      listSessions: vi.fn(() => []),
+      getEndpointSupport: vi.fn(() => ({ source: 'connection', implemented: [], unknown: [] })),
+    }
+  }),
 }))
 
 describe('AgentRegistry.listSessions', () => {
@@ -102,9 +105,20 @@ describe('AgentRegistry.listSessions', () => {
       },
     ]
 
-    const copilotAdapter = {
-      listSessions: vi.fn(() => liveSessions),
-    } as unknown as CopilotAdapter
+    // Override the AcpxSessionManager mock for this test to return liveSessions
+    const { AcpxSessionManager } = await import('../acpx/session-manager.js')
+    vi.mocked(AcpxSessionManager).mockImplementationOnce(function (
+      this: unknown,
+      id: string,
+      name: string
+    ) {
+      return {
+        agentId: id,
+        agentName: name,
+        listSessions: vi.fn(() => liveSessions),
+        getEndpointSupport: vi.fn(() => ({ source: 'connection', implemented: [], unknown: [] })),
+      }
+    })
 
     listHistorySessionsMock.mockReturnValue([
       {
@@ -169,7 +183,7 @@ describe('AgentRegistry.listSessions', () => {
     ])
 
     const { AgentRegistry } = await import('./registry.js')
-    const registry = new AgentRegistry(copilotAdapter)
+    const registry = new AgentRegistry()
 
     expect(registry.listSessions()).toEqual([
       {
@@ -260,13 +274,8 @@ describe('AgentRegistry.listBackends', () => {
   })
 
   it('reports OpenCode history compatibility support', async () => {
-    const copilotAdapter = {
-      listSessions: vi.fn(() => []),
-      getEndpointSupport: vi.fn(() => ({ source: 'unknown', implemented: [], unknown: [] })),
-    } as unknown as CopilotAdapter
-
     const { AgentRegistry } = await import('./registry.js')
-    const registry = new AgentRegistry(copilotAdapter)
+    const registry = new AgentRegistry()
 
     expect(registry.listBackends()).toEqual([
       expect.objectContaining({
@@ -306,14 +315,6 @@ describe('AgentRegistry.listBackends', () => {
       },
     ])
 
-    const copilotAdapter = {
-      getEndpointSupport: vi.fn(() => ({ source: 'unknown', implemented: [], unknown: [] })),
-      listSessions: vi.fn(() => []),
-    } as unknown as CopilotAdapter
-    createGenericAcpAdapterMock.mockReturnValue({
-      getEndpointSupport: vi.fn(() => ({ source: 'unknown', implemented: [], unknown: [] })),
-      listSessions: vi.fn(() => []),
-    })
     getHistorySourceDescriptorsMock.mockReturnValue([
       {
         id: 'src-vscode',
@@ -329,7 +330,7 @@ describe('AgentRegistry.listBackends', () => {
     ])
 
     const { AgentRegistry } = await import('./registry.js')
-    const registry = new AgentRegistry(copilotAdapter)
+    const registry = new AgentRegistry()
 
     expect(registry.listBackends()).toEqual([
       expect.objectContaining({

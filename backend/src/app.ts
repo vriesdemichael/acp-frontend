@@ -4,18 +4,15 @@ import { healthRoutes } from './routes/health.js'
 import { agentsRoutes } from './routes/agents.js'
 import { sessionsRoutes } from './routes/sessions.js'
 import { streamRoute } from './routes/stream.js'
-import { copilotRoutes } from './adapters/copilot/routes.js'
-import type { CopilotAdapter } from './adapters/copilot/adapter.js'
 import { projectsRoutes } from './routes/projects.js'
 
-export function createApp(adapter: CopilotAdapter): Hono {
+export function createApp(): Hono {
   const app = new Hono()
-  const registry = createAgentRegistry(adapter)
+  const registry = createAgentRegistry()
   app.route('/', healthRoutes())
   app.route('/api', agentsRoutes(registry))
   app.route('/api', sessionsRoutes(registry))
   app.route('/api', streamRoute(registry))
   app.route('/api', projectsRoutes())
-  app.route('/api/agents/copilot', copilotRoutes(adapter))
   return app
 }

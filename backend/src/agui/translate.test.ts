@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { EventType } from '@ag-ui/core'
+import { StreamEvent } from '../stream-events.js'
 import { StreamTranslator } from './translate.js'
 
 const THREAD_ID = 'thread-1'
@@ -16,7 +16,7 @@ describe('StreamTranslator', () => {
     const events = t.onRunStart()
     expect(events).toHaveLength(1)
     expect(events[0]).toMatchObject({
-      type: EventType.RUN_STARTED,
+      type: StreamEvent.RUN_STARTED,
       threadId: THREAD_ID,
       runId: RUN_ID,
     })
@@ -28,8 +28,8 @@ describe('StreamTranslator', () => {
       content: { type: 'text', text: 'hello' },
     })
 
-    expect(events[0]).toMatchObject({ type: EventType.TEXT_MESSAGE_START, role: 'assistant' })
-    expect(events[1]).toMatchObject({ type: EventType.TEXT_MESSAGE_CONTENT, delta: 'hello' })
+    expect(events[0]).toMatchObject({ type: StreamEvent.TEXT_MESSAGE_START, role: 'assistant' })
+    expect(events[1]).toMatchObject({ type: StreamEvent.TEXT_MESSAGE_CONTENT, delta: 'hello' })
   })
 
   it('reuses the same message across successive agent text chunks', () => {
@@ -47,7 +47,7 @@ describe('StreamTranslator', () => {
     expect(first).toHaveLength(2)
     expect(second).toHaveLength(1)
     expect(second[0]).toMatchObject({
-      type: EventType.TEXT_MESSAGE_CONTENT,
+      type: StreamEvent.TEXT_MESSAGE_CONTENT,
       messageId: 'msg-1',
       delta: 'bar',
     })
@@ -62,12 +62,12 @@ describe('StreamTranslator', () => {
 
     expect(events).toHaveLength(2)
     expect(events[0]).toMatchObject({
-      type: EventType.TOOL_CALL_START,
+      type: StreamEvent.TOOL_CALL_START,
       toolCallId: 'tool-1',
       toolCallName: 'Read file',
     })
     expect(events[1]).toMatchObject({
-      type: EventType.CUSTOM,
+      type: StreamEvent.CUSTOM,
       name: 'a2ui:tool_call',
       value: { callId: 'tool-1', toolName: 'Read file', done: false },
     })
@@ -82,12 +82,12 @@ describe('StreamTranslator', () => {
 
     expect(events).toHaveLength(2)
     expect(events[0]).toMatchObject({
-      type: EventType.TOOL_CALL_RESULT,
+      type: StreamEvent.TOOL_CALL_RESULT,
       toolCallId: 'tool-1',
       content: 'done',
     })
     expect(events[1]).toMatchObject({
-      type: EventType.CUSTOM,
+      type: StreamEvent.CUSTOM,
       name: 'a2ui:tool_call',
       value: { callId: 'tool-1', result: 'done', done: true },
     })
@@ -109,12 +109,12 @@ describe('StreamTranslator', () => {
 
     expect(events).toHaveLength(2)
     expect(events[0]).toMatchObject({
-      type: EventType.TOOL_CALL_RESULT,
+      type: StreamEvent.TOOL_CALL_RESULT,
       toolCallId: 'tool-1',
       content: 'done',
     })
     expect(events[1]).toMatchObject({
-      type: EventType.CUSTOM,
+      type: StreamEvent.CUSTOM,
       name: 'a2ui:tool_call',
       value: { callId: 'tool-1', toolName: 'Read file', result: 'done', done: true },
     })
@@ -128,11 +128,11 @@ describe('StreamTranslator', () => {
     })
 
     expect(events[0]).toMatchObject({
-      type: EventType.TOOL_CALL_RESULT,
+      type: StreamEvent.TOOL_CALL_RESULT,
       content: JSON.stringify({ ok: true }),
     })
     expect(events[1]).toMatchObject({
-      type: EventType.CUSTOM,
+      type: StreamEvent.CUSTOM,
       name: 'a2ui:tool_call',
       value: { callId: 'tool-1', result: JSON.stringify({ ok: true }), done: true },
     })
@@ -145,9 +145,9 @@ describe('StreamTranslator', () => {
     })
 
     const events = t.onRunFinish()
-    expect(events[0]).toMatchObject({ type: EventType.TEXT_MESSAGE_END })
+    expect(events[0]).toMatchObject({ type: StreamEvent.TEXT_MESSAGE_END })
     expect(events[1]).toMatchObject({
-      type: EventType.RUN_FINISHED,
+      type: StreamEvent.RUN_FINISHED,
       threadId: THREAD_ID,
       runId: RUN_ID,
     })
@@ -156,6 +156,6 @@ describe('StreamTranslator', () => {
   it('emits RUN_ERROR with the message', () => {
     const events = t.onRunError('something broke')
     expect(events).toHaveLength(1)
-    expect(events[0]).toMatchObject({ type: EventType.RUN_ERROR, message: 'something broke' })
+    expect(events[0]).toMatchObject({ type: StreamEvent.RUN_ERROR, message: 'something broke' })
   })
 })
