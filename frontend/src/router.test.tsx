@@ -25,8 +25,6 @@ function mockFetch() {
               detectedCommand: null,
               args: [],
               defaultArgs: [],
-              historyPathHints: ['/mnt/c/Users/vries/AppData/Roaming/Code/User/workspaceStorage'],
-              cliHistoryPathHints: [],
               enabled: true,
               usesCustomCommand: false,
               endpointSupport: {
@@ -79,39 +77,19 @@ function mockFetch() {
       } as Response)
     }
 
-    if (url === '/api/backends/copilot-vscode-host/test' && opts?.method === 'POST') {
+    if (url === '/api/history-sources') {
       return Promise.resolve({
         ok: true,
         json: () =>
-          Promise.resolve({
-            id: 'copilot-vscode-host',
-            name: 'GitHub Copilot VS Code (Host)',
-            status: 'active',
-            command: null,
-            detectedCommand: null,
-            args: [],
-            defaultArgs: [],
-            historyPathHints: [],
-            cliHistoryPathHints: [],
-            enabled: true,
-            usesCustomCommand: false,
-            endpointSupport: {
-              source: 'connection',
-              implemented: ['session/new', 'session/list'],
-              unknown: [],
+          Promise.resolve([
+            {
+              provider: 'copilot',
+              paths: ['/mnt/c/Users/vries/AppData/Roaming/Code/User/workspaceStorage'],
+              cliPaths: [],
             },
-            historySupport: {
-              source: 'derived',
-              supported: ['text', 'markdown'],
-              discoveredSources: [],
-              discoverySummary: [],
-            },
-            lastTestResult: {
-              ok: true,
-              message: 'ACP initialize succeeded.',
-              testedAt: '2026-03-18T18:00:00.000Z',
-            },
-          }),
+            { provider: 'gemini', paths: [] },
+            { provider: 'opencode', paths: [] },
+          ]),
       } as Response)
     }
 
@@ -128,8 +106,6 @@ function mockFetch() {
             detectedCommand: 'custom-wrapper',
             args: ['--acp'],
             defaultArgs: ['--acp'],
-            historyPathHints: [],
-            cliHistoryPathHints: [],
             enabled: true,
             usesCustomCommand: true,
             endpointSupport: {
@@ -292,15 +268,17 @@ describe('app router', () => {
     await waitFor(() => expect(screen.getByText('ACP Backends')).toBeDefined())
     expect(screen.getByDisplayValue('GitHub Copilot VS Code (Host)')).toBeDefined()
     expect(screen.getByText('Add Backend')).toBeDefined()
-    expect(
-      screen.getByDisplayValue('/mnt/c/Users/vries/AppData/Roaming/Code/User/workspaceStorage')
-    ).toBeDefined()
-    expect(screen.getByText('History Sources')).toBeDefined()
+    expect(screen.getAllByText('History Sources').length).toBeGreaterThan(0)
     expect(screen.getByText('vscode_workspace_db')).toBeDefined()
     expect(screen.getByText('vscode_chat_sessions')).toBeDefined()
     expect(screen.getByText('42 sessions')).toBeDefined()
     expect(screen.getByRole('link', { name: 'Back To Chat' })).toBeDefined()
-    expect(screen.getByRole('button', { name: 'Test' })).toBeDefined()
+    // History Sources section is present (separate from backend cards)
+    await waitFor(() =>
+      expect(
+        screen.getByDisplayValue('/mnt/c/Users/vries/AppData/Roaming/Code/User/workspaceStorage')
+      ).toBeDefined()
+    )
   })
 
   it('normalizes blank chat search params to undefined', async () => {

@@ -107,14 +107,20 @@ export interface BackendSummary extends AgentSummary {
   enabled: boolean
   args: string[]
   defaultArgs: string[]
-  historyPathHints: string[]
-  /** CLI session-state directory hints. Only used by the `copilot` backend. */
-  cliHistoryPathHints: string[]
   detectedCommand: string | null
   usesCustomCommand: boolean
   endpointSupport: BackendEndpointSupport
   historySupport: HistorySupport
   lastTestResult: BackendTestResult | null
+}
+
+/** Shape returned by GET /api/history-sources and accepted by PATCH /api/history-sources/:provider. */
+export interface HistorySourceConfig {
+  provider: 'gemini' | 'copilot' | 'opencode'
+  /** VS Code workspace storage roots (or generic search roots for non-Copilot providers). */
+  paths: string[]
+  /** CLI session-state directory paths. Only meaningful for the `copilot` provider. */
+  cliPaths?: string[]
 }
 
 export interface BackendTestResult {

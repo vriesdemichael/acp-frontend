@@ -27,6 +27,8 @@ import {
   getHistorySession,
   HISTORY_AGENT_IDS,
 } from '../history/index.js'
+import { getHistoryHintsForProvider } from '../history/sources-config.js'
+import type { HistoryProvider } from '../history/sources-config.js'
 import { FakeSessionAdapter } from '../testing/fakeAdapter.js'
 
 interface RegisteredAgent {
@@ -36,8 +38,6 @@ interface RegisteredAgent {
   detectedCommand: string | null
   args: string[]
   defaultArgs: string[]
-  historyPathHints: string[]
-  cliHistoryPathHints: string[]
   enabled: boolean
   usesCustomCommand: boolean
   adapter?: SessionAdapter
@@ -61,6 +61,17 @@ const UNKNOWN_ENDPOINT_SUPPORT = {
     'terminal/*',
     'permission/request',
   ],
+}
+
+/** Agent IDs that map to a `HistoryProvider` for path-hint lookups. */
+const HISTORY_PROVIDER_IDS = new Set<string>(['copilot', 'gemini-cli', 'opencode'])
+
+/** Map from backend agent ID to the HistoryProvider key used in sources-config. */
+function toHistoryProvider(agentId: string): HistoryProvider | null {
+  if (agentId === 'copilot') return 'copilot'
+  if (agentId === 'gemini-cli') return 'gemini'
+  if (agentId === 'opencode') return 'opencode'
+  return null
 }
 
 export class AgentRegistry {
@@ -99,8 +110,6 @@ export class AgentRegistry {
         detectedCommand: agent.detectedCommand,
         args: agent.args,
         defaultArgs: agent.args,
-        historyPathHints: agent.historyPathHints,
-        cliHistoryPathHints: agent.cliHistoryPathHints,
         enabled: agent.enabled,
         usesCustomCommand: agent.usesCustomCommand,
         endpointSupport,
@@ -136,8 +145,6 @@ export class AgentRegistry {
       command?: string | null
       args?: string[]
       name?: string
-      historyPathHints?: string[]
-      cliHistoryPathHints?: string[]
     }
   ): BackendSummary {
     const config = readBackendConfig()
@@ -154,12 +161,6 @@ export class AgentRegistry {
       enabled: input.enabled ?? current.enabled,
       command: normalizeCommand(input.command ?? current.command),
       args: Array.isArray(input.args) ? input.args.filter(Boolean) : current.args,
-      historyPathHints: Array.isArray(input.historyPathHints)
-        ? input.historyPathHints.filter(Boolean)
-        : current.historyPathHints,
-      cliHistoryPathHints: Array.isArray(input.cliHistoryPathHints)
-        ? input.cliHistoryPathHints.filter(Boolean)
-        : current.cliHistoryPathHints,
     }
 
     writeBackendConfig(config)
@@ -179,11 +180,15 @@ export class AgentRegistry {
     const knownProjects = listProjects().map(toSessionProjectContext)
     const historySessions = listHistorySessions(
       knownProjects,
-      this.agents.map((agent) => ({
-        id: agent.id,
-        historyPathHints: agent.historyPathHints,
-        cliHistoryPathHints: agent.cliHistoryPathHints,
-      }))
+      this.agents.map((agent) => {
+        const provider = toHistoryProvider(agent.id)
+        const hints = provider ? getHistoryHintsForProvider(provider) : null
+        return {
+          id: agent.id,
+          historyPathHints: hints?.historyPathHints ?? [],
+          cliHistoryPathHints: hints?.cliHistoryPathHints ?? [],
+        }
+      })
     )
 
     return mergeSessions(liveSessions, historySessions)
@@ -199,11 +204,15 @@ export class AgentRegistry {
     return getHistorySession(
       sessionId,
       knownProjects,
-      this.agents.map((agent) => ({
-        id: agent.id,
-        historyPathHints: agent.historyPathHints,
-        cliHistoryPathHints: agent.cliHistoryPathHints,
-      })),
+      this.agents.map((agent) => {
+        const provider = toHistoryProvider(agent.id)
+        const hints = provider ? getHistoryHintsForProvider(provider) : null
+        return {
+          id: agent.id,
+          historyPathHints: hints?.historyPathHints ?? [],
+          cliHistoryPathHints: hints?.cliHistoryPathHints ?? [],
+        }
+      }),
       agentId
     )
   }
@@ -291,8 +300,6 @@ export class AgentRegistry {
       detectedCommand,
       args: backend.args,
       defaultArgs: backend.args,
-      historyPathHints: backend.historyPathHints ?? [],
-      cliHistoryPathHints: backend.cliHistoryPathHints ?? [],
       enabled: backend.enabled,
       usesCustomCommand,
       adapter,
@@ -344,11 +351,12 @@ export class AgentRegistry {
 }
 
 function getHistorySupport(agentId: string): HistorySupport {
-  const backend = readBackendConfig().find((entry) => entry.id === agentId)
+  const provider = toHistoryProvider(agentId)
+  const hints = provider ? getHistoryHintsForProvider(provider) : null
   const discoveredSources = getHistorySourceDescriptors(
     agentId,
-    backend?.historyPathHints ?? [],
-    backend?.cliHistoryPathHints ?? []
+    hints?.historyPathHints ?? [],
+    hints?.cliHistoryPathHints ?? []
   )
   const discoverySummary = summarizeDiscoveredSources(discoveredSources)
 
@@ -461,3 +469,6 @@ function uniqueBackendId(backends: BackendDefinitionRecord[], baseId: string): s
 export function createAgentRegistry(): AgentRegistry {
   return new AgentRegistry()
 }
+
+// Export for use from routes
+export { HISTORY_PROVIDER_IDS, toHistoryProvider }

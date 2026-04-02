@@ -2,51 +2,36 @@ import { Link } from '@tanstack/react-router'
 import { useState } from 'react'
 import {
   useBackendSettings,
+  useHistorySources,
   type BackendSummary,
+  type HistoryProvider,
+  type HistorySourceConfig,
   type HistorySourceDescriptor,
 } from '../hooks/useBackendSettings.js'
-
-// Map each path-hint textarea to the source kinds that feed it so we can
-// derive a meaningful placeholder from auto-discovered paths.
-const VSCODE_ROOT_KINDS: HistorySourceDescriptor['kind'][] = [
-  'vscode_workspace_db',
-  'vscode_chat_sessions',
-  'vscode_chat_editing_sessions',
-  'vscode_extension_resources',
-]
-const CLI_DIR_KINDS: HistorySourceDescriptor['kind'][] = ['cli_session_dir', 'cli_history_dir']
-
-/** Extract unique parent directory paths for a set of source kinds. */
-function autoDiscoveredRoots(
-  sources: HistorySourceDescriptor[],
-  kinds: HistorySourceDescriptor['kind'][]
-): string[] {
-  const kindSet = new Set<string>(kinds)
-  const paths = sources
-    .filter((s) => kindSet.has(s.kind) && s.discoveredBy === 'auto')
-    .map((s) => {
-      // For workspace-db style sources the configured root is the *parent* of
-      // the discovered path (e.g. /foo/workspaceStorage/abc → /foo/workspaceStorage).
-      const parts = s.path.split('/')
-      return parts.slice(0, -1).join('/') || s.path
-    })
-  return [...new Set(paths)]
-}
 
 export function SettingsPage() {
   const {
     backends,
-    errorMessage,
-    loading,
+    errorMessage: backendError,
+    loading: backendLoading,
     saveBackend,
     savingId,
     addBackend,
-    testBackend,
-    testingId,
   } = useBackendSettings()
+
+  const {
+    sources,
+    loading: sourcesLoading,
+    saveSource,
+    savingProvider,
+    errorMessage: sourcesError,
+  } = useHistorySources()
+
   const [newName, setNewName] = useState('')
   const [newCommand, setNewCommand] = useState('')
   const [newArgs, setNewArgs] = useState('')
+
+  const errorMessage = backendError ?? sourcesError
 
   const handleAddBackend = async () => {
     if (!newName.trim() || !newCommand.trim()) {
@@ -110,7 +95,7 @@ export function SettingsPage() {
               instead of guessing.
             </p>
 
-            {loading ? (
+            {backendLoading ? (
               <div className="mt-8 rounded-xl border border-dashed border-white/10 bg-slate-900/70 p-6 text-sm text-slate-400">
                 Loading backend settings...
               </div>
@@ -121,9 +106,7 @@ export function SettingsPage() {
                     key={backend.id}
                     backend={backend}
                     busy={savingId === backend.id}
-                    testing={testingId === backend.id}
                     onSave={saveBackend}
-                    onTest={testBackend}
                   />
                 ))}
               </div>
@@ -181,6 +164,34 @@ export function SettingsPage() {
 
           <section className="mt-8 rounded-2xl border border-white/10 bg-slate-900/60 p-4 sm:p-5">
             <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">
+              History Sources
+            </p>
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-400">
+              Configure where each AI provider stores its conversation history. These paths are used
+              to discover sessions for import. History path hints are stored separately from backend
+              connection settings.
+            </p>
+
+            {sourcesLoading ? (
+              <div className="mt-8 rounded-xl border border-dashed border-white/10 bg-slate-900/70 p-6 text-sm text-slate-400">
+                Loading history sources...
+              </div>
+            ) : (
+              <div className="mt-8 grid gap-5 xl:grid-cols-2">
+                {sources.map((source) => (
+                  <HistorySourceCard
+                    key={source.provider}
+                    source={source}
+                    busy={savingProvider === source.provider}
+                    onSave={saveSource}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section className="mt-8 rounded-2xl border border-white/10 bg-slate-900/60 p-4 sm:p-5">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">
               MCP Servers
             </p>
             <h2 className="mt-3 text-2xl font-semibold text-slate-50">MCP Configuration</h2>
@@ -200,7 +211,6 @@ export const BackendSettingsPage = SettingsPage
 interface BackendCardProps {
   backend: BackendSummary
   busy: boolean
-  testing: boolean
   onSave: (
     backendId: string,
     patch: {
@@ -208,42 +218,19 @@ interface BackendCardProps {
       command?: string | null
       args?: string[]
       name?: string
-      historyPathHints?: string[]
-      cliHistoryPathHints?: string[]
     }
   ) => Promise<void>
-  onTest: (backendId: string) => Promise<void>
 }
 
-function BackendCard({ backend, busy, testing, onSave, onTest }: BackendCardProps) {
+function BackendCard({ backend, busy, onSave }: BackendCardProps) {
   const [enabled, setEnabled] = useState(backend.enabled)
   const [name, setName] = useState(backend.name)
   const [command, setCommand] = useState(backend.command ?? '')
   const [args, setArgs] = useState(backend.args.join(' '))
-  const [historyPathHints, setHistoryPathHints] = useState(backend.historyPathHints.join('\n'))
-  const [cliHistoryPathHints, setCliHistoryPathHints] = useState(
-    backend.cliHistoryPathHints.join('\n')
-  )
 
   const detectedLabel = backend.detectedCommand
     ? `Detected: ${backend.detectedCommand}`
     : 'Not detected'
-
-  const isCopilot = backend.id === 'copilot'
-
-  // Build placeholder text from auto-discovered paths so the textarea doesn't
-  // look empty when the backend has already found the right directories.
-  const vscodeAutoRoots = isCopilot
-    ? autoDiscoveredRoots(backend.historySupport.discoveredSources, VSCODE_ROOT_KINDS)
-    : []
-  const cliAutoRoots = isCopilot
-    ? autoDiscoveredRoots(backend.historySupport.discoveredSources, CLI_DIR_KINDS)
-    : []
-
-  const vscodeRootsPlaceholder =
-    vscodeAutoRoots.length > 0 ? vscodeAutoRoots.join('\n') : 'One path per line'
-  const cliRootsPlaceholder =
-    cliAutoRoots.length > 0 ? cliAutoRoots.join('\n') : 'One path per line'
 
   const handleSave = async () => {
     await onSave(backend.id, {
@@ -251,8 +238,6 @@ function BackendCard({ backend, busy, testing, onSave, onTest }: BackendCardProp
       enabled,
       command: command.trim() || null,
       args: parseArgs(args),
-      historyPathHints: parseLines(historyPathHints),
-      cliHistoryPathHints: parseLines(cliHistoryPathHints),
     })
   }
 
@@ -306,22 +291,80 @@ function BackendCard({ backend, busy, testing, onSave, onTest }: BackendCardProp
             className="mt-2 w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-teal-500"
           />
         </label>
+      </div>
 
+      <div className="mt-3">
+        <HistorySourcesGrouped sources={backend.historySupport.discoveredSources} />
+      </div>
+
+      <div className="mt-5 flex items-center justify-between gap-3 border-t border-white/10 pt-4">
+        <p className="text-xs text-slate-500">
+          {backend.endpointSupport.source === 'connection'
+            ? 'Capabilities come from the last successful ACP initialize response.'
+            : 'Capabilities are unknown until this backend completes a live ACP handshake.'}
+        </p>
+        <button
+          type="button"
+          onClick={() => void handleSave()}
+          disabled={busy}
+          className="rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-sm font-semibold text-slate-50 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:text-slate-500"
+        >
+          {busy ? 'Saving...' : 'Save'}
+        </button>
+      </div>
+    </section>
+  )
+}
+
+interface HistorySourceCardProps {
+  source: HistorySourceConfig
+  busy: boolean
+  onSave: (
+    provider: HistoryProvider,
+    patch: { paths?: string[]; cliPaths?: string[] }
+  ) => Promise<void>
+}
+
+function HistorySourceCard({ source, busy, onSave }: HistorySourceCardProps) {
+  const [paths, setPaths] = useState(source.paths.join('\n'))
+  const [cliPaths, setCliPaths] = useState((source.cliPaths ?? []).join('\n'))
+
+  const isCopilot = source.provider === 'copilot'
+
+  const handleSave = async () => {
+    await onSave(source.provider, {
+      paths: parseLines(paths),
+      ...(isCopilot ? { cliPaths: parseLines(cliPaths) } : {}),
+    })
+  }
+
+  const providerLabel: Record<HistoryProvider, string> = {
+    copilot: 'GitHub Copilot',
+    gemini: 'Gemini CLI',
+    opencode: 'OpenCode',
+  }
+
+  return (
+    <section className="rounded-2xl border border-white/10 bg-slate-900/70 p-4 sm:p-5">
+      <p className="text-xl font-semibold text-slate-50">{providerLabel[source.provider]}</p>
+      <p className="mt-1 text-xs uppercase tracking-[0.18em] text-slate-500">{source.provider}</p>
+
+      <div className="mt-5 grid gap-4">
         <label className="block">
           <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
             {isCopilot ? 'VS Code Workspace Storage Roots' : 'History Path Hints'}
           </span>
           <textarea
-            value={historyPathHints}
-            onChange={(event) => setHistoryPathHints(event.target.value)}
-            placeholder={vscodeRootsPlaceholder}
-            rows={Math.max(3, vscodeAutoRoots.length + 1)}
+            value={paths}
+            onChange={(event) => setPaths(event.target.value)}
+            placeholder="One path per line"
+            rows={3}
             className="mt-2 w-full resize-y overflow-auto rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-teal-500"
           />
           <p className="mt-2 text-xs text-slate-500">
             {isCopilot
               ? 'Paths to VS Code workspaceStorage directories containing Copilot Chat history. Example: /home/user/.vscode-server/data/User/workspaceStorage'
-              : 'Optional extra search roots for remote hosts, copied profiles, or non-standard VS Code storage.'}
+              : 'Optional extra search roots for non-standard install locations.'}
           </p>
         </label>
 
@@ -331,10 +374,10 @@ function BackendCard({ backend, busy, testing, onSave, onTest }: BackendCardProp
               CLI Session Directories
             </span>
             <textarea
-              value={cliHistoryPathHints}
-              onChange={(event) => setCliHistoryPathHints(event.target.value)}
-              placeholder={cliRootsPlaceholder}
-              rows={Math.max(3, cliAutoRoots.length + 1)}
+              value={cliPaths}
+              onChange={(event) => setCliPaths(event.target.value)}
+              placeholder="One path per line"
+              rows={3}
               className="mt-2 w-full resize-y overflow-auto rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-teal-500"
             />
             <p className="mt-2 text-xs text-slate-500">
@@ -349,44 +392,15 @@ function BackendCard({ backend, busy, testing, onSave, onTest }: BackendCardProp
         ) : null}
       </div>
 
-      <div className="mt-3">
-        <HistorySourcesGrouped sources={backend.historySupport.discoveredSources} />
-      </div>
-
-      <div className="mt-5 flex items-center justify-between gap-3 border-t border-white/10 pt-4">
-        <div className="text-xs text-slate-500">
-          <p>
-            {backend.endpointSupport.source === 'connection'
-              ? 'Capabilities come from the last successful ACP initialize response.'
-              : 'Capabilities are unknown until this backend completes a live ACP handshake.'}
-          </p>
-          {backend.lastTestResult ? (
-            <p
-              className={backend.lastTestResult.ok ? 'mt-2 text-emerald-300' : 'mt-2 text-rose-300'}
-            >
-              {backend.lastTestResult.ok ? 'Last test passed.' : 'Last test failed.'}{' '}
-              {backend.lastTestResult.message}
-            </p>
-          ) : null}
-        </div>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => void onTest(backend.id)}
-            disabled={testing}
-            className="rounded-lg border border-teal-500/30 bg-teal-500/10 px-3 py-2 text-sm font-semibold text-teal-100 transition hover:bg-teal-500/20 disabled:cursor-not-allowed disabled:text-slate-500"
-          >
-            {testing ? 'Testing...' : 'Test'}
-          </button>
-          <button
-            type="button"
-            onClick={() => void handleSave()}
-            disabled={busy}
-            className="rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-sm font-semibold text-slate-50 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:text-slate-500"
-          >
-            {busy ? 'Saving...' : 'Save'}
-          </button>
-        </div>
+      <div className="mt-5 flex justify-end border-t border-white/10 pt-4">
+        <button
+          type="button"
+          onClick={() => void handleSave()}
+          disabled={busy}
+          className="rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-sm font-semibold text-slate-50 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:text-slate-500"
+        >
+          {busy ? 'Saving...' : 'Save'}
+        </button>
       </div>
     </section>
   )

@@ -1,5 +1,12 @@
 import { Hono } from 'hono'
 import type { AgentRegistry } from '../agents/registry.js'
+import {
+  readHistorySourcesConfig,
+  updateHistorySource,
+  type HistoryProvider,
+} from '../history/sources-config.js'
+
+const VALID_PROVIDERS = new Set<string>(['gemini', 'copilot', 'opencode'])
 
 export function agentsRoutes(registry: AgentRegistry): Hono {
   const app = new Hono()
@@ -38,8 +45,6 @@ export function agentsRoutes(registry: AgentRegistry): Hono {
       command?: string | null
       args?: string[]
       name?: string
-      historyPathHints?: string[]
-      cliHistoryPathHints?: string[]
     }>()
 
     try {
@@ -51,6 +56,38 @@ export function agentsRoutes(registry: AgentRegistry): Hono {
         return c.json({ error: message }, 404)
       }
 
+      return c.json({ error: message }, 400)
+    }
+  })
+
+  // --- History Sources ---
+
+  app.get('/history-sources', (c) => {
+    const sources = readHistorySourcesConfig()
+    return c.json(sources)
+  })
+
+  app.patch('/history-sources/:provider', async (c) => {
+    const provider = c.req.param('provider')
+
+    if (!VALID_PROVIDERS.has(provider)) {
+      return c.json({ error: `Unknown provider: ${provider}` }, 404)
+    }
+
+    const body = await c.req.json<{
+      paths?: string[]
+      cliPaths?: string[]
+    }>()
+
+    try {
+      const updated = updateHistorySource(provider as HistoryProvider, {
+        paths: body.paths,
+        cliPaths: body.cliPaths,
+      })
+      const record = updated.find((s) => s.provider === provider)
+      return c.json(record)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
       return c.json({ error: message }, 400)
     }
   })
