@@ -112,11 +112,15 @@ export class AcpxSessionManager implements SessionAdapter {
 
     try {
       await this.streamPrompt(session, text, (line) => {
-        emit(
-          translator.onSessionUpdate(
-            line as unknown as Parameters<typeof translator.onSessionUpdate>[0]
+        try {
+          emit(
+            translator.onSessionUpdate(
+              line as unknown as Parameters<typeof translator.onSessionUpdate>[0]
+            )
           )
-        )
+        } catch {
+          // Malformed or unexpected update shape — skip this line
+        }
       })
       emit(translator.onRunFinish())
     } catch (err) {
@@ -223,13 +227,26 @@ export class AcpxSessionManager implements SessionAdapter {
         }
       })
 
-      const rl = createInterface({ input: proc.stdout!, crlfDelay: Infinity })
+      if (!proc.stdout) {
+        session.proc = null
+        reject(new Error('acpx process has no stdout; spawn may have failed'))
+        return
+      }
+
+      const rl = createInterface({ input: proc.stdout, crlfDelay: Infinity })
       rl.on('line', (rawLine) => {
         const trimmed = rawLine.trim()
         if (!trimmed) return
         try {
           const parsed = JSON.parse(trimmed) as AcpxLine
-          onLine(parsed)
+          try {
+            onLine(parsed)
+          } catch (err) {
+            // onLine callback threw — reject the promise and kill the process
+            session.proc = null
+            if (!proc.killed) proc.kill('SIGTERM')
+            reject(err instanceof Error ? err : new Error(String(err)))
+          }
         } catch {
           // Non-JSON diagnostic line — ignore
         }
