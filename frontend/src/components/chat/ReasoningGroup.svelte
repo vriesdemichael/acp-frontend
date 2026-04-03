@@ -1,5 +1,6 @@
 <script lang="ts">
   import { marked } from 'marked'
+  import DOMPurify from 'isomorphic-dompurify'
   import type { A2UIReasoningPayload } from './a2ui-types.js'
 
   interface Props {
@@ -16,7 +17,8 @@
 
   function renderMarkdown(content: string): string {
     try {
-      return marked.parse(content, { async: false }) as string
+      const html = marked.parse(content, { async: false }) as string
+      return DOMPurify.sanitize(html)
     } catch {
       return content
     }

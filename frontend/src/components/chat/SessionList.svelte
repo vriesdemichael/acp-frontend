@@ -202,7 +202,7 @@
               onclick={() => handleAgentPick(agent.id)}
               class="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-slate-100 transition hover:bg-slate-800"
             >
-              <span class={agentDotClass(agent.status)} aria-label={agent.status}></span>
+              <span class={agentDotClass(agent.status)} aria-label={agentStatusLabel(agent.status)}></span>
               {agent.name}
             </button>
           {/each}

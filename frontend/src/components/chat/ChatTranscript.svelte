@@ -247,6 +247,7 @@
   import type { ChatMessage as _ChatMessage } from '../../store/chatStore.svelte.js'
   import { marked as _marked } from 'marked'
   import _hljs from 'highlight.js'
+  import DOMPurify from 'isomorphic-dompurify'
 
   // Configure marked with highlight.js
   _marked.setOptions({
@@ -361,7 +362,8 @@
   // ── Markdown rendering ─────────────────────────────────────────────────────
   function renderAssistantMarkdown(content: string): string {
     try {
-      return _marked.parse(content, { async: false }) as string
+      const html = _marked.parse(content, { async: false }) as string
+      return DOMPurify.sanitize(html)
     } catch {
       return content
     }
