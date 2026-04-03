@@ -1,12 +1,21 @@
 import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
+import { svelte } from '@sveltejs/vite-plugin-svelte'
 import tailwindcss from '@tailwindcss/vite'
 
 const BACKEND_PORT = process.env['PORT'] ?? '3001'
 
 export default defineConfig({
   root: 'frontend',
-  plugins: [tailwindcss(), react()],
+  plugins: [
+    tailwindcss(),
+    svelte({
+      onwarn(warning, defaultHandler) {
+        // Form fields intentionally seeded from props once — valid pattern.
+        if (warning.code === 'state_referenced_locally') return
+        defaultHandler(warning)
+      },
+    }),
+  ],
   build: {
     outDir: '../dist/frontend',
     emptyOutDir: true,
