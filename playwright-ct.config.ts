@@ -1,5 +1,5 @@
-import { defineConfig, devices } from '@playwright/experimental-ct-react'
-import react from '@vitejs/plugin-react'
+import { defineConfig, devices } from '@playwright/experimental-ct-svelte'
+import { svelte } from '@sveltejs/vite-plugin-svelte'
 import tailwindcss from '@tailwindcss/vite'
 import tsconfigPaths from 'vite-tsconfig-paths'
 
@@ -13,7 +13,7 @@ export default defineConfig({
     video: 'retain-on-failure',
     ctPort: 3100,
     ctViteConfig: {
-      plugins: [react(), tailwindcss(), tsconfigPaths()],
+      plugins: [svelte(), tailwindcss(), tsconfigPaths()],
     },
   },
   projects: [
