@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.3.0](https://github.com/vriesdemichael/acp-frontend/compare/acp-frontend-v1.2.1...acp-frontend-v1.3.0) (2026-04-03)
+
+
+### Features
+
+* **acpx:** replace adapter layer with AcpxSessionManager ([7508143](https://github.com/vriesdemichael/acp-frontend/commit/7508143301bc987182b0c2fc15532031088b3bce)), closes [#76](https://github.com/vriesdemichael/acp-frontend/issues/76)
+* **frontend:** align with acpx/history-sources backend architecture ([e09e92e](https://github.com/vriesdemichael/acp-frontend/commit/e09e92ec3b93a7bb43f59366605ede9bef7b2527)), closes [#87](https://github.com/vriesdemichael/acp-frontend/issues/87) [#88](https://github.com/vriesdemichael/acp-frontend/issues/88) [#89](https://github.com/vriesdemichael/acp-frontend/issues/89) [#90](https://github.com/vriesdemichael/acp-frontend/issues/90) [#91](https://github.com/vriesdemichael/acp-frontend/issues/91) [#92](https://github.com/vriesdemichael/acp-frontend/issues/92)
+* **frontend:** migrate from React to Svelte 5 ([9bef81b](https://github.com/vriesdemichael/acp-frontend/commit/9bef81b330c081d54a3e82c7bb7d6db0b6e8010a)), closes [#79](https://github.com/vriesdemichael/acp-frontend/issues/79)
+* **history:** replace backends.json path hints with history-sources.json ([475212e](https://github.com/vriesdemichael/acp-frontend/commit/475212ee1d14cec9b25bce728210a0b8a97d923c))
+* **sessions:** replace sendHandoff resume path with acpx native session continuation ([9ad27db](https://github.com/vriesdemichael/acp-frontend/commit/9ad27dbfd1ca7f9af6b1382f949f2bead63510ee)), closes [#78](https://github.com/vriesdemichael/acp-frontend/issues/78)
+
+
+### Bug Fixes
+
+* **acpx:** harden streamPrompt error handling ([dc26363](https://github.com/vriesdemichael/acp-frontend/commit/dc2636316be38afa62696bc891605d46ba85b31f))
+* **deps:** add missing storybook CLI devDependency for build:storybook ([d6ec45e](https://github.com/vriesdemichael/acp-frontend/commit/d6ec45e5f5b17d40b9f794a11dfdcd4cbd52f336))
+* **frontend:** address Copilot review on Svelte migration PR ([e3da493](https://github.com/vriesdemichael/acp-frontend/commit/e3da493e2c59b8f285535ce4d6a802b519e38e4a))
+* **history:** address PR review comments on history-sources config ([0cbb5b2](https://github.com/vriesdemichael/acp-frontend/commit/0cbb5b2e46fd26413902f88558d021cfedf99010))
+* **sessions:** address Copilot review on acpx session continuation ([5e47286](https://github.com/vriesdemichael/acp-frontend/commit/5e47286d8953a196510a4f0d56d96f5c93b79802))
+* **tests:** migrate Playwright CT config and spec from React to Svelte 5 ([9decd93](https://github.com/vriesdemichael/acp-frontend/commit/9decd938522429490a15b5705c151389cd94c005))
+
 ## [1.2.1](https://github.com/vriesdemichael/acp-frontend/compare/acp-frontend-v1.2.0...acp-frontend-v1.2.1) (2026-03-30)
 
 
