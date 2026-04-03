@@ -9,6 +9,28 @@
 
   const imageBlocks = $derived(blocks.filter((b) => b.payload.mime.startsWith('image/')))
   let viewerIndex = $state<number | null>(null)
+  let triggerButton = $state<HTMLButtonElement | null>(null)
+  let closeButton = $state<HTMLButtonElement | null>(null)
+
+  function openViewer(index: number, btn: HTMLButtonElement) {
+    triggerButton = btn
+    viewerIndex = index
+    // Focus the close button after the dialog renders
+    requestAnimationFrame(() => { closeButton?.focus() })
+  }
+
+  function closeViewer() {
+    viewerIndex = null
+    triggerButton?.focus()
+    triggerButton = null
+  }
+
+  function handleKeydown(event: KeyboardEvent) {
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      closeViewer()
+    }
+  }
 </script>
 
 <div class="space-y-2">
@@ -22,7 +44,7 @@
       {#if isImage}
         <button
           type="button"
-          onclick={() => { viewerIndex = imageIndex }}
+          onclick={(e) => { openViewer(imageIndex, e.currentTarget as HTMLButtonElement) }}
           class="shrink-0 overflow-hidden rounded-lg border border-white/10"
         >
           <img
@@ -54,7 +76,14 @@
 </div>
 
 {#if viewerIndex !== null && imageBlocks[viewerIndex]}
-  <div class="fixed inset-0 z-[80] bg-slate-950/92 p-4 backdrop-blur-sm">
+  <div
+    role="dialog"
+    aria-modal="true"
+    aria-label={`Image viewer: ${imageBlocks[viewerIndex].payload.filename}`}
+    tabindex="-1"
+    class="fixed inset-0 z-[80] bg-slate-950/92 p-4 backdrop-blur-sm"
+    onkeydown={handleKeydown}
+  >
     <div class="mx-auto flex h-full max-w-5xl flex-col">
       <div class="flex items-center justify-between gap-3 pb-4">
         <div>
@@ -70,8 +99,9 @@
             Download
           </a>
           <button
+            bind:this={closeButton}
             type="button"
-            onclick={() => { viewerIndex = null }}
+            onclick={closeViewer}
             class="rounded-full border border-white/10 px-3 py-2 text-sm text-slate-100"
           >
             Close
@@ -85,6 +115,7 @@
           onclick={() => { viewerIndex = Math.max(0, (viewerIndex ?? 0) - 1) }}
           disabled={viewerIndex === 0}
           class="rounded-full border border-white/10 px-4 py-3 text-2xl text-slate-100 disabled:opacity-30"
+          aria-label="Previous image"
         >
           ‹
         </button>
@@ -102,6 +133,7 @@
           onclick={() => { viewerIndex = Math.min(imageBlocks.length - 1, (viewerIndex ?? 0) + 1) }}
           disabled={viewerIndex === imageBlocks.length - 1}
           class="rounded-full border border-white/10 px-4 py-3 text-2xl text-slate-100 disabled:opacity-30"
+          aria-label="Next image"
         >
           ›
         </button>
