@@ -9,6 +9,7 @@ type SseHandler = (event: MessageEvent) => void
 
 class MockEventSource {
   static instance: MockEventSource | null = null
+  static instances: MockEventSource[] = []
 
   readonly url: string
   private readonly handlers: Map<string, SseHandler[]> = new Map()
@@ -18,6 +19,7 @@ class MockEventSource {
   constructor(url: string) {
     this.url = url
     MockEventSource.instance = this
+    MockEventSource.instances.push(this)
   }
 
   addEventListener(type: string, handler: SseHandler) {
@@ -233,6 +235,7 @@ function mockFetch(options?: {
 describe('ChatPage', () => {
   beforeEach(() => {
     MockEventSource.instance = null
+    MockEventSource.instances = []
     vi.stubGlobal('EventSource', MockEventSource)
     vi.stubGlobal('fetch', mockFetch())
   })
@@ -406,6 +409,160 @@ describe('ChatPage', () => {
     )
     const dots = within(sessionPanel).getAllByLabelText('online')
     expect(dots.length).toBeGreaterThan(0)
+  })
+
+  it('renders history sessions with provider-history label instead of live status dot', async () => {
+    const HISTORY_SESSION_ID = 'history-provider-row'
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
+        if (url === '/api/agents') {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve([
+                { id: 'copilot', name: 'GitHub Copilot', status: 'active', command: 'copilot' },
+              ]),
+          } as Response)
+        }
+
+        if (url === '/api/projects') {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve([
+                {
+                  id: 'acp-frontend',
+                  name: 'ACP Frontend',
+                  path: '/home/vries/projects/acp-frontend',
+                  status: 'available',
+                },
+              ]),
+          } as Response)
+        }
+
+        if (url === '/api/projects/acp-frontend/tree') {
+          return Promise.resolve({ ok: true, json: () => Promise.resolve([]) } as Response)
+        }
+
+        if (url === '/api/sessions') {
+          if (opts?.method === 'POST') {
+            return Promise.resolve({
+              ok: true,
+              status: 201,
+              json: () =>
+                Promise.resolve({
+                  id: SESSION_ID,
+                  title: 'New chat',
+                  updatedAt: '2026-03-18T08:00:00.000Z',
+                  agentId: 'copilot',
+                  source: 'live',
+                  project: {
+                    id: 'acp-frontend',
+                    name: 'ACP Frontend',
+                    path: '/home/vries/projects/acp-frontend',
+                  },
+                  messages: [],
+                }),
+            } as Response)
+          }
+
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve([
+                {
+                  id: SESSION_ID,
+                  title: 'Live copilot chat',
+                  updatedAt: '2026-03-18T08:00:00.000Z',
+                  agentId: 'copilot',
+                  source: 'live',
+                  project: {
+                    id: 'acp-frontend',
+                    name: 'ACP Frontend',
+                    path: '/home/vries/projects/acp-frontend',
+                  },
+                },
+                {
+                  id: HISTORY_SESSION_ID,
+                  title: 'Imported copilot thread',
+                  updatedAt: '2026-03-17T09:30:00.000Z',
+                  agentId: 'copilot',
+                  source: 'history',
+                  project: {
+                    id: 'acp-frontend',
+                    name: 'ACP Frontend',
+                    path: '/home/vries/projects/acp-frontend',
+                  },
+                },
+              ]),
+          } as Response)
+        }
+
+        if (
+          url === `/api/sessions/${SESSION_ID}` ||
+          url.startsWith(`/api/sessions/${SESSION_ID}?`)
+        ) {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                id: SESSION_ID,
+                title: 'Live copilot chat',
+                updatedAt: '2026-03-18T08:00:00.000Z',
+                agentId: 'copilot',
+                source: 'live',
+                project: {
+                  id: 'acp-frontend',
+                  name: 'ACP Frontend',
+                  path: '/home/vries/projects/acp-frontend',
+                },
+                messages: [],
+              }),
+          } as Response)
+        }
+
+        if (
+          url === `/api/sessions/${HISTORY_SESSION_ID}` ||
+          url.startsWith(`/api/sessions/${HISTORY_SESSION_ID}?`)
+        ) {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                id: HISTORY_SESSION_ID,
+                title: 'Imported copilot thread',
+                updatedAt: '2026-03-17T09:30:00.000Z',
+                agentId: 'copilot',
+                source: 'history',
+                project: {
+                  id: 'acp-frontend',
+                  name: 'ACP Frontend',
+                  path: '/home/vries/projects/acp-frontend',
+                },
+                messages: [],
+              }),
+          } as Response)
+        }
+
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+      })
+    )
+
+    renderChatPage('#/chat?session=test-session-id&project=acp-frontend')
+
+    const sessionPanel = await screen.findByTestId('chat-session-panel')
+    await waitFor(() =>
+      expect(within(sessionPanel).getByText('Imported copilot thread')).toBeDefined()
+    )
+
+    expect(within(sessionPanel).getByText('GitHub Copilot history')).toBeDefined()
+
+    const historyRow = within(sessionPanel)
+      .getByText('Imported copilot thread')
+      .closest('button') as HTMLElement
+    expect(historyRow).toBeDefined()
+    expect(within(historyRow).queryByLabelText('online')).toBeNull()
   })
 
   it('shows the empty transcript state once session is ready', async () => {
@@ -783,122 +940,57 @@ describe('ChatPage', () => {
     await waitFor(() => expect(window.location.hash).not.toContain(`session=${SESSION_ID}`))
   })
 
-  it('renders sessions grouped by project and updates the list when switching projects', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
-        if (url === '/api/agents') {
+  it('renders sessions grouped by project and clears active session when switching projects', async () => {
+    const fetchMock = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
+      if (url === '/api/agents') {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve([
+              { id: 'copilot', name: 'GitHub Copilot', status: 'active', command: 'copilot' },
+              { id: 'gemini-cli', name: 'Gemini CLI', status: 'active', command: 'gemini' },
+              { id: 'claude-code', name: 'Claude Code', status: 'unavailable', command: null },
+            ]),
+        } as Response)
+      }
+
+      if (url === '/api/projects') {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve([
+              {
+                id: 'acp-frontend',
+                name: 'ACP Frontend',
+                path: '/home/vries/projects/acp-frontend',
+                status: 'available',
+              },
+              {
+                id: 'docs-site',
+                name: 'Docs Site',
+                path: '/home/vries/projects/docs-site',
+                status: 'available',
+              },
+            ]),
+        } as Response)
+      }
+
+      if (url === '/api/projects/acp-frontend/tree') {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve([]),
+        } as Response)
+      }
+
+      if (url === '/api/sessions') {
+        if (opts?.method === 'POST') {
           return Promise.resolve({
             ok: true,
-            json: () =>
-              Promise.resolve([
-                { id: 'copilot', name: 'GitHub Copilot', status: 'active', command: 'copilot' },
-                { id: 'gemini-cli', name: 'Gemini CLI', status: 'active', command: 'gemini' },
-                { id: 'claude-code', name: 'Claude Code', status: 'unavailable', command: null },
-              ]),
-          } as Response)
-        }
-
-        if (url === '/api/projects') {
-          return Promise.resolve({
-            ok: true,
-            json: () =>
-              Promise.resolve([
-                {
-                  id: 'acp-frontend',
-                  name: 'ACP Frontend',
-                  path: '/home/vries/projects/acp-frontend',
-                  status: 'available',
-                },
-                {
-                  id: 'docs-site',
-                  name: 'Docs Site',
-                  path: '/home/vries/projects/docs-site',
-                  status: 'available',
-                },
-              ]),
-          } as Response)
-        }
-
-        if (url === '/api/projects/acp-frontend/tree') {
-          return Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve([]),
-          } as Response)
-        }
-
-        if (url === '/api/sessions') {
-          if (opts?.method === 'POST') {
-            return Promise.resolve({
-              ok: true,
-              status: 201,
-              json: () =>
-                Promise.resolve({
-                  id: SESSION_ID,
-                  title: 'New chat',
-                  updatedAt: '2026-03-18T08:00:00.000Z',
-                  agentId: 'copilot',
-                  project: {
-                    id: 'acp-frontend',
-                    name: 'ACP Frontend',
-                    path: '/home/vries/projects/acp-frontend',
-                  },
-                  messages: [],
-                }),
-            } as Response)
-          }
-
-          return Promise.resolve({
-            ok: true,
-            json: () =>
-              Promise.resolve([
-                {
-                  id: SESSION_ID,
-                  title: 'Inspect auth bug',
-                  updatedAt: '2026-03-18T08:00:00.000Z',
-                  agentId: 'copilot',
-                  project: {
-                    id: 'acp-frontend',
-                    name: 'ACP Frontend',
-                    path: '/home/vries/projects/acp-frontend',
-                  },
-                },
-                {
-                  id: 'gemini-session-id',
-                  title: 'Gemini discovery notes',
-                  updatedAt: '2026-03-18T10:00:00.000Z',
-                  agentId: 'gemini-cli',
-                  project: {
-                    id: 'docs-site',
-                    name: 'Docs Site',
-                    path: '/home/vries/projects/docs-site',
-                  },
-                },
-                {
-                  id: 'claude-session-id',
-                  title: 'Claude backlog',
-                  updatedAt: '2026-03-17T06:00:00.000Z',
-                  agentId: 'claude-code',
-                  project: {
-                    id: 'docs-site',
-                    name: 'Docs Site',
-                    path: '/home/vries/projects/docs-site',
-                  },
-                },
-              ]),
-          } as Response)
-        }
-
-        if (
-          url === `/api/sessions/${SESSION_ID}` ||
-          url.startsWith(`/api/sessions/${SESSION_ID}?`)
-        ) {
-          return Promise.resolve({
-            ok: true,
+            status: 201,
             json: () =>
               Promise.resolve({
                 id: SESSION_ID,
-                title: 'Inspect auth bug',
+                title: 'New chat',
                 updatedAt: '2026-03-18T08:00:00.000Z',
                 agentId: 'copilot',
                 project: {
@@ -911,9 +1003,70 @@ describe('ChatPage', () => {
           } as Response)
         }
 
-        return Promise.reject(new Error(`Unexpected fetch: ${url}`))
-      })
-    )
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve([
+              {
+                id: SESSION_ID,
+                title: 'Inspect auth bug',
+                updatedAt: '2026-03-18T08:00:00.000Z',
+                agentId: 'copilot',
+                project: {
+                  id: 'acp-frontend',
+                  name: 'ACP Frontend',
+                  path: '/home/vries/projects/acp-frontend',
+                },
+              },
+              {
+                id: 'gemini-session-id',
+                title: 'Gemini discovery notes',
+                updatedAt: '2026-03-18T10:00:00.000Z',
+                agentId: 'gemini-cli',
+                project: {
+                  id: 'docs-site',
+                  name: 'Docs Site',
+                  path: '/home/vries/projects/docs-site',
+                },
+              },
+              {
+                id: 'claude-session-id',
+                title: 'Claude backlog',
+                updatedAt: '2026-03-17T06:00:00.000Z',
+                agentId: 'claude-code',
+                project: {
+                  id: 'docs-site',
+                  name: 'Docs Site',
+                  path: '/home/vries/projects/docs-site',
+                },
+              },
+            ]),
+        } as Response)
+      }
+
+      if (url === `/api/sessions/${SESSION_ID}` || url.startsWith(`/api/sessions/${SESSION_ID}?`)) {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              id: SESSION_ID,
+              title: 'Inspect auth bug',
+              updatedAt: '2026-03-18T08:00:00.000Z',
+              agentId: 'copilot',
+              project: {
+                id: 'acp-frontend',
+                name: 'ACP Frontend',
+                path: '/home/vries/projects/acp-frontend',
+              },
+              messages: [],
+            }),
+        } as Response)
+      }
+
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    })
+
+    vi.stubGlobal('fetch', fetchMock)
 
     renderChatPage('#/chat?session=test-session-id')
 
@@ -934,10 +1087,19 @@ describe('ChatPage', () => {
     const useButtons = await screen.findAllByRole('button', { name: /^Use$/ })
     fireEvent.click(useButtons[0]!)
 
-    await waitFor(() => expect(within(sessionPanel).getAllByText('Current').length).toBe(1))
+    await waitFor(() => expect(within(sessionPanel).getByText('Current')).toBeDefined())
     await waitFor(() => expect(within(sessionPanel).getByText('Docs Site')).toBeDefined())
     expect(within(sessionPanel).getByText('Gemini discovery notes')).toBeDefined()
     expect(within(sessionPanel).getByText('Claude backlog')).toBeDefined()
+    await waitFor(() => expect(screen.getByText('Open a fresh chat in this project')).toBeDefined())
+    expect(window.location.hash).toContain('project=docs-site')
+    expect(window.location.hash).not.toContain('session=')
+
+    const createdSessionCall = fetchMock.mock.calls.find(
+      (args: unknown[]) =>
+        args[0] === '/api/sessions' && (args[1] as RequestInit | undefined)?.method === 'POST'
+    )
+    expect(createdSessionCall).toBeUndefined()
   })
 
   it('shows the delegation panel instead of the composer when viewing a history session', async () => {
@@ -1032,9 +1194,167 @@ describe('ChatPage', () => {
 
     await waitFor(() => expect(screen.getByTestId('history-session-panel')).toBeDefined())
     expect(screen.queryByTestId('chat-composer')).toBeNull()
+    expect(MockEventSource.instances.length).toBe(0)
 
-    expect(screen.getByTestId('fork-agent-copilot')).toBeDefined()
+    expect(screen.getByTestId('continue-agent-copilot')).toBeDefined()
     expect(screen.getAllByText('GitHub Copilot').length).toBeGreaterThan(0)
+  })
+
+  it('does not open SSE for history session on bootstrap, then opens once resumed to live', async () => {
+    const HISTORY_SESSION_ID = 'history-session-bootstrap'
+    const NEW_SESSION_ID = 'new-live-after-history'
+    const fetchMock = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
+      if (url === '/api/agents') {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve([
+              {
+                id: 'copilot',
+                name: 'GitHub Copilot',
+                status: 'active',
+                command: 'copilot',
+                canResume: true,
+              },
+            ]),
+        } as Response)
+      }
+
+      if (url === '/api/projects') {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve([
+              {
+                id: 'acp-frontend',
+                name: 'ACP Frontend',
+                path: '/home/vries/projects/acp-frontend',
+                status: 'available',
+              },
+            ]),
+        } as Response)
+      }
+
+      if (url === '/api/projects/acp-frontend/tree') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve([]) } as Response)
+      }
+
+      if (url === '/api/sessions') {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve([
+              {
+                id: HISTORY_SESSION_ID,
+                title: 'Historical thread',
+                updatedAt: '2026-03-28T10:00:00.000Z',
+                agentId: 'copilot',
+                source: 'history',
+                project: {
+                  id: 'acp-frontend',
+                  name: 'ACP Frontend',
+                  path: '/home/vries/projects/acp-frontend',
+                },
+              },
+              {
+                id: NEW_SESSION_ID,
+                title: 'Live continuation',
+                updatedAt: '2026-03-30T10:00:00.000Z',
+                agentId: 'copilot',
+                source: 'live',
+                project: {
+                  id: 'acp-frontend',
+                  name: 'ACP Frontend',
+                  path: '/home/vries/projects/acp-frontend',
+                },
+              },
+            ]),
+        } as Response)
+      }
+
+      if (
+        url === `/api/sessions/${HISTORY_SESSION_ID}` ||
+        url.startsWith(`/api/sessions/${HISTORY_SESSION_ID}?`)
+      ) {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              id: HISTORY_SESSION_ID,
+              title: 'Historical thread',
+              updatedAt: '2026-03-28T10:00:00.000Z',
+              agentId: 'copilot',
+              source: 'history',
+              project: {
+                id: 'acp-frontend',
+                name: 'ACP Frontend',
+                path: '/home/vries/projects/acp-frontend',
+              },
+              messages: [],
+            }),
+        } as Response)
+      }
+
+      if (url === `/api/sessions/${HISTORY_SESSION_ID}/resume` && opts?.method === 'POST') {
+        return Promise.resolve({
+          ok: true,
+          status: 201,
+          json: () =>
+            Promise.resolve({
+              id: NEW_SESSION_ID,
+              title: 'Live continuation',
+              updatedAt: '2026-03-30T10:00:00.000Z',
+              agentId: 'copilot',
+              source: 'live',
+              project: {
+                id: 'acp-frontend',
+                name: 'ACP Frontend',
+                path: '/home/vries/projects/acp-frontend',
+              },
+              messages: [],
+            }),
+        } as Response)
+      }
+
+      if (
+        url === `/api/sessions/${NEW_SESSION_ID}` ||
+        url.startsWith(`/api/sessions/${NEW_SESSION_ID}?`)
+      ) {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              id: NEW_SESSION_ID,
+              title: 'Live continuation',
+              updatedAt: '2026-03-30T10:00:00.000Z',
+              agentId: 'copilot',
+              source: 'live',
+              project: {
+                id: 'acp-frontend',
+                name: 'ACP Frontend',
+                path: '/home/vries/projects/acp-frontend',
+              },
+              messages: [],
+            }),
+        } as Response)
+      }
+
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    })
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    renderChatPage(`#/chat?session=${HISTORY_SESSION_ID}&project=acp-frontend`)
+
+    await waitFor(() => expect(screen.getByTestId('history-session-panel')).toBeDefined())
+    expect(MockEventSource.instances.length).toBe(0)
+
+    fireEvent.click(screen.getByTestId('continue-agent-copilot'))
+
+    await waitFor(() => expect(screen.getByTestId('chat-composer')).toBeDefined())
+    await waitFor(() => expect(MockEventSource.instances.length).toBeGreaterThan(0))
+    const last = MockEventSource.instances.at(-1)
+    expect(last?.url).toContain(`/api/stream?sessionId=${encodeURIComponent(NEW_SESSION_ID)}`)
   })
 
   it('calls the resume endpoint and navigates to the new session when Continue is clicked', async () => {
@@ -1184,7 +1504,7 @@ describe('ChatPage', () => {
 
     await waitFor(() => expect(screen.getByTestId('history-session-panel')).toBeDefined())
 
-    const continueButton = screen.getByTestId('fork-agent-copilot')
+    const continueButton = screen.getByTestId('continue-agent-copilot')
     fireEvent.click(continueButton)
 
     await waitFor(() => expect(screen.getByTestId('chat-composer')).toBeDefined())

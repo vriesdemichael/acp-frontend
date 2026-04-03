@@ -7,34 +7,11 @@
   const backendStore = createBackendStore()
   const historyStore = createHistorySourcesStore()
 
-  let newName = $state('')
-  let newCommand = $state('')
-  let newArgs = $state('')
-
   const errorMessage = $derived(backendStore.errorMessage ?? historyStore.errorMessage)
 
   onMount(async () => {
     await Promise.all([backendStore.load(), historyStore.load()])
   })
-
-  async function handleAddBackend() {
-    if (!newName.trim() || !newCommand.trim()) return
-    await backendStore.addBackend({
-      name: newName,
-      command: newCommand,
-      args: parseArgs(newArgs),
-    })
-    newName = ''
-    newCommand = ''
-    newArgs = ''
-  }
-
-  function parseArgs(value: string): string[] {
-    return value
-      .split(' ')
-      .map((item) => item.trim())
-      .filter(Boolean)
-  }
 </script>
 
 <main class="min-h-screen bg-[#05070b] px-3 py-6 text-slate-100 sm:px-6 lg:px-8">
@@ -61,9 +38,8 @@
       </div>
 
       <p class="mt-4 max-w-3xl text-sm leading-6 text-slate-400">
-        Manage ACP backends and MCP servers from one place. Backend capability claims now come from
-        the last established ACP connection, while history support tracks richer transcript fidelity
-        like reasoning, patches, attachments, and compaction notices.
+        acpx manages live agent runtime state, while this screen manages local history source hints
+        used to discover imported sessions from each provider.
       </p>
 
       {#if errorMessage}
@@ -76,78 +52,26 @@
 
       <section class="mt-8 rounded-2xl border border-white/10 bg-slate-900/60 p-4 sm:p-5">
         <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">
-          ACP Backends
+          Agents
         </p>
         <p class="mt-3 max-w-3xl text-sm leading-6 text-slate-400">
-          If no live handshake has happened yet, the app shows capability support as unknown instead
-          of guessing.
+          Agent runtime and availability are controlled by acpx. This section is read-only status so
+          you can verify what is currently reachable.
         </p>
 
         {#if backendStore.loading}
           <div
             class="mt-8 rounded-xl border border-dashed border-white/10 bg-slate-900/70 p-6 text-sm text-slate-400"
           >
-            Loading backend settings...
+            Loading agent status...
           </div>
         {:else}
           <div class="mt-8 grid gap-5 xl:grid-cols-2">
             {#each backendStore.backends as backend (backend.id)}
-              <BackendCard
-                {backend}
-                busy={backendStore.savingId === backend.id}
-                onSave={backendStore.saveBackend}
-              />
+              <BackendCard {backend} />
             {/each}
           </div>
         {/if}
-
-        <details class="group mt-6">
-          <summary
-            class="flex cursor-pointer list-none items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 hover:text-slate-300"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 16 16"
-              fill="currentColor"
-              class="size-3 transition-transform group-open:rotate-90"
-              aria-hidden="true"
-            >
-              <path
-                fill-rule="evenodd"
-                d="M6.22 4.22a.75.75 0 0 1 1.06 0l3.25 3.25a.75.75 0 0 1 0 1.06l-3.25 3.25a.75.75 0 0 1-1.06-1.06L9.19 8 6.22 5.03a.75.75 0 0 1 0-1.06Z"
-                clip-rule="evenodd"
-              />
-            </svg>
-            Add Backend
-          </summary>
-          <div class="mt-4 rounded-2xl border border-white/10 bg-slate-950/40 p-4 sm:p-5">
-            <div class="grid gap-3 sm:grid-cols-[1.2fr_1fr_1fr_auto]">
-              <input
-                bind:value={newName}
-                placeholder="My ACP Wrapper"
-                class="rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-teal-500"
-              />
-              <input
-                bind:value={newCommand}
-                placeholder="my-acp-wrapper"
-                class="rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-teal-500"
-              />
-              <input
-                bind:value={newArgs}
-                placeholder="--acp"
-                class="rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-teal-500"
-              />
-              <button
-                type="button"
-                onclick={() => void handleAddBackend()}
-                disabled={!newName.trim() || !newCommand.trim()}
-                class="rounded-lg border border-white/10 bg-slate-950 px-4 py-2 text-sm font-semibold text-slate-50 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:text-slate-500"
-              >
-                Add
-              </button>
-            </div>
-          </div>
-        </details>
       </section>
 
       <section class="mt-8 rounded-2xl border border-white/10 bg-slate-900/60 p-4 sm:p-5">
@@ -171,6 +95,7 @@
             {#each historyStore.sources as source (source.provider)}
               <HistorySourceCard
                 {source}
+                status={historyStore.sourceStatus.find((entry) => entry.provider === source.provider) ?? null}
                 busy={historyStore.savingProvider === source.provider}
                 onSave={historyStore.saveSource}
               />

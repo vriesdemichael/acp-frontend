@@ -1,18 +1,31 @@
 /**
- * backendStore.svelte.ts — Svelte 5 runes port of useBackendSettings.ts
+ * backendStore.svelte.ts
  *
- * Provides createBackendStore() and createHistorySourcesStore() factory functions.
- * Auto-loads on mount via the returned `load()` method (called from onMount in components).
+ * Provides stores for:
+ * - read-only agent status cards (acpx-managed)
+ * - editable history source path hints
  */
 
 // ---------------------------------------------------------------------------
-// Re-exported types (kept identical to useBackendSettings.ts for compat)
+// Types
 // ---------------------------------------------------------------------------
 
-export interface BackendEndpointSupport {
-  source: 'connection' | 'unknown'
-  implemented: string[]
-  unknown: string[]
+export interface BackendSummary {
+  id: string
+  name: string
+  status: 'active' | 'disabled' | 'detected' | 'unavailable'
+  command: string | null
+  canResume: boolean
+}
+
+export type HistoryProvider = 'gemini' | 'copilot' | 'opencode'
+
+export interface HistorySourceConfig {
+  provider: HistoryProvider
+  /** VS Code workspace storage roots (or generic search roots for non-Copilot providers). */
+  paths: string[]
+  /** CLI session-state directory paths. Only meaningful for `copilot`. */
+  cliPaths?: string[]
 }
 
 export interface HistorySourceDescriptor {
@@ -38,61 +51,16 @@ export interface HistorySourceDescriptor {
   warnings?: string[]
 }
 
-export interface HistorySourceDiscoverySummary {
-  family: string
-  readable: number
-  missing: number
-  invalid: number
-  containsHistory: number
-}
-
-export interface HistorySupport {
-  source: 'none' | 'derived' | 'native'
-  supported: Array<
-    | 'text'
-    | 'markdown'
-    | 'reasoning'
-    | 'tool_calls'
-    | 'skills'
-    | 'subagents'
-    | 'attachments'
-    | 'rich_media'
-    | 'file_operations'
-    | 'patches'
-    | 'compaction'
-    | 'truncation'
-  >
-  discoveredSources: HistorySourceDescriptor[]
-  discoverySummary?: HistorySourceDiscoverySummary[]
-}
-
-export interface BackendSummary {
-  id: string
-  name: string
-  status: 'active' | 'disabled' | 'detected' | 'unavailable'
-  command: string | null
-  detectedCommand: string | null
-  args: string[]
-  defaultArgs: string[]
-  enabled: boolean
-  usesCustomCommand: boolean
-  endpointSupport: BackendEndpointSupport
-  historySupport: HistorySupport
-  lastTestResult: {
-    ok: boolean
-    message: string
-    testedAt: string
-  } | null
-}
-
-export type HistoryProvider = 'gemini' | 'copilot' | 'opencode'
-
-export interface HistorySourceConfig {
+export interface HistorySourceStatus {
   provider: HistoryProvider
-  /** VS Code workspace storage roots (or generic search roots for non-Copilot providers). */
-  paths: string[]
-  /** CLI session-state directory paths. Only meaningful for `copilot`. */
-  cliPaths?: string[]
+  discoveredSources: HistorySourceDescriptor[]
+  summary: {
+    readable: number
+    missing: number
+    invalid: number
+    containsHistory: number
+    totalSessions: number
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -102,7 +70,6 @@ export interface HistorySourceConfig {
 export function createBackendStore() {
   let backends = $state<BackendSummary[]>([])
   let loading = $state(true)
-  let savingId = $state<string | null>(null)
   let errorMessage = $state<string | null>(null)
 
   async function load() {
@@ -110,73 +77,16 @@ export function createBackendStore() {
     errorMessage = null
 
     try {
-      const response = await fetch('/api/backends')
+      const response = await fetch('/api/agents')
       if (!response.ok) {
-        throw new Error(`Backend settings failed with status ${response.status}`)
+        throw new Error(`Agents request failed with status ${response.status}`)
       }
       backends = (await response.json()) as BackendSummary[]
     } catch (error) {
       console.error('[backendStore] load failed:', error)
-      errorMessage = 'Unable to load backend settings right now.'
+      errorMessage = 'Unable to load agent status right now.'
     } finally {
       loading = false
-    }
-  }
-
-  async function saveBackend(
-    backendId: string,
-    patch: {
-      enabled?: boolean
-      command?: string | null
-      args?: string[]
-      name?: string
-    }
-  ) {
-    savingId = backendId
-    errorMessage = null
-
-    try {
-      const response = await fetch(`/api/backends/${encodeURIComponent(backendId)}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(patch),
-      })
-
-      if (!response.ok) {
-        throw new Error(`Backend save failed with status ${response.status}`)
-      }
-
-      const updated = (await response.json()) as BackendSummary
-      backends = backends.map((backend) => (backend.id === backendId ? updated : backend))
-    } catch (error) {
-      console.error('[backendStore] save failed:', error)
-      errorMessage = 'Unable to save backend settings right now.'
-      throw error
-    } finally {
-      savingId = null
-    }
-  }
-
-  async function addBackend(input: { name: string; command: string; args?: string[] }) {
-    errorMessage = null
-
-    try {
-      const response = await fetch('/api/backends', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(input),
-      })
-
-      if (!response.ok) {
-        throw new Error(`Backend create failed with status ${response.status}`)
-      }
-
-      const created = (await response.json()) as BackendSummary
-      backends = [...backends, created]
-    } catch (error) {
-      console.error('[backendStore] create failed:', error)
-      errorMessage = 'Unable to add a backend right now.'
-      throw error
     }
   }
 
@@ -187,15 +97,10 @@ export function createBackendStore() {
     get loading() {
       return loading
     },
-    get savingId() {
-      return savingId
-    },
     get errorMessage() {
       return errorMessage
     },
     load,
-    saveBackend,
-    addBackend,
   }
 }
 
@@ -205,6 +110,7 @@ export function createBackendStore() {
 
 export function createHistorySourcesStore() {
   let sources = $state<HistorySourceConfig[]>([])
+  let sourceStatus = $state<HistorySourceStatus[]>([])
   let loading = $state(true)
   let savingProvider = $state<HistoryProvider | null>(null)
   let errorMessage = $state<string | null>(null)
@@ -219,6 +125,12 @@ export function createHistorySourcesStore() {
         throw new Error(`History sources failed with status ${response.status}`)
       }
       sources = (await response.json()) as HistorySourceConfig[]
+
+      const statusResponse = await fetch('/api/history-sources/status')
+      if (!statusResponse.ok) {
+        throw new Error(`History source status failed with status ${statusResponse.status}`)
+      }
+      sourceStatus = (await statusResponse.json()) as HistorySourceStatus[]
     } catch (error) {
       console.error('[historySourcesStore] load failed:', error)
       errorMessage = 'Unable to load history sources right now.'
@@ -250,6 +162,11 @@ export function createHistorySourcesStore() {
       sources = exists
         ? sources.map((s) => (s.provider === provider ? updated : s))
         : [...sources, updated]
+
+      const statusResponse = await fetch('/api/history-sources/status')
+      if (statusResponse.ok) {
+        sourceStatus = (await statusResponse.json()) as HistorySourceStatus[]
+      }
     } catch (error) {
       console.error('[historySourcesStore] save failed:', error)
       errorMessage = 'Unable to save history source settings right now.'
@@ -262,6 +179,9 @@ export function createHistorySourcesStore() {
   return {
     get sources() {
       return sources
+    },
+    get sourceStatus() {
+      return sourceStatus
     },
     get loading() {
       return loading

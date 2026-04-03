@@ -11,71 +11,6 @@ class MockEventSource {
 
 function mockFetch() {
   return vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
-    if (url === '/api/backends') {
-      return Promise.resolve({
-        ok: true,
-        json: () =>
-          Promise.resolve([
-            {
-              id: 'copilot-vscode-host',
-              name: 'GitHub Copilot VS Code (Host)',
-              status: 'active',
-              command: null,
-              detectedCommand: null,
-              args: [],
-              defaultArgs: [],
-              enabled: true,
-              usesCustomCommand: false,
-              endpointSupport: {
-                source: 'connection',
-                implemented: ['session/new'],
-                unknown: ['terminal/*', 'project discovery'],
-              },
-              historySupport: {
-                source: 'derived',
-                supported: ['text', 'markdown'],
-                discoveredSources: [
-                  {
-                    id: 'src-1',
-                    backendId: 'copilot-vscode-host',
-                    providerId: 'copilot-vscode-host',
-                    kind: 'vscode_workspace_db',
-                    path: '/mnt/c/Users/vries/AppData/Roaming/Code/User/workspaceStorage/x/state.vscdb',
-                    platform: 'mounted_host',
-                    access: 'readable',
-                    signal: 'contains_history',
-                    discoveredBy: 'auto',
-                    sessionCount: 42,
-                  },
-                  {
-                    id: 'src-2',
-                    backendId: 'copilot-vscode-host',
-                    providerId: 'copilot-vscode-host',
-                    kind: 'vscode_chat_sessions',
-                    path: '/mnt/c/Users/vries/AppData/Roaming/Code/User/workspaceStorage/x/chatSessions',
-                    platform: 'mounted_host',
-                    access: 'readable',
-                    signal: 'contains_history',
-                    discoveredBy: 'auto',
-                    sessionCount: 10,
-                  },
-                ],
-                discoverySummary: [
-                  {
-                    family: 'vscode',
-                    readable: 2,
-                    missing: 0,
-                    invalid: 0,
-                    containsHistory: 2,
-                  },
-                ],
-              },
-              lastTestResult: null,
-            },
-          ]),
-      } as Response)
-    }
-
     if (url === '/api/history-sources') {
       return Promise.resolve({
         ok: true,
@@ -92,33 +27,58 @@ function mockFetch() {
       } as Response)
     }
 
-    if (url === '/api/backends' && opts?.method === 'POST') {
+    if (url === '/api/history-sources/status') {
       return Promise.resolve({
         ok: true,
-        status: 201,
         json: () =>
-          Promise.resolve({
-            id: 'custom-wrapper',
-            name: 'Custom Wrapper',
-            status: 'detected',
-            command: 'custom-wrapper',
-            detectedCommand: 'custom-wrapper',
-            args: ['--acp'],
-            defaultArgs: ['--acp'],
-            enabled: true,
-            usesCustomCommand: true,
-            endpointSupport: {
-              source: 'unknown',
-              implemented: [],
-              unknown: ['session/new'],
+          Promise.resolve([
+            {
+              provider: 'copilot',
+              summary: {
+                readable: 2,
+                missing: 0,
+                invalid: 0,
+                containsHistory: 2,
+                totalSessions: 52,
+              },
+              discoveredSources: [
+                {
+                  id: 'copilot:vscode_workspace_db:/mnt/c/Users/vries/AppData/Roaming/Code/User/workspaceStorage/x/state.vscdb',
+                  backendId: 'copilot',
+                  providerId: 'copilot',
+                  kind: 'vscode_workspace_db',
+                  path: '/mnt/c/Users/vries/AppData/Roaming/Code/User/workspaceStorage/x/state.vscdb',
+                  platform: 'mounted_host',
+                  access: 'readable',
+                  signal: 'contains_history',
+                  discoveredBy: 'manual',
+                  sessionCount: 42,
+                },
+              ],
             },
-            historySupport: {
-              source: 'none',
-              supported: [],
+            {
+              provider: 'gemini',
+              summary: {
+                readable: 0,
+                missing: 1,
+                invalid: 0,
+                containsHistory: 0,
+                totalSessions: 0,
+              },
               discoveredSources: [],
-              discoverySummary: [],
             },
-          }),
+            {
+              provider: 'opencode',
+              summary: {
+                readable: 0,
+                missing: 0,
+                invalid: 0,
+                containsHistory: 0,
+                totalSessions: 0,
+              },
+              discoveredSources: [],
+            },
+          ]),
       } as Response)
     }
 
@@ -127,7 +87,13 @@ function mockFetch() {
         ok: true,
         json: () =>
           Promise.resolve([
-            { id: 'copilot', name: 'GitHub Copilot', status: 'active', command: 'copilot' },
+            {
+              id: 'copilot',
+              name: 'GitHub Copilot',
+              status: 'active',
+              command: 'copilot',
+              canResume: true,
+            },
           ]),
       } as Response)
     }
@@ -249,7 +215,7 @@ describe('app router', () => {
     await waitFor(() => expect(screen.getAllByRole('link', { name: 'Backends' }).length).toBe(2))
     fireEvent.click(screen.getAllByRole('link', { name: 'Backends' })[0]!)
 
-    await waitFor(() => expect(screen.getByText('ACP Backends')).toBeDefined())
+    await waitFor(() => expect(screen.getByText('Agents')).toBeDefined())
   })
 
   it('renders the backend settings route', async () => {
@@ -257,13 +223,13 @@ describe('app router', () => {
 
     render(App)
 
-    await waitFor(() => expect(screen.getByText('ACP Backends')).toBeDefined())
-    expect(screen.getByDisplayValue('GitHub Copilot VS Code (Host)')).toBeDefined()
-    expect(screen.getByText('Add Backend')).toBeDefined()
+    await waitFor(() => expect(screen.getByText('Agents')).toBeDefined())
+    expect(screen.getAllByText('GitHub Copilot').length).toBeGreaterThan(0)
+    expect(screen.getByText('Managed by acpx runtime configuration.')).toBeDefined()
     expect(screen.getAllByText('History Sources').length).toBeGreaterThan(0)
-    expect(screen.getByText('vscode_workspace_db')).toBeDefined()
-    expect(screen.getByText('vscode_chat_sessions')).toBeDefined()
-    expect(screen.getByText('42 sessions')).toBeDefined()
+    await waitFor(() => expect(screen.getAllByText('Discovery status').length).toBeGreaterThan(0))
+    expect(screen.getByText('2 readable')).toBeDefined()
+    expect(screen.getByText('52 sessions found')).toBeDefined()
     expect(screen.getByRole('link', { name: 'Back To Chat' })).toBeDefined()
     // History Sources section is present (separate from backend cards)
     await waitFor(() =>

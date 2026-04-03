@@ -1,8 +1,13 @@
 <script lang="ts">
-  import type { HistoryProvider, HistorySourceConfig } from '../store/backendStore.svelte.js'
+  import type {
+    HistoryProvider,
+    HistorySourceConfig,
+    HistorySourceStatus,
+  } from '../../store/backendStore.svelte.js'
 
   interface Props {
     source: HistorySourceConfig
+    status?: HistorySourceStatus | null
     busy: boolean
     onSave: (
       provider: HistoryProvider,
@@ -10,9 +15,8 @@
     ) => Promise<void>
   }
 
-  const { source, busy, onSave }: Props = $props()
+  const { source, status = null, busy, onSave }: Props = $props()
 
-  // Form fields intentionally seeded from props once; editable independently.
   let paths = $state.raw(source.paths.join('\n'))
   let cliPaths = $state.raw((source.cliPaths ?? []).join('\n'))
 
@@ -84,6 +88,44 @@
           locations.
         </p>
       </label>
+    {/if}
+  </div>
+
+  <div class="mt-4 rounded-xl border border-white/10 bg-slate-950/40 px-3 py-3">
+    <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">Discovery status</p>
+    {#if status}
+      <div class="mt-3 flex flex-wrap gap-2 text-[11px]">
+        <span class="rounded-md border border-emerald-500/20 bg-emerald-500/10 px-2 py-1 text-emerald-200">
+          {status.summary.readable} readable
+        </span>
+        <span class="rounded-md border border-amber-500/20 bg-amber-500/10 px-2 py-1 text-amber-200">
+          {status.summary.missing} missing
+        </span>
+        <span class="rounded-md border border-rose-500/20 bg-rose-500/10 px-2 py-1 text-rose-200">
+          {status.summary.invalid} invalid
+        </span>
+        <span class="rounded-md border border-teal-500/20 bg-teal-500/10 px-2 py-1 text-teal-200">
+          {status.summary.containsHistory} with history
+        </span>
+        <span class="rounded-md border border-white/10 bg-slate-900 px-2 py-1 text-slate-300">
+          {status.summary.totalSessions} sessions found
+        </span>
+      </div>
+
+      {#if status.discoveredSources.length > 0}
+        <div class="mt-3 grid gap-1.5">
+          {#each status.discoveredSources as descriptor (descriptor.id)}
+            <div class="rounded-lg border border-white/8 bg-slate-900/60 px-2.5 py-2 text-[11px]">
+              <p class="truncate font-mono text-slate-300">{descriptor.kind}</p>
+              <p class="mt-1 truncate text-slate-500">{descriptor.path}</p>
+            </div>
+          {/each}
+        </div>
+      {:else}
+        <p class="mt-3 text-[11px] text-slate-500">No sources discovered from the current hints.</p>
+      {/if}
+    {:else}
+      <p class="mt-3 text-[11px] text-slate-500">Discovery status is unavailable.</p>
     {/if}
   </div>
 

@@ -6,6 +6,14 @@ import { Hono } from 'hono'
 import { agentsRoutes } from './agents.js'
 import type { AgentRegistry } from '../agents/registry.js'
 
+const { getHistorySourceDescriptorsMock } = vi.hoisted(() => ({
+  getHistorySourceDescriptorsMock: vi.fn<(...args: unknown[]) => unknown[]>(() => []),
+}))
+
+vi.mock('../history/index.js', () => ({
+  getHistorySourceDescriptors: getHistorySourceDescriptorsMock,
+}))
+
 function makeTempDir(): string {
   const dir = join(tmpdir(), `acp-agents-routes-test-${Date.now()}-${Math.random()}`)
   mkdirSync(dir, { recursive: true })
@@ -105,6 +113,8 @@ describe('agents routes', () => {
   let origEnv: string | undefined
 
   beforeEach(() => {
+    getHistorySourceDescriptorsMock.mockReset()
+    getHistorySourceDescriptorsMock.mockReturnValue([])
     tempDir = makeTempDir()
     origEnv = process.env['ACP_HISTORY_SOURCES_CONFIG_PATH']
     process.env['ACP_HISTORY_SOURCES_CONFIG_PATH'] = join(tempDir, 'history-sources.json')
@@ -222,6 +232,83 @@ describe('agents routes', () => {
       })
 
       expect(res.status).toBe(404)
+    })
+
+    it('GET /history-sources/status returns provider discovery summaries', async () => {
+      getHistorySourceDescriptorsMock.mockImplementation((agentIdRaw: unknown) => {
+        const agentId = String(agentIdRaw)
+        if (agentId === 'copilot') {
+          return [
+            {
+              id: 'copilot:vscode_workspace_db:/x/state.vscdb',
+              backendId: 'copilot',
+              providerId: 'copilot',
+              kind: 'vscode_workspace_db',
+              path: '/x/state.vscdb',
+              platform: 'linux',
+              access: 'readable',
+              signal: 'contains_history',
+              discoveredBy: 'manual',
+              sessionCount: 7,
+            },
+          ]
+        }
+
+        if (agentId === 'gemini-cli') {
+          return [
+            {
+              id: 'gemini:tmp:/tmp/google-generative-ai-cli',
+              backendId: 'gemini-cli',
+              providerId: 'gemini-cli',
+              kind: 'gemini_tmp_dir',
+              path: '/tmp/google-generative-ai-cli',
+              platform: 'linux',
+              access: 'missing',
+              signal: 'unknown',
+              discoveredBy: 'auto',
+            },
+          ]
+        }
+
+        return []
+      })
+
+      const registry = createRegistryStub()
+      const app = new Hono().route('/api', agentsRoutes(registry))
+
+      const res = await app.request('/api/history-sources/status')
+      expect(res.status).toBe(200)
+
+      const body = (await res.json()) as Array<{
+        provider: string
+        discoveredSources: Array<{ id: string }>
+        summary: {
+          readable: number
+          missing: number
+          invalid: number
+          containsHistory: number
+          totalSessions: number
+        }
+      }>
+
+      const copilot = body.find((item) => item.provider === 'copilot')
+      expect(copilot?.discoveredSources).toHaveLength(1)
+      expect(copilot?.summary).toMatchObject({
+        readable: 1,
+        missing: 0,
+        invalid: 0,
+        containsHistory: 1,
+        totalSessions: 7,
+      })
+
+      const gemini = body.find((item) => item.provider === 'gemini')
+      expect(gemini?.summary).toMatchObject({
+        readable: 0,
+        missing: 1,
+        invalid: 0,
+        containsHistory: 0,
+        totalSessions: 0,
+      })
     })
   })
 })

@@ -5,8 +5,28 @@ import {
   updateHistorySource,
   type HistoryProvider,
 } from '../history/sources-config.js'
+import { getHistorySourceDescriptors } from '../history/index.js'
+import type { HistorySourceDescriptor } from '../agents/types.js'
 
 const VALID_PROVIDERS = new Set<string>(['gemini', 'copilot', 'opencode'])
+
+const PROVIDER_AGENT_ID: Record<HistoryProvider, string> = {
+  copilot: 'copilot',
+  gemini: 'gemini-cli',
+  opencode: 'opencode',
+}
+
+interface HistorySourceStatus {
+  provider: HistoryProvider
+  discoveredSources: HistorySourceDescriptor[]
+  summary: {
+    readable: number
+    missing: number
+    invalid: number
+    containsHistory: number
+    totalSessions: number
+  }
+}
 
 export function agentsRoutes(registry: AgentRegistry): Hono {
   const app = new Hono()
@@ -65,6 +85,38 @@ export function agentsRoutes(registry: AgentRegistry): Hono {
   app.get('/history-sources', (c) => {
     const sources = readHistorySourcesConfig()
     return c.json(sources)
+  })
+
+  app.get('/history-sources/status', (c) => {
+    const sources = readHistorySourcesConfig()
+    const status: HistorySourceStatus[] = sources.map((source) => {
+      const agentId = PROVIDER_AGENT_ID[source.provider]
+      const discoveredSources = getHistorySourceDescriptors(
+        agentId,
+        source.paths,
+        source.cliPaths ?? []
+      )
+
+      const summary = discoveredSources.reduce(
+        (acc, descriptor) => {
+          if (descriptor.access === 'readable') acc.readable += 1
+          if (descriptor.access === 'missing') acc.missing += 1
+          if (descriptor.access === 'invalid') acc.invalid += 1
+          if (descriptor.signal === 'contains_history') acc.containsHistory += 1
+          acc.totalSessions += descriptor.sessionCount ?? 0
+          return acc
+        },
+        { readable: 0, missing: 0, invalid: 0, containsHistory: 0, totalSessions: 0 }
+      )
+
+      return {
+        provider: source.provider,
+        discoveredSources,
+        summary,
+      }
+    })
+
+    return c.json(status)
   })
 
   app.patch('/history-sources/:provider', async (c) => {
