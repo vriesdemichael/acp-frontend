@@ -41,8 +41,6 @@ export interface AgentSummary {
   command: string | null
   /** True when the agent is active and can accept a resume/continuation request. */
   canResume: boolean
-  /** True when the agent supports ACP session/load (resume as the original session). */
-  canLoad: boolean
 }
 
 export interface HistorySourceDescriptor {
@@ -618,15 +616,12 @@ export function createChatStore(options: ChatStoreOptions) {
     errorMessage = null
     messages = []
     thinking = false
-    currentProjectId = nextProjectId
-    options.onProjectSelected(nextProjectId)
-
-    const firstActive = agents.find((agent) => agent.status === 'active')
-    if (!firstActive) return
-
+    streamReconnecting = false
     activeSessionId = null
     currentSessionId = null
-    await createSession(firstActive.id, nextProjectId)
+    currentProjectId = nextProjectId
+    options.onSessionCleared()
+    options.onProjectSelected(nextProjectId)
   }
 
   async function startNewSession(agentId: string) {
@@ -668,57 +663,6 @@ export function createChatStore(options: ChatStoreOptions) {
     } catch (error) {
       console.error('[chatStore] session resume failed:', error)
       errorMessage = 'Unable to continue this conversation right now. Try again in a moment.'
-    } finally {
-      creatingSession = false
-    }
-  }
-
-  async function loadHistorySession(agentId: string) {
-    if (!currentSessionId) return
-    errorMessage = null
-    thinking = false
-    streamReconnecting = false
-    creatingSession = true
-
-    const priorMessages = [...messages]
-
-    try {
-      const session = await fetchJson<SessionDetails>(
-        `/api/sessions/${encodeURIComponent(currentSessionId)}/load`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ agentId }),
-        }
-      )
-      activeSessionId = session.id
-      currentSessionId = session.id
-
-      // Optimistically upsert the new live session so currentSession immediately
-      // resolves to source:'live' before refreshSessions completes.
-      sessions = [
-        ...sessions.filter((s) => s.id !== session.id),
-        {
-          id: session.id,
-          title: session.title,
-          updatedAt: session.updatedAt,
-          agentId: session.agentId,
-          project: session.project,
-          source: session.source,
-        },
-      ]
-
-      messages = [...priorMessages, ...session.messages]
-      modelState = session.modelState ?? null
-      currentProjectId = session.project?.id ?? null
-      options.onSessionCreated(session.id)
-      if (session.project?.id !== options.projectId) {
-        options.onProjectSelected(session.project?.id ?? null)
-      }
-      void refreshSessions()
-    } catch (error) {
-      console.error('[chatStore] session load failed:', error)
-      errorMessage = 'Unable to load this session right now. Try again in a moment.'
     } finally {
       creatingSession = false
     }
@@ -851,7 +795,6 @@ export function createChatStore(options: ChatStoreOptions) {
     selectProject,
     startNewSession,
     resumeSession,
-    loadHistorySession,
     addProject,
     removeProject,
     suggestProjectPaths,

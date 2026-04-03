@@ -86,7 +86,10 @@
     // eslint-disable-next-line svelte/prefer-svelte-reactivity
     const grouped = new Map<string, ProjectGroup>()
     const visibleSessions = sess
-      .filter((session) => agMap.get(session.agentId)?.status !== 'disabled')
+      .filter((session) => {
+        if (session.source === 'history') return true
+        return agMap.get(session.agentId)?.status !== 'disabled'
+      })
       .sort((l, r) => r.updatedAt.localeCompare(l.updatedAt))
 
     for (const session of visibleSessions) {
@@ -144,6 +147,16 @@
       : status === 'detected'
         ? 'h-2 w-2 rounded-full bg-amber-400 flex-shrink-0'
         : 'h-2 w-2 rounded-full bg-slate-600 flex-shrink-0'
+  }
+
+  function historyProviderLabel(agentId: string): string {
+    return agentId === 'copilot'
+      ? 'GitHub Copilot history'
+      : agentId === 'gemini-cli'
+        ? 'Gemini CLI history'
+        : agentId === 'opencode'
+          ? 'OpenCode history'
+          : `${agentId} history`
   }
 </script>
 
@@ -256,6 +269,7 @@
               {#each group.sessions as session (session.id)}
                 {@const active = session.id === activeSessionId}
                 {@const agent = agentById.get(session.agentId)}
+                {@const isHistory = session.source === 'history'}
                 <button
                   type="button"
                   onclick={() => void onSelect(session.id)}
@@ -280,10 +294,18 @@
                       {/if}
                     </div>
                   </div>
-                  <div class="mt-3 flex items-center gap-1.5">
-                    <span class={agentDotClass(agent?.status ?? 'unavailable')} aria-label={agentStatusLabel(agent?.status ?? 'unavailable')}></span>
-                    <p class="text-[11px] text-slate-400">{agent?.name ?? session.agentId}</p>
-                  </div>
+                  {#if isHistory}
+                    <div class="mt-3 flex items-center gap-1.5">
+                      <span class="rounded-full border border-slate-600/35 bg-slate-800/55 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-300">
+                        {historyProviderLabel(session.agentId)}
+                      </span>
+                    </div>
+                  {:else}
+                    <div class="mt-3 flex items-center gap-1.5">
+                      <span class={agentDotClass(agent?.status ?? 'unavailable')} aria-label={agentStatusLabel(agent?.status ?? 'unavailable')}></span>
+                      <p class="text-[11px] text-slate-400">{agent?.name ?? session.agentId}</p>
+                    </div>
+                  {/if}
                   <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500">
                     <span>{formatUpdatedAt(session.updatedAt)}</span>
                   </div>

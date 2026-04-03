@@ -67,7 +67,15 @@
   )
 
   const headerTitle = $derived(title?.trim() || 'Chat Workspace')
-  const compactSubtitle = $derived(project ? project.name : activeAgentName)
+  const compactSubtitle = $derived(
+    isHistorySession
+      ? project
+        ? `${project.name} · History`
+        : `${activeAgentName} · History`
+      : project
+        ? project.name
+        : activeAgentName
+  )
 
   function formatSessionLabel(sid: string | null, rdy: boolean, isHistory: boolean): string {
     if (isHistory) return 'Read-only'
@@ -148,7 +156,11 @@
             {headerTitle}
           </h1>
           <p class="truncate text-xs text-slate-400 sm:text-[13px]">
-            {project ? `${project.name} · ${activeAgentName}` : `${activeAgentName} · Local chat`}
+            {#if isHistorySession}
+              {project ? `${project.name} · Imported history` : `${activeAgentName} · Imported history`}
+            {:else}
+              {project ? `${project.name} · ${activeAgentName}` : `${activeAgentName} · Local chat`}
+            {/if}
           </p>
         </div>
 
@@ -169,7 +181,7 @@
       </div>
 
       <div class="flex flex-wrap items-center gap-2.5 lg:justify-end">
-        {@render statusPill(activeAgentName, 'neutral')}
+        {@render statusPill(isHistorySession ? `${activeAgentName} history` : activeAgentName, 'neutral')}
         {#if project}{@render statusPill(project.name, 'neutral')}{/if}
         {@render statusPill(statusLabel, errorMessage ? 'error' : 'ready', statusDetail)}
         {@render statusPill(`Session ${formatSessionLabel(sessionId, ready, isHistorySession)}`, 'neutral')}

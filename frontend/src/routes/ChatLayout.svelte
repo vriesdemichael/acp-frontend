@@ -28,7 +28,6 @@
       status: 'active' as const,
       command: 'copilot',
       canResume: true,
-      canLoad: false,
     },
     {
       id: 'gemini-cli',
@@ -36,7 +35,6 @@
       status: 'active' as const,
       command: 'gemini',
       canResume: true,
-      canLoad: false,
     },
     {
       id: 'claude-code',
@@ -44,7 +42,6 @@
       status: 'unavailable' as const,
       command: null,
       canResume: false,
-      canLoad: false,
     },
   ]
 

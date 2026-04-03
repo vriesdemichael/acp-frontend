@@ -87,13 +87,12 @@
     return () => window.removeEventListener('hashchange', onHashChange)
   })
 
-  // Connect / reconnect the SSE stream whenever the active session ID changes.
-  // We check source via untrack to avoid re-connecting whenever the sessions list refreshes.
+  // Connect / reconnect the SSE stream whenever the active session changes.
+  // History sessions are read-only and must never attach a live stream.
   $effect(() => {
     const sid = store.currentSessionId
-    if (!sid) return
-    const isHistory = untrack(() => store.currentSession?.source === 'history')
-    if (isHistory) return
+    const session = store.currentSession
+    if (!sid || !session || session.id !== sid || session.source !== 'live') return
     return store.connectStream(sid)
   })
 
@@ -139,18 +138,6 @@
         agent.canResume &&
         (isHistorySession || agent.id !== store.currentSession?.agentId)
     )
-  )
-
-  const resumeAgent = $derived(
-    isHistorySession
-      ? resumableAgents.find(
-          (agent) => agent.id === store.currentSession?.agentId && agent.canLoad
-        )
-      : undefined
-  )
-
-  const forkAgents = $derived(
-    isHistorySession ? resumableAgents.filter((agent) => agent.id !== resumeAgent?.id) : []
   )
 
   const activeAgentName = $derived(
@@ -291,15 +278,7 @@
   async function handleResume(agentId: string): Promise<void> {
     resuming = true
     try {
-      const isSameAgent = agentId === store.currentSession?.agentId
-      const sessionAgent = store.agents.find((a) => a.id === agentId)
-      const supportsLoad = isSameAgent && (sessionAgent?.canLoad ?? false)
-
-      if (isHistorySession && supportsLoad) {
-        await store.loadHistorySession(agentId)
-      } else {
-        await store.resumeSession(agentId)
-      }
+      await store.resumeSession(agentId)
     } finally {
       resuming = false
     }
@@ -543,12 +522,10 @@
           onChange={(v) => (input = v)}
           onSubmit={handleSubmit}
           disabled={!store.ready}
-          canSubmit={store.ready && input.trim().length > 0}          isHistorySession={isHistorySession}
+          canSubmit={store.ready && input.trim().length > 0}
+          isHistorySession={isHistorySession}
           historyLoading={store.historyLoading}
-          resumeAgent={resumeAgent}
-          forkAgents={forkAgents}
           onResume={handleResume}
-          onFork={handleResume}
           resumableAgents={resumableAgents}
           resuming={resuming}
           modelState={store.modelState}

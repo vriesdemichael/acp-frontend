@@ -15,10 +15,7 @@
     helperText?: string
     isHistorySession?: boolean
     historyLoading?: boolean
-    resumeAgent?: ResumableAgent
-    forkAgents?: ResumableAgent[]
     onResume?: (agentId: string) => void
-    onFork?: (agentId: string) => void
     resumableAgents?: ResumableAgent[]
     resuming?: boolean
     modelState?: ModelState | null
@@ -34,10 +31,7 @@
     helperText,
     isHistorySession = false,
     historyLoading = false,
-    resumeAgent,
-    forkAgents = [],
     onResume,
-    onFork,
     resumableAgents = [],
     resuming = false,
     modelState,
@@ -94,7 +88,7 @@
     if (modelOpen) firstModelItemRef?.focus()
   })
 
-  const hasAnyAction = $derived(resumeAgent != null || forkAgents.length > 0)
+  const hasAnyAction = $derived(resumableAgents.length > 0)
   const canSwitch = $derived(resumableAgents.length > 0 && !resuming && !disabled)
   const showModelSelector = $derived(
     modelState != null && modelState.availableModels.length > 1 && !isHistorySession
@@ -122,34 +116,20 @@
 
         {#if !hasAnyAction}
           <p class="text-sm text-slate-500">
-            No active agents available. Enable and start an agent in Settings to import this
-            conversation.
+            No active agents available. Start an agent in Settings to continue this conversation.
           </p>
         {:else}
           <div class="flex flex-wrap gap-2">
-            {#if resumeAgent != null}
+            {#each resumableAgents as agent (agent.id)}
               <button
                 type="button"
                 disabled={resuming}
-                onclick={() => onResume?.(resumeAgent!.id)}
-                data-testid={`resume-agent-${resumeAgent.id}`}
+                onclick={() => onResume?.(agent.id)}
+                data-testid={`continue-agent-${agent.id}`}
                 class="inline-flex items-center gap-2 rounded-[1.2rem] border border-teal-500/40 bg-teal-500/15 px-4 py-2.5 text-sm font-semibold text-teal-100 transition hover:border-teal-400/60 hover:bg-teal-500/25 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {resumeAgent.name}
-                <span>Resume &rarr;</span>
-              </button>
-            {/if}
-
-            {#each forkAgents as agent (agent.id)}
-              <button
-                type="button"
-                disabled={resuming}
-                onclick={() => onFork?.(agent.id)}
-                data-testid={`fork-agent-${agent.id}`}
-                class="inline-flex items-center gap-2 rounded-[1.2rem] border border-white/10 bg-slate-900/90 px-4 py-2.5 text-sm font-medium text-slate-300 transition hover:border-white/20 hover:bg-slate-800/80 hover:text-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
-              >
                 {agent.name}
-                <span class="text-slate-400">Fork as new session &rarr;</span>
+                <span>Continue &rarr;</span>
               </button>
             {/each}
           </div>
